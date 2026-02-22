@@ -55,20 +55,26 @@ Route::middleware(['auth', 'admin'])->group(function () {
     |--------------------------------------------------------------------------
     | MÓDULO DE PROPIEDADES (FASE 1.2)
     |--------------------------------------------------------------------------
+    | Rutas para gestión de unidades y propietarios
+    |--------------------------------------------------------------------------
     */
-    Route::prefix('propiedades')->name('propiedades.')->group(function () {
-        Route::get('/unidades', function () {
-            return view('propiedades.unidades.index'); // Placeholder
-        })->name('unidades.index');
 
-        Route::get('/propietarios', function () {
-            return view('propiedades.propietarios.index'); // Placeholder
-        })->name('propietarios.index');
-
-        Route::get('/asignar', function () {
-            return view('propiedades.asignar.index'); // Placeholder
-        })->name('asignar.index');
+    // Rutas de Unidades
+    Route::prefix('unidades')->name('unidades.')->group(function () {
+        Route::get('/', \App\Livewire\Propiedades\UnidadList::class)->name('index');
+        Route::get('/crear', \App\Livewire\Propiedades\UnidadForm::class)->name('create');
+        Route::get('/{unidad}/editar', \App\Livewire\Propiedades\UnidadForm::class)->name('edit');
     });
+
+    // Rutas de Propietarios
+    Route::prefix('propietarios')->name('propietarios.')->group(function () {
+        Route::get('/', \App\Livewire\Propietarios\PropietarioList::class)->name('index');
+        Route::get('/crear', \App\Livewire\Propietarios\PropietarioForm::class)->name('create');
+        Route::get('/{propietario}/editar', \App\Livewire\Propietarios\PropietarioForm::class)->name('edit');
+    });
+
+    // Rutas de Asignación
+    Route::get('/asignar-propietario', \App\Livewire\Propiedades\AsignarPropietario::class)->name('asignar-propietario');
 
     /*
     |--------------------------------------------------------------------------
