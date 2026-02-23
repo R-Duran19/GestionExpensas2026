@@ -80,19 +80,25 @@ Route::middleware(['auth', 'admin'])->group(function () {
     |--------------------------------------------------------------------------
     | MÓDULO DE CONFIGURACIÓN (FASE 1.5)
     |--------------------------------------------------------------------------
+    | Rutas para gestión de factores, facturas EPSAS y grupos de medidores
+    |--------------------------------------------------------------------------
     */
     Route::prefix('configuracion')->name('configuracion.')->group(function () {
-        Route::get('/factores', function () {
-            return view('configuracion.factores.index'); // Placeholder
-        })->name('factores.index');
+        // Página principal de configuración
+        Route::get('/', \App\Livewire\Configuracion\ConfiguracionIndex::class)->name('index');
 
-        Route::get('/facturas-agua', function () {
-            return view('configuracion.facturas-agua.index'); // Placeholder
-        })->name('facturas-agua.index');
+        // Factores de Prorrateo
+        Route::get('/factores', \App\Livewire\Configuracion\ConfiguracionFactores::class)->name('factores');
 
-        Route::get('/grupos-medidores', function () {
-            return view('configuracion.grupos-medidores.index'); // Placeholder
-        })->name('grupos-medidores.index');
+        // Facturas de Agua EPSAS
+        Route::get('/facturas-agua', \App\Livewire\Configuracion\ConfiguracionFacturasAgua::class)->name('facturas-agua');
+
+        // Grupos de Medidores
+        Route::prefix('medidores-grupos')->name('medidores-grupos.')->group(function () {
+            Route::get('/', \App\Livewire\Configuracion\MedidorGrupoList::class)->name('index');
+            Route::get('/crear', \App\Livewire\Configuracion\MedidorGrupoForm::class)->name('create');
+            Route::get('/{grupo}/editar', \App\Livewire\Configuracion\MedidorGrupoForm::class)->name('edit');
+        });
     });
 
     /*

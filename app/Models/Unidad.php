@@ -158,6 +158,25 @@ class Unidad extends Model
     }
 
     /**
+     * Obtener el grupo de medidor al que pertenece esta unidad (si es compartido)
+     */
+    public function medidorGrupo()
+    {
+        return $this->belongsToMany(MedidorGrupo::class, 'medidor_grupo_unidades')
+                    ->whereNull('medidor_grupo_unidades.fecha_retiro')
+                    ->withPivot('fecha_asignacion', 'fecha_retiro')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Verificar si esta unidad pertenece a un grupo de medidor compartido
+     */
+    public function tieneMedidorCompartido(): bool
+    {
+        return $this->medidorGrupo()->exists();
+    }
+
+    /**
      * Boot method para validaciones automáticas
      */
     protected static function boot()

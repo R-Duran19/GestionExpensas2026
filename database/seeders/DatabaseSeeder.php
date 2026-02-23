@@ -21,10 +21,16 @@ class DatabaseSeeder extends Seeder
             AdminRoleSeeder::class,
         ]);
 
-        // FASE 1.2: Propiedades y Propietarios (próximamente)
-        // $this->call([
-        //     UnidadSeeder::class,
-        //     PropietarioSeeder::class,
-        // ]);
+        // FASE 1.2: Propiedades y Propietarios
+        $this->call([
+            \Database\Seeders\UnidadesMigracionSeeder::class,
+            \Database\Seeders\PropietarioSeeder::class,
+        ]);
+
+        // FASE 1.5: Configuración del Sistema
+        $this->call([
+            FactorProrrateoSeeder::class,
+            FacturaAguaSeeder::class,
+        ]);
     }
 }

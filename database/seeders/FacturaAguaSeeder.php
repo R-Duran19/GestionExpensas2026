@@ -1,0 +1,64 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\FacturaAguaConfig;
+use Illuminate\Database\Seeder;
+
+class FacturaAguaSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // Obtener el usuario admin (asumimos que ya existe)
+        $adminUserId = \App\Models\User::where('email', 'admin@admin.com')->first()?->id ?? 2;
+
+        // Crear las 3 facturas de agua principales
+
+        // Factura Domiciliaria 1
+        FacturaAguaConfig::firstOrCreate(
+            [
+                'tipo' => 'domiciliaria_1',
+            ],
+            [
+                'numero_factura' => 'DOM-001',
+                'categoria' => 'domiciliaria',
+                'activo' => true,
+                'creado_por' => $adminUserId,
+            ]
+        );
+
+        // Factura Domiciliaria 2
+        FacturaAguaConfig::firstOrCreate(
+            [
+                'tipo' => 'domiciliaria_2',
+            ],
+            [
+                'numero_factura' => 'DOM-002',
+                'categoria' => 'domiciliaria',
+                'activo' => true,
+                'creado_por' => $adminUserId,
+            ]
+        );
+
+        // Factura Comercial
+        FacturaAguaConfig::firstOrCreate(
+            [
+                'tipo' => 'comercial',
+            ],
+            [
+                'numero_factura' => 'COM-001',
+                'categoria' => 'comercial',
+                'activo' => true,
+                'creado_por' => $adminUserId,
+            ]
+        );
+
+        $this->command->info('✅ Facturas de agua EPSAS creadas correctamente:');
+        $this->command->info('   - Domiciliaria 1: DOM-001');
+        $this->command->info('   - Domiciliaria 2: DOM-002');
+        $this->command->info('   - Comercial: COM-001');
+    }
+}
