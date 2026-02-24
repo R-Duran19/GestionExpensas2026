@@ -12,6 +12,11 @@ class Propietario extends Model
     use HasFactory, SoftDeletes, Loggable;
 
     /**
+     * Nombre de la tabla (Laravel no pluraliza correctamente español)
+     */
+    protected $table = 'propietarios';
+
+    /**
      * Los atributos que son asignables masivamente.
      */
     protected $fillable = [

@@ -169,6 +169,14 @@ class Unidad extends Model
     }
 
     /**
+     * Las expensas de esta unidad
+     */
+    public function expensas()
+    {
+        return $this->hasMany(Expensa::class, 'unidad_id');
+    }
+
+    /**
      * Verificar si esta unidad pertenece a un grupo de medidor compartido
      */
     public function tieneMedidorCompartido(): bool

@@ -11,6 +11,11 @@ class Pago extends Model
     use HasFactory;
 
     /**
+     * Nombre de la tabla (Laravel no pluraliza correctamente español)
+     */
+    protected $table = 'pagos';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>

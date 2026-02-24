@@ -11,6 +11,11 @@ class Boleta extends Model
     use HasFactory;
 
     /**
+     * Nombre de la tabla (Laravel no pluraliza correctamente español)
+     */
+    protected $table = 'boletas';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>

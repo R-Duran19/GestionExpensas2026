@@ -12,6 +12,11 @@ class Expensa extends Model
     use HasFactory;
 
     /**
+     * Nombre de la tabla (Laravel no pluraliza correctamente español)
+     */
+    protected $table = 'expensas';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>
