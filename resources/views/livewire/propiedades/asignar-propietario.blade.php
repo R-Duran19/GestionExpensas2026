@@ -61,12 +61,13 @@
                                placeholder="Buscar unidad por código..."
                                autocomplete="off">
                         @if($unidades_encontradas && count($unidades_encontradas) > 0)
-                            <div class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg" style="min-height: 60px; max-height: 320px; overflow-y: auto;">
+                            <div class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg @if(count($unidades_encontradas) > 5) max-h-80 overflow-y-auto @endif">
                                 @foreach($unidades_encontradas as $uni)
-                                    <div wire:click.prevent="seleccionarUnidad({{ $uni['id'] }})"
+                                    <div wire:click.stop="seleccionarUnidad({{ $uni['id'] }})"
+                                         @keydown.enter.prevent="seleccionarUnidad({{ $uni['id'] }})"
                                          role="button"
                                          tabindex="0"
-                                         class="w-full px-4 py-3 text-left hover:bg-blue-50 border-b last:border-b-0 transition-colors cursor-pointer select-none">
+                                         class="w-full px-4 py-3 text-left hover:bg-blue-50 border-b last:border-b-0 transition-colors cursor-pointer select-none focus:bg-blue-50 focus:outline-none">
                                         <div class="flex justify-between items-start">
                                             <div class="flex-1">
                                                 <div class="font-medium text-gray-900">{{ $uni['codigo'] }} - {{ $uni['tipo'] }}</div>
