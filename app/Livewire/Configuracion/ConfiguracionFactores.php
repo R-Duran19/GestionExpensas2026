@@ -4,7 +4,7 @@ namespace App\Livewire\Configuracion;
 
 use App\Services\FactorService;
 use Livewire\Component;
-use Livewire\Attributes\Computed;
+use Illuminate\Support\Facades\Log;
 
 class ConfiguracionFactores extends Component
 {
@@ -21,19 +21,50 @@ class ConfiguracionFactores extends Component
         $this->factorService = $factorService;
     }
 
-    #[Computed]
-    public function factores()
+    public function getFactoresProperty()
     {
         return $this->factorService->obtenerFactoresVigentes();
     }
 
     public function abrirModalEdicion($categoria)
     {
-        $this->categoriaSeleccionada = $categoria;
-        $this->factorActual = $this->factores[$categoria]->factor ?? 0;
-        $this->nuevoFactor = '';
-        $this->motivo = '';
-        $this->showModal = true;
+        try {
+            Log::info('abrirModalEdicion llamado', ['categoria' => $categoria]);
+
+            $factores = $this->factores;
+
+            if (!isset($factores[$categoria]) || !$factores[$categoria]) {
+                $this->dispatch('alerta', [
+                    'tipo' => 'error',
+                    'titulo' => 'Error',
+                    'mensaje' => "Factor no encontrado para la categoría: {$categoria}",
+                ]);
+                return;
+            }
+
+            $this->categoriaSeleccionada = $categoria;
+            $this->factorActual = $factores[$categoria]->factor;
+            $this->nuevoFactor = '';
+            $this->motivo = '';
+            $this->showModal = true;
+
+            Log::info('Modal abierto', [
+                'categoria' => $this->categoriaSeleccionada,
+                'factorActual' => $this->factorActual,
+                'showModal' => $this->showModal
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error en abrirModalEdicion', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            $this->dispatch('alerta', [
+                'tipo' => 'error',
+                'titulo' => 'Error',
+                'mensaje' => 'Error al abrir el modal: ' . $e->getMessage(),
+            ]);
+        }
     }
 
     public function cerrarModal()

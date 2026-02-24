@@ -2,9 +2,9 @@
 
 namespace App\Livewire\Configuracion;
 
+use App\Models\FacturaAguaConfig;
 use App\Services\FacturaAguaService;
 use Livewire\Component;
-use Livewire\Attributes\Computed;
 
 class ConfiguracionFacturasAgua extends Component
 {
@@ -22,17 +22,27 @@ class ConfiguracionFacturasAgua extends Component
         $this->facturaAguaService = $facturaAguaService;
     }
 
-    #[Computed]
-    public function facturas()
+    public function getFacturasProperty()
     {
         return $this->facturaAguaService->obtenerFacturasConfiguradas();
     }
 
-    public function abrirModalEdicion($facturaId, $tipo, $numeroActual)
+    public function abrirModalEdicion($facturaId)
     {
+        $factura = FacturaAguaConfig::find($facturaId);
+
+        if (!$factura) {
+            $this->dispatch('alerta', [
+                'tipo' => 'error',
+                'titulo' => 'Error',
+                'mensaje' => 'Factura no encontrada',
+            ]);
+            return;
+        }
+
         $this->facturaId = $facturaId;
-        $this->facturaTipo = $tipo;
-        $this->numeroActual = $numeroActual;
+        $this->facturaTipo = $factura->tipo_label;
+        $this->numeroActual = $factura->numero_factura;
         $this->nuevoNumero = '';
         $this->motivo = '';
         $this->showModal = true;

@@ -60,7 +60,9 @@ class FactorService
             throw new \Exception('Categoría inválida. Use "domiciliaria" o "comercial"');
         }
 
-        return DB::transaction(function () use ($categoria, $nuevoFactor, $motivo) {
+        $userId = auth()->id();
+
+        return DB::transaction(function () use ($categoria, $nuevoFactor, $motivo, $userId) {
             // Obtener factor anterior vigente
             $anterior = $this->obtenerFactorVigente($categoria);
 
@@ -78,7 +80,7 @@ class FactorService
                 'factor' => $nuevoFactor,
                 'vigencia_desde' => now(),
                 'activo' => true,
-                'creado_por' => auth()->id(),
+                'creado_por' => $userId,
             ]);
 
             // Guardar en historial
@@ -86,7 +88,7 @@ class FactorService
                 'factor_prorrateo_id' => $nuevo->id,
                 'factor_anterior' => $anterior->factor,
                 'factor_nuevo' => $nuevoFactor,
-                'cambiado_por' => auth()->id(),
+                'cambiado_por' => $userId,
                 'motivo' => $motivo,
                 'vigencia_desde' => now(),
             ]);
@@ -94,7 +96,7 @@ class FactorService
             // Registrar en log de actividad
             if (class_exists('App\Models\ActivityLog')) {
                 \App\Models\ActivityLog::create([
-                    'user_id' => auth()->id(),
+                    'user_id' => $userId,
                     'action' => 'factor.actualizado',
                     'model_type' => FactorProrrateo::class,
                     'model_id' => $nuevo->id,
@@ -112,7 +114,7 @@ class FactorService
                 'categoria' => $categoria,
                 'anterior' => $anterior->factor,
                 'nuevo' => $nuevoFactor,
-                'usuario' => auth()->id(),
+                'usuario' => $userId,
             ]);
 
             return $nuevo;
