@@ -33,6 +33,10 @@ class AsignarPropietario extends Component
     {
         $this->unidadService = $unidadService;
         $this->fecha_inicio = now()->format('Y-m-d');
+
+        // Inicializar arrays para evitar problemas de inicialización
+        $this->unidades_encontradas = [];
+        $this->propietarios_encontrados = [];
     }
 
     public function render()
@@ -100,7 +104,7 @@ class AsignarPropietario extends Component
                 try {
                     $tienePropietario = $unidad->tienePropietarioActual();
                     if ($tienePropietario) {
-                        $propietario = $unidad->propietarioActual->first();
+                        $propietario = $unidad->propietarioActual;
                         if ($propietario) {
                             $propietarioActualNombre = $propietario->nombre_completo;
                         }
@@ -279,7 +283,7 @@ class AsignarPropietario extends Component
         return Unidad::whereIn('id', $this->unidades_seleccionadas)
             ->get()
             ->map(function ($unidad) {
-                $propietarioActual = $unidad->propietarioActual->first();
+                $propietarioActual = $unidad->propietarioActual;
                 return [
                     'id' => $unidad->id,
                     'codigo' => $unidad->codigo,

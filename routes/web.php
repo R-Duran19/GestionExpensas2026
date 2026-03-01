@@ -93,6 +93,9 @@ Route::middleware(['auth', 'admin'])->group(function () {
         // Facturas de Agua EPSAS
         Route::get('/facturas-agua', \App\Livewire\Configuracion\ConfiguracionFacturasAgua::class)->name('facturas-agua');
 
+        // Medidores
+        Route::get('/medidores', \App\Livewire\Configuracion\GestionMedidores::class)->name('medidores');
+
         // Grupos de Medidores
         Route::prefix('medidores-grupos')->name('medidores-grupos.')->group(function () {
             Route::get('/', \App\Livewire\Configuracion\MedidorGrupoList::class)->name('index');
@@ -112,11 +115,38 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | MÓDULO DE MEDIDORES (FASE 2)
+    | MÓDULO DE PERÍODOS (FASE 2)
+    |--------------------------------------------------------------------------
+    | Rutas para gestión de períodos, facturas EPSAS y lecturas de medidor
     |--------------------------------------------------------------------------
     */
-    Route::prefix('medidores')->name('medidores.')->group(function () {
-        // Placeholder para futuras rutas
+    Route::prefix('periodos')->name('periodos.')->group(function () {
+        // Listado y creación de períodos
+        Route::get('/', \App\Livewire\Periodos\PeriodoList::class)->name('index');
+        Route::get('/crear', \App\Livewire\Periodos\CrearPeriodo::class)->name('create');
+        Route::get('/{periodo}', \App\Livewire\Periodos\PeriodoDetail::class)->name('show');
+
+        // Facturas EPSAS por período
+        Route::get('/{periodo}/facturas', \App\Livewire\Periodos\RegistrarFacturasAgua::class)->name('facturas');
+
+        // Lecturas de medidor por período
+        Route::get('/{periodo}/lecturas', \App\Livewire\Periodos\LecturaMedidorList::class)->name('lecturas');
+
+        // Lecturas masivas por período
+        Route::get('/{periodo}/lecturas-masivas', \App\Livewire\Periodos\RegistrarLecturasMasivas::class)->name('lecturas-masivas');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | MÓDULO DE LECTURAS (FASE 2)
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('lecturas')->name('lecturas.')->group(function () {
+        // Registrar lectura individual
+        Route::get('/individual/{periodo}', \App\Livewire\Periodos\RegistrarLecturaIndividual::class)->name('individual');
+
+        // Registrar lectura compartida
+        Route::get('/compartida/{periodo}', \App\Livewire\Periodos\RegistrarLecturaCompartida::class)->name('compartida');
     });
 
     /*

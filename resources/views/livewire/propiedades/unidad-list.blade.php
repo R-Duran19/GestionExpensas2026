@@ -137,9 +137,9 @@
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                @if($unidad->propietarioActual->first())
-                                    <div>{{ $unidad->propietarioActual->first()->nombre_completo }}</div>
-                                    <div class="text-xs text-gray-500">{{ $unidad->propietarioActual->first()->ci }}</div>
+                                @if($unidad->propietarioActual)
+                                    <div>{{ $unidad->propietarioActual->nombre_completo }}</div>
+                                    <div class="text-xs text-gray-500">{{ $unidad->propietarioActual->ci }}</div>
                                 @else
                                     <span class="text-gray-400">Sin asignar</span>
                                 @endif

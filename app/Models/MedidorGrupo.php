@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class MedidorGrupo extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     /**
      * The table associated with the model.
@@ -76,6 +77,14 @@ class MedidorGrupo extends Model
     public function lecturasMedidor(): HasMany
     {
         return $this->hasMany(LecturaMedidor::class, 'medidor_grupo_id');
+    }
+
+    /**
+     * Get the lecturas de grupo por período.
+     */
+    public function lecturasGrupoPeriodos(): HasMany
+    {
+        return $this->hasMany(LecturaGrupoPeriodo::class, 'medidor_grupo_id');
     }
 
     /**

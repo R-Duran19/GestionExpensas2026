@@ -95,7 +95,7 @@
 
             <!-- Botones -->
             <div class="mt-6 flex justify-end space-x-3">
-                <a href="{{ route('configuracion.medidores-grupos') }}"
+                <a href="{{ route('configuracion.medidores-grupos.index') }}"
                    class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
                     Cancelar
                 </a>

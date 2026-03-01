@@ -6,7 +6,7 @@
     </div>
 
     <!-- Tarjetas de Opciones -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <!-- Factores de Prorrateo -->
         <a href="{{ route('configuracion.factores') }}"
            class="block bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow">
@@ -19,8 +19,8 @@
                     </div>
                 </div>
                 <div class="ml-4">
-                    <h3 class="text-lg font-semibold text-gray-900">Factores de Prorrateo</h3>
-                    <p class="text-sm text-gray-600 mt-1">Configura los factores para cálculo de expensas</p>
+                    <h3 class="text-lg font-semibold text-gray-900">Factores</h3>
+                    <p class="text-sm text-gray-600 mt-1">Factores de prorrateo</p>
                 </div>
             </div>
         </a>
@@ -38,7 +38,25 @@
                 </div>
                 <div class="ml-4">
                     <h3 class="text-lg font-semibold text-gray-900">Facturas EPSAS</h3>
-                    <p class="text-sm text-gray-600 mt-1">Configura los números de factura de agua</p>
+                    <p class="text-sm text-gray-600 mt-1">Números de factura</p>
+                </div>
+            </div>
+        </a>
+
+        <!-- Medidores -->
+        <a href="{{ route('configuracion.medidores') }}"
+           class="block bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h2m2 6h2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <h3 class="text-lg font-semibold text-gray-900">Medidores</h3>
+                    <p class="text-sm text-gray-600 mt-1">Asignar a unidades</p>
                 </div>
             </div>
         </a>
@@ -50,13 +68,13 @@
                 <div class="flex-shrink-0">
                     <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                         <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                         </svg>
                     </div>
                 </div>
                 <div class="ml-4">
-                    <h3 class="text-lg font-semibold text-gray-900">Grupos de Medidores</h3>
-                    <p class="text-sm text-gray-600 mt-1">Gestiona medidores compartidos</p>
+                    <h3 class="text-lg font-semibold text-gray-900">Grupos</h3>
+                    <p class="text-sm text-gray-600 mt-1">Medidores compartidos</p>
                 </div>
             </div>
         </a>

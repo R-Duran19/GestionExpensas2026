@@ -211,7 +211,14 @@ class MedidorGrupoService
         }
 
         return DB::transaction(function () use ($grupo, $unidad) {
-            // Asignar unidad al grupo
+            // Marcar la unidad como que tiene medidor compartido
+            $unidad->update([
+                'tiene_medidor' => true,
+                'tipo_medidor' => 'compartido',
+                'medidor_grupo_id' => $grupo->id,
+            ]);
+
+            // También agregar a la tabla pivot para registrar la fecha de asignación
             $grupo->unidades()->attach($unidad->id, [
                 'fecha_asignacion' => now(),
             ]);
@@ -262,17 +269,15 @@ class MedidorGrupoService
         }
 
         return DB::transaction(function () use ($grupo, $unidad) {
-            // Desasignar unidad del grupo (marcar fecha de retiro)
-            $pivot = $grupo->unidades()->where('unidad_id', $unidad->id)->first()?->pivot;
+            // Primero quitar de la tabla pivot
+            $grupo->unidades()->detach($unidad->id);
 
-            if ($pivot) {
-                $pivot->update([
-                    'fecha_retiro' => now(),
-                ]);
-
-                // Sincronizar para remover de la relación activa
-                $grupo->unidades()->detach($unidad->id);
-            }
+            // La unidad sigue teniendo medidor, pero pasa a ser individual
+            $unidad->update([
+                'tiene_medidor' => true,  // Mantiene el medidor
+                'tipo_medidor' => 'individual',  // Pasa a individual
+                'medidor_grupo_id' => null,  // Ya no pertenece al grupo
+            ]);
 
             // Registrar en log de actividad
             if (class_exists('App\Models\ActivityLog')) {
@@ -281,7 +286,7 @@ class MedidorGrupoService
                     'action' => 'medidor_grupo.unidad_desasignada',
                     'model_type' => MedidorGrupo::class,
                     'model_id' => $grupo->id,
-                    'description' => "Unidad {$unidad->nombre_completo} desasignada del grupo '{$grupo->nombre}'",
+                    'description' => "Unidad {$unidad->nombre_completo} desasignada del grupo '{$grupo->nombre}'. Ahora es individual",
                     'properties' => [
                         'unidad_id' => $unidad->id,
                         'unidad_nombre' => $unidad->nombre_completo,
@@ -289,7 +294,7 @@ class MedidorGrupoService
                 ]);
             }
 
-            Log::info("Unidad desasignada de grupo de medidor", [
+            Log::info("Unidad desasignada de grupo de medidor - convertida a individual", [
                 'grupo_id' => $grupo->id,
                 'unidad_id' => $unidad->id,
                 'usuario' => auth()->id(),

@@ -12,7 +12,7 @@ class MedidorGrupoForm extends Component
     public $grupoId = null;
     public $nombre = '';
     public $tipo_distribucion = 'equitativa';
-    public $activo = true;
+    public $activo = '1';
     public $observaciones = '';
 
     public $unidadesSeleccionadas = [];
@@ -25,18 +25,26 @@ class MedidorGrupoForm extends Component
         $this->medidorGrupoService = $medidorGrupoService;
     }
 
-    public function mount($grupoId = null)
+    public function mount($grupo = null)
     {
-        if ($grupoId) {
-            $grupo = $this->medidorGrupoService->obtenerGrupoConUnidades($grupoId);
-            if ($grupo) {
-                $this->grupoId = $grupo->id;
-                $this->nombre = $grupo->nombre;
-                $this->tipo_distribucion = $grupo->tipo_distribucion;
-                $this->activo = $grupo->activo;
-                $this->observaciones = $grupo->observaciones ?? '';
-                $this->unidadesSeleccionadas = $grupo->unidades->pluck('id')->toArray();
+        // Si viene $grupo, es edición, convertimos a entero
+        if ($grupo) {
+            $this->grupoId = (int) $grupo;
+        }
+
+        if ($this->grupoId) {
+            $grupoModel = \App\Models\MedidorGrupo::with(['unidades'])->find($this->grupoId);
+
+            if (!$grupoModel) {
+                session()->flash('error', 'Grupo no encontrado');
+                return redirect()->route('configuracion.medidores-grupos.index');
             }
+
+            $this->nombre = $grupoModel->nombre;
+            $this->tipo_distribucion = $grupoModel->tipo_distribucion;
+            $this->activo = $grupoModel->activo ? '1' : '0';
+            $this->observaciones = $grupoModel->observaciones ?? '';
+            $this->unidadesSeleccionadas = $grupoModel->unidades->pluck('id')->toArray();
         }
 
         $this->cargarUnidadesDisponibles();
@@ -44,16 +52,16 @@ class MedidorGrupoForm extends Component
 
     public function cargarUnidadesDisponibles()
     {
-        $this->unidadesDisponibles = $this->medidorGrupoService
-            ->obtenerUnidadesDisponibles($this->grupoId)
-            ->map(function ($unidad) {
-                return [
-                    'id' => $unidad->id,
-                    'nombre' => $unidad->nombre_completo,
-                    'codigo' => $unidad->codigo,
-                    'seleccionada' => in_array($unidad->id, $this->unidadesSeleccionadas),
-                ];
-            })->toArray();
+        $unidades = $this->medidorGrupoService->obtenerUnidadesDisponibles($this->grupoId);
+
+        $this->unidadesDisponibles = $unidades->map(function ($unidad) {
+            return [
+                'id' => $unidad->id,
+                'nombre' => $unidad->nombre_completo,
+                'codigo' => $unidad->codigo,
+                'seleccionada' => in_array($unidad->id, $this->unidadesSeleccionadas),
+            ];
+        })->toArray();
     }
 
     public function toggleUnidad($unidadId)
@@ -82,7 +90,7 @@ class MedidorGrupoForm extends Component
             $data = [
                 'nombre' => $this->nombre,
                 'tipo_distribucion' => $this->tipo_distribucion,
-                'activo' => $this->activo,
+                'activo' => $this->activo === '1' || $this->activo === true,
                 'observaciones' => $this->observaciones ?: null,
             ];
 
@@ -106,7 +114,7 @@ class MedidorGrupoForm extends Component
                 'mensaje' => "El grupo '{$this->nombre}' se guardó correctamente",
             ]);
 
-            return redirect()->route('configuracion.medidores-grupos');
+            return redirect()->route('configuracion.medidores-grupos.index');
         } catch (\Exception $e) {
             $this->dispatch('alerta', [
                 'tipo' => 'error',

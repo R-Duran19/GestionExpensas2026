@@ -27,6 +27,9 @@ class Unidad extends Model
         'metros_cuadrados',
         'categoria_unidad',
         'tiene_medidor',
+        'tipo_medidor',
+        'numero_medidor',
+        'medidor_grupo_id',
         'activo',
         'observaciones',
     ];
@@ -61,6 +64,14 @@ class Unidad extends Model
     public function getFactorProrrateoAttribute(): float
     {
         return $this->categoria_unidad->getFactorProrrateo();
+    }
+
+    /**
+     * Obtener el propietario actual como un modelo individual
+     */
+    public function getPropietarioActualAttribute()
+    {
+        return $this->propietarios()->where('es_propietario_actual', true)->first();
     }
 
     /**
@@ -162,10 +173,15 @@ class Unidad extends Model
      */
     public function medidorGrupo()
     {
-        return $this->belongsToMany(MedidorGrupo::class, 'medidor_grupo_unidades')
-                    ->whereNull('medidor_grupo_unidades.fecha_retiro')
-                    ->withPivot('fecha_asignacion', 'fecha_retiro')
-                    ->withTimestamps();
+        return $this->belongsTo(MedidorGrupo::class, 'medidor_grupo_id');
+    }
+
+    /**
+     * Verificar si la unidad tiene medidor individual
+     */
+    public function tieneMedidorIndividual(): bool
+    {
+        return $this->tiene_medidor && $this->tipo_medidor === 'individual';
     }
 
     /**
@@ -174,6 +190,14 @@ class Unidad extends Model
     public function expensas()
     {
         return $this->hasMany(Expensa::class, 'unidad_id');
+    }
+
+    /**
+     * Las lecturas de medidor de esta unidad
+     */
+    public function lecturasMedidor()
+    {
+        return $this->hasMany(LecturaMedidor::class, 'unidad_id');
     }
 
     /**

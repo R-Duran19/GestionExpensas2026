@@ -26,6 +26,10 @@ class PeriodoExpensa extends Model
         'estado',
         'motivo_reapertura',
         'cerrado_por',
+        'factor_domiciliario',
+        'factor_comercial',
+        'factores_calculados_at',
+        'factores_calculados_por',
     ];
 
     /**
@@ -36,6 +40,9 @@ class PeriodoExpensa extends Model
     protected $casts = [
         'fecha_apertura' => 'date',
         'fecha_cierre' => 'datetime',
+        'factor_domiciliario' => 'decimal:8',
+        'factor_comercial' => 'decimal:8',
+        'factores_calculados_at' => 'datetime',
     ];
 
     /**
@@ -44,6 +51,22 @@ class PeriodoExpensa extends Model
     public function cerradoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'cerrado_por');
+    }
+
+    /**
+     * Get the user that calculated the factors.
+     */
+    public function factoresCalculadosPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'factores_calculados_por');
+    }
+
+    /**
+     * Check if factors are calculated.
+     */
+    public function getTieneFactoresCalculadosAttribute(): bool
+    {
+        return !is_null($this->factor_domiciliario) && !is_null($this->factor_comercial);
     }
 
     /**
@@ -68,6 +91,14 @@ class PeriodoExpensa extends Model
     public function lecturasMedidor(): HasMany
     {
         return $this->hasMany(LecturaMedidor::class, 'periodo_id');
+    }
+
+    /**
+     * Get the lecturas de grupos for this periodo.
+     */
+    public function lecturasGruposPeriodos(): HasMany
+    {
+        return $this->hasMany(LecturaGrupoPeriodo::class, 'periodo_id');
     }
 
     /**

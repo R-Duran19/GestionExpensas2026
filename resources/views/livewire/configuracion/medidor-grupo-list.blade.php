@@ -33,50 +33,64 @@
 
     <!-- Lista de Grupos -->
     @if($this->grupos->count() > 0)
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="space-y-4">
             @foreach($this->grupos as $grupo)
                 <div class="bg-white rounded-lg shadow-sm p-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-gray-900">
-                            {{ $grupo->nombre }}
-                        </h3>
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
-                            {{ $grupo->activo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                            {{ $grupo->activo ? 'Activo' : 'Inactivo' }}
-                        </span>
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3">
+                                <h3 class="text-lg font-semibold text-gray-900">
+                                    {{ $grupo->nombre }}
+                                </h3>
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                                    {{ $grupo->activo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                    {{ $grupo->activo ? 'Activo' : 'Inactivo' }}
+                                </span>
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    {{ $grupo->unidades->count() }} unidades
+                                </span>
+                            </div>
+                            @if($grupo->observaciones)
+                                <p class="text-sm text-gray-600 mt-1">
+                                    <strong>Obs:</strong> {{ $grupo->observaciones }}
+                                </p>
+                            @endif
+                        </div>
+                        <div class="flex space-x-2">
+                            <a href="{{ route('configuracion.medidores-grupos.edit', $grupo->id) }}"
+                               class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium">
+                                Editar
+                            </a>
+                            <button wire:click="eliminarGrupo({{ $grupo->id }})"
+                                    wire:confirm="¿Está seguro de eliminar este grupo?@if($grupo->unidades->count() > 0) Tiene {{ $grupo->unidades->count() }} unidad(es) asignada(s). @endif"
+                                    class="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                                    @if($grupo->unidades->count() > 0) disabled title="Primero desasigne las unidades" @endif>
+                                Eliminar
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="space-y-2 text-sm text-gray-600 mb-4">
-                        <p>
-                            <strong>Tipo:</strong> {{ $grupo->tipo_distribucion_label }}
-                        </p>
-                        <p>
-                            <strong>Unidades:</strong> {{ $grupo->unidades->count() }} asignadas
-                        </p>
-                        @if($grupo->observaciones)
-                            <p>
-                                <strong>Obs:</strong> {{ $grupo->observaciones }}
+                    <!-- Unidades Asignadas -->
+                    @if($grupo->unidades->count() > 0)
+                        <div class="mt-4 pt-4 border-t border-gray-200">
+                            <p class="text-sm font-medium text-gray-700 mb-2">Unidades asignadas:</p>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($grupo->unidades as $unidad)
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800">
+                                        {{ $unidad->nombre_completo }}
+                                        @if($unidad->piso)
+                                            <span class="ml-1 text-gray-500">(Piso {{ $unidad->piso }})</span>
+                                        @endif
+                                    </span>
+                                @endforeach
+                            </div>
+                            <p class="text-xs text-gray-500 mt-2">
+                                💡 Para desasignar unidades, ve a "Editar" y desmarca las unidades que deseas quitar.
                             </p>
-                        @endif
-                    </div>
-
-                    <div class="flex space-x-2">
-                        <a href="{{ route('configuracion.medidores-grupos.edit', $grupo->id) }}"
-                           class="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium text-center">
-                            Editar
-                        </a>
-                        <button wire:click="toggleEstado({{ $grupo->id }})"
-                                class="flex-1 px-3 py-2 {{ $grupo->activo ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200' }} rounded-lg transition-colors text-sm font-medium">
-                            {{ $grupo->activo ? 'Desactivar' : 'Activar' }}
-                        </button>
-                        <button wire:click="eliminarGrupo({{ $grupo->id }})"
-                                wire:confirm="¿Está seguro de eliminar este grupo?"
-                                class="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                            </svg>
-                        </button>
-                    </div>
+                        </div>
+                    @else
+                        <p class="text-sm text-gray-500 mt-2 italic">Sin unidades asignadas</p>
+                    @endif
                 </div>
             @endforeach
         </div>

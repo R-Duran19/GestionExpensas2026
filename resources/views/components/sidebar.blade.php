@@ -1,3 +1,9 @@
+@php
+    // Obtener el período abierto actual
+    $periodoService = new \App\Services\PeriodoService();
+    $periodoAbierto = $periodoService->obtenerPeriodoAbierto();
+@endphp
+
 <!-- Mobile Sidebar Overlay -->
 <div x-data="{ mobileSidebarOpen: false }" class="lg:hidden">
     <!-- Mobile Header with Hamburger -->
@@ -75,14 +81,34 @@
                 Propietarios
             </a>
 
-            <!-- Configuración -->
-            <a href="{{ route('configuracion.index') }}"
-               class="flex items-center px-3 py-3 text-sm font-medium rounded-lg {{ request()->routeIs('configuracion.*') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-100' }}">
-                <svg class="shrink-0 h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                Configuración
-            </a>
+        <!-- Períodos -->
+        <x-sidebar-link
+            :href="route('periodos.index')"
+            :active="request()->routeIs('periodos.*')"
+            icon="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+        >
+            Períodos
+        </x-sidebar-link>
+
+        <!-- Lecturas (solo si hay período abierto) -->
+        @if($periodoAbierto)
+            <x-sidebar-link
+                :href="route('periodos.lecturas', $periodoAbierto->id)"
+                :active="request()->routeIs('periodos.lecturas')"
+                icon="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            >
+                Lecturas
+            </x-sidebar-link>
+        @endif
+
+        <!-- Configuración -->
+        <x-sidebar-link
+            :href="route('configuracion.index')"
+            :active="request()->routeIs('configuracion.*')"
+            icon="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+        >
+            Configuración
+        </x-sidebar-link>
         </nav>
 
         <!-- Mobile User Section -->
@@ -160,6 +186,26 @@
         >
             Propietarios
         </x-sidebar-link>
+
+        <!-- Períodos -->
+        <x-sidebar-link
+            :href="route('periodos.index')"
+            :active="request()->routeIs('periodos.*')"
+            icon="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+        >
+            Períodos
+        </x-sidebar-link>
+
+        <!-- Lecturas (solo si hay período abierto) -->
+        @if($periodoAbierto)
+            <x-sidebar-link
+                :href="route('periodos.lecturas', $periodoAbierto->id)"
+                :active="request()->routeIs('periodos.lecturas')"
+                icon="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            >
+                Lecturas
+            </x-sidebar-link>
+        @endif
 
         <!-- Configuración -->
         <x-sidebar-link
