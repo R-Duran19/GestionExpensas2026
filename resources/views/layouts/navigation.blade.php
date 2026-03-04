@@ -21,6 +21,9 @@
                     <x-nav-link :href="route('propietarios.index')" :active="request()->routeIs('propietarios.*')">
                         {{ __('Propietarios') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('expensas.index')" :active="request()->routeIs('expensas.*')">
+                        {{ __('Expensas') }}
+                    </x-nav-link>
                     <x-nav-link :href="route('periodos.index')" :active="request()->routeIs('periodos.*')">
                         {{ __('Períodos') }}
                     </x-nav-link>
@@ -87,6 +90,9 @@
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('propietarios.index')" :active="request()->routeIs('propietarios.*')">
                 {{ __('Propietarios') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('expensas.index')" :active="request()->routeIs('expensas.*')">
+                {{ __('Expensas') }}
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('periodos.index')" :active="request()->routeIs('periodos.*')">
                 {{ __('Períodos') }}

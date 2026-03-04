@@ -89,8 +89,11 @@ class PeriodoService
                 throw new \Exception('El período ya está cerrado');
             }
 
-            // TODO: Validar que todas las lecturas estén registradas
-            // Esto se implementará en la Fase 3 cuando se generen las expensas
+            // Validar que haya expensas calculadas
+            $expensasCount = \App\Models\Expensa::where('periodo_id', $periodoId)->count();
+            if ($expensasCount === 0) {
+                throw new \Exception('No hay expensas calculadas para este período. Debe calcular las expensas antes de cerrar.');
+            }
 
             // Cerrar el período
             $periodo->update([
@@ -105,10 +108,60 @@ class PeriodoService
                 'periodo.cerrado',
                 "Período {$periodo->nombre_periodo} cerrado" . ($motivo ? ": {$motivo}" : ''),
                 $periodo,
-                ['motivo' => $motivo]
+                ['motivo' => $motivo, 'expensas_count' => $expensasCount]
             );
 
             Log::info('Período cerrado', [
+                'periodo_id' => $periodo->id,
+                'usuario' => auth()->user()?->id,
+                'motivo' => $motivo,
+                'expensas_count' => $expensasCount,
+            ]);
+
+            return $periodo->fresh();
+        });
+    }
+
+    /**
+     * Reabrir un período cerrado
+     *
+     * @param int $periodoId ID del período
+     * @param string $motivo Motivo de la reapertura (obligatorio)
+     * @return PeriodoExpensa
+     * @throws \Exception
+     */
+    public function reabrirPeriodo(int $periodoId, string $motivo): PeriodoExpensa
+    {
+        return DB::transaction(function () use ($periodoId, $motivo) {
+            $periodo = PeriodoExpensa::findOrFail($periodoId);
+
+            // Validar que el período esté cerrado
+            if ($periodo->estado === 'abierto') {
+                throw new \Exception('Solo se pueden reabrir períodos que están cerrados');
+            }
+
+            // El motivo es obligatorio
+            if (empty(trim($motivo))) {
+                throw new \Exception('El motivo de reapertura es obligatorio');
+            }
+
+            // Reabrir el período
+            $periodo->update([
+                'estado' => 'abierto',
+                'motivo_reapertura' => $motivo,
+                'fecha_cierre' => null,
+                'cerrado_por' => null,
+            ]);
+
+            // Registrar en activity log
+            $this->registrarActivityLog(
+                'periodo.reabierto',
+                "Período {$periodo->nombre_periodo} reabierto: {$motivo}",
+                $periodo,
+                ['motivo_reapertura' => $motivo]
+            );
+
+            Log::info('Período reabierto', [
                 'periodo_id' => $periodo->id,
                 'usuario' => auth()->user()?->id,
                 'motivo' => $motivo,

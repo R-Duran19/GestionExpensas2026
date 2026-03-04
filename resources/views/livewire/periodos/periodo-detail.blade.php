@@ -206,7 +206,7 @@
                                     {{ number_format($lectura->consumo_m3, 1) }} m³
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {{ $lectura->fecha_lectura->format('d/m/Y') }}
+                                    {{ $lectura->created_at->format('d/m/Y') }}
                                 </td>
                             </tr>
                         @endforeach

@@ -81,6 +81,15 @@
                 Propietarios
             </a>
 
+            <!-- Expensas -->
+            <a href="{{ route('expensas.index') }}"
+               class="flex items-center px-3 py-3 text-sm font-medium rounded-lg {{ request()->routeIs('expensas.*') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-100' }}">
+                <svg class="shrink-0 h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                Expensas
+            </a>
+
         <!-- Períodos -->
         <x-sidebar-link
             :href="route('periodos.index')"
@@ -185,6 +194,15 @@
             icon="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
         >
             Propietarios
+        </x-sidebar-link>
+
+        <!-- Expensas -->
+        <x-sidebar-link
+            :href="route('expensas.index')"
+            :active="request()->routeIs('expensas.*')"
+            icon="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+        >
+            Expensas
         </x-sidebar-link>
 
         <!-- Períodos -->

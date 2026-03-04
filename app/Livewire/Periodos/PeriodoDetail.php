@@ -20,7 +20,7 @@ class PeriodoDetail extends Component
             'cerradoPor',
             'facturasAgua',
             'lecturasMedidor' => function ($query) {
-                $query->with(['unidad', 'unidad.propietarios', 'unidad.edificio']);
+                $query->with(['unidad', 'unidad.propietarios']);
             }
         ])->findOrFail($periodo);
     }

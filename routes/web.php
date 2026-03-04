@@ -110,7 +110,14 @@ Route::middleware(['auth', 'admin'])->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::prefix('expensas')->name('expensas.')->group(function () {
-        // Placeholder para futuras rutas
+        // Listado principal de expensas (por propietarios)
+        Route::get('/', \App\Livewire\Expensas\ExpensaList::class)->name('index');
+
+        // Boleta de expensas de un propietario (todas sus unidades)
+        Route::get('/propietario/{periodo}/{propietario}', \App\Livewire\Expensas\ExpensaPropietarioDetalle::class)->name('propietario');
+
+        // Detalle de expensa individual (mantenido para compatibilidad)
+        Route::get('/{expensa}', \App\Livewire\Expensas\ExpensaDetalle::class)->name('detalle');
     });
 
     /*
@@ -134,6 +141,9 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
         // Lecturas masivas por período
         Route::get('/{periodo}/lecturas-masivas', \App\Livewire\Periodos\RegistrarLecturasMasivas::class)->name('lecturas-masivas');
+
+        // Calcular expensas por período
+        Route::get('/{periodo}/calcular', \App\Livewire\Periodos\CalcularExpensas::class)->name('calcular');
     });
 
     /*

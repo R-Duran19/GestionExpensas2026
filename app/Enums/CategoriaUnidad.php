@@ -19,16 +19,25 @@ enum CategoriaUnidad: string
     }
 
     /**
-     * Obtener factor de prorrateo según categoría
-     * Domiciliaria: 2.1
-     * Comercial: 3.5
+     * Obtener factor de prorrateo según categoría desde la BD
+     * Los factores son CONFIGURABLES, no harcodeados
      */
     public function getFactorProrrateo(): float
     {
-        return match($this) {
-            self::DOMICILIARIA => 2.1,
-            self::COMERCIAL => 3.5,
-        };
+        // Buscar factor vigente en la base de datos
+        $factor = \App\Models\FactorProrrateo::porCategoria($this->value)
+            ->vigente($this->value)
+            ->first();
+
+        // Si no existe, usar valores por defecto para compatibilidad
+        if (!$factor) {
+            return match($this) {
+                self::DOMICILIARIA => 2.1,
+                self::COMERCIAL => 3.5,
+            };
+        }
+
+        return (float) $factor->factor;
     }
 
     /**
