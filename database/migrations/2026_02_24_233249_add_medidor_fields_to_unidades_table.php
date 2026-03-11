@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('unidades', function (Blueprint $table) {
-            // Tipo de medidor: individual o compartido
-            $table->enum('tipo_medidor', ['individual', 'compartido'])->nullable()->after('tiene_medidor');
+            // Tipo de medidor: individual o compartido (por defecto individual)
+            $table->enum('tipo_medidor', ['individual', 'compartido'])->default('individual')->nullable()->after('tiene_medidor');
 
             // Número físico del medidor (para individual)
             $table->string('numero_medidor', 50)->nullable()->after('tipo_medidor');

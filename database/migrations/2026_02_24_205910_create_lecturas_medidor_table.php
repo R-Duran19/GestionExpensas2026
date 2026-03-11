@@ -15,22 +15,21 @@ return new class extends Migration
             $table->id();
             $table->foreignId('periodo_id')->constrained('periodos_expensa');
             $table->foreignId('unidad_id')->constrained('unidades');
-            $table->enum('tipo', ['individual', 'compartido'])->default('individual');
 
-            // Si es individual
+            // Datos de lectura
             $table->decimal('lectura_anterior', 8, 2)->nullable();
             $table->decimal('lectura_actual', 8, 2)->nullable();
             $table->decimal('consumo_m3', 8, 2);
 
-            // Si es compartido
-            $table->foreignId('medidor_grupo_id')->nullable()->constrained('medidor_grupos');
+            // Para lecturas compartidas (referencia al grupo)
+            $table->foreignId('medidor_grupo_id')->nullable()->constrained('medidor_grupos')->nullOnDelete();
 
             $table->text('observaciones')->nullable();
             $table->foreignId('registrado_por')->constrained('users');
             $table->timestamps();
 
             $table->unique(['periodo_id', 'unidad_id']);
-            $table->index(['periodo_id', 'tipo']);
+            $table->index('periodo_id');
         });
     }
 

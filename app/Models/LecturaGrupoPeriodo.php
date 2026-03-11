@@ -59,6 +59,6 @@ class LecturaGrupoPeriodo extends Model
     {
         return $this->hasMany(LecturaMedidor::class, 'medidor_grupo_id', 'medidor_grupo_id')
             ->where('periodo_id', $this->periodo_id)
-            ->where('tipo', 'compartido');
+            ->whereNotNull('medidor_grupo_id');
     }
 }

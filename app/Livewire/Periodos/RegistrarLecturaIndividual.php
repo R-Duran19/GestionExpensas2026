@@ -99,13 +99,13 @@ class RegistrarLecturaIndividual extends Component
     {
         // Obtener IDs de unidades que ya tienen lectura en este período
         $unidadesConLectura = \App\Models\LecturaMedidor::where('periodo_id', $this->periodoId)
-            ->where('tipo', 'individual')
+            ->whereHas('unidad', fn($q) => $q->where('tipo_medidor', 'individual'))
             ->pluck('unidad_id')
             ->toArray();
 
         return Unidad::where('activo', true)
             ->where('tiene_medidor', true)
-            ->whereDoesntHave('medidorGrupo')
+            ->where('tipo_medidor', 'individual') // Solo medidores individuales
             ->whereNotIn('id', $unidadesConLectura) // Excluir unidades con lectura registrada
             ->with(['propietarios'])
             ->get()

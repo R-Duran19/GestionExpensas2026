@@ -54,7 +54,7 @@ class MedidorService
 
             // Obtener lectura anterior
             $lecturaAnterior = $this->obtenerLecturaAnterior($unidadId, $periodoId);
-            $valorLecturaAnterior = $lecturaAnterior?->lectura_actual ?? 0.0;
+            $valorLecturaAnterior = $lecturaAnterior?->lectura_actual ?: 0.0;
 
             // Validar que la lectura actual sea mayor o igual a la anterior
             $this->validarLecturaActualMayorAnterior($lecturaActual, $valorLecturaAnterior);
@@ -66,7 +66,6 @@ class MedidorService
             $lectura = LecturaMedidor::create([
                 'periodo_id' => $periodoId,
                 'unidad_id' => $unidadId,
-                'tipo' => 'individual',
                 'lectura_anterior' => $valorLecturaAnterior,
                 'lectura_actual' => $lecturaActual,
                 'consumo_m3' => $consumoM3,
@@ -158,7 +157,7 @@ class MedidorService
             $cantidadUnidades = $unidades->count();
             $consumoPorUnidadM3 = $consumoTotalM3 / $cantidadUnidades;
 
-            // 1. Crear registro en lectura_grupos_periodos
+            // Crear registro en lectura_grupos_periodos
             $lecturaGrupo = LecturaGrupoPeriodo::create([
                 'periodo_id' => $periodoId,
                 'medidor_grupo_id' => $grupoId,
@@ -169,31 +168,19 @@ class MedidorService
                 'registrado_por' => auth()->id(),
             ]);
 
-            // 2. Crear lecturas distribuidas para cada unidad
+            // Crear lecturas distribuidas para cada unidad en lecturas_medidor
             $lecturasCreadas = [];
-
             foreach ($unidades as $unidad) {
-                // Verificar que ya no existe lectura
-                $lecturaExistente = LecturaMedidor::where('periodo_id', $periodoId)
-                    ->where('unidad_id', $unidad->id)
-                    ->first();
-
-                if ($lecturaExistente) {
-                    throw new \Exception("Ya existe una lectura para {$unidad->nombre_completo} en este período.");
-                }
-
                 $lectura = LecturaMedidor::create([
                     'periodo_id' => $periodoId,
                     'unidad_id' => $unidad->id,
-                    'tipo' => 'compartido',
                     'medidor_grupo_id' => $grupoId,
-                    'lectura_anterior' => null,  // Ya está en lectura_grupos_periodos
-                    'lectura_actual' => null,     // Ya está en lectura_grupos_periodos
-                    'consumo_m3' => round($consumoPorUnidadM3, 2),  // Distribución individual
+                    'lectura_anterior' => null,
+                    'lectura_actual' => null,
+                    'consumo_m3' => round($consumoPorUnidadM3, 2),
                     'observaciones' => $observaciones,
                     'registrado_por' => auth()->id(),
                 ]);
-
                 $lecturasCreadas[] = $lectura;
             }
 
@@ -254,7 +241,7 @@ class MedidorService
 
         // Buscar la última lectura de la unidad en cualquier período anterior
         return LecturaMedidor::where('unidad_id', $unidadId)
-            ->where('tipo', 'individual')
+            ->whereHas('unidad', fn($q) => $q->where('tipo_medidor', 'individual'))
             ->whereHas('periodo', function ($query) use ($periodoActual) {
                 $query->where(function ($q) use ($periodoActual) {
                     $q->where('año', '<', $periodoActual->año)

@@ -92,7 +92,7 @@
                     <div class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
                         <div>
                             <span class="font-medium text-blue-900">Unidad seleccionada:</span>
-                            <span class="text-blue-700 ml-2">{{ $this->unidadesFiltradas->firstWhere('id', $unidadId)?['nombre'] ?? '' }}</span>
+                            <span class="text-blue-700 ml-2">{{ $this->unidadesFiltradas->firstWhere('id', $unidadId)?->nombre ?? '' }}</span>
                         </div>
                         <button type="button" wire:click="limpiarUnidad" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
                             Cambiar

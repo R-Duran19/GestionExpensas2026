@@ -80,8 +80,9 @@ class RegistrarLecturaCompartida extends Component
     {
         // Obtener IDs de grupos que ya tienen lectura en este período
         $gruposConLectura = \App\Models\LecturaMedidor::where('periodo_id', $this->periodoId)
-            ->where('tipo', 'compartido')
+            ->whereNotNull('medidor_grupo_id')
             ->pluck('medidor_grupo_id')
+            ->unique()
             ->toArray();
 
         return MedidorGrupo::where('activo', true)

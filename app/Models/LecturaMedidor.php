@@ -20,11 +20,10 @@ class LecturaMedidor extends Model
     protected $fillable = [
         'periodo_id',
         'unidad_id',
-        'tipo',
+        'medidor_grupo_id',
         'lectura_anterior',
         'lectura_actual',
         'consumo_m3',
-        'medidor_grupo_id',
         'observaciones',
         'registrado_por',
     ];
@@ -57,7 +56,7 @@ class LecturaMedidor extends Model
     }
 
     /**
-     * Get the medidor grupo (if shared).
+     * Get the medidor grupo (for shared lecturas).
      */
     public function medidorGrupo(): BelongsTo
     {
@@ -81,27 +80,11 @@ class LecturaMedidor extends Model
     }
 
     /**
-     * Scope to get lecturas by tipo.
+     * Get tipo medidor (derived from unidad).
      */
-    public function scopePorTipo($query, string $tipo)
+    public function getTipoAttribute(): string
     {
-        return $query->where('tipo', $tipo);
-    }
-
-    /**
-     * Scope to get only individual lecturas.
-     */
-    public function scopeIndividuales($query)
-    {
-        return $query->where('tipo', 'individual');
-    }
-
-    /**
-     * Scope to get only shared lecturas.
-     */
-    public function scopeCompartidas($query)
-    {
-        return $query->where('tipo', 'compartido');
+        return $this->unidad?->tipo_medidor ?: 'individual';
     }
 
     /**

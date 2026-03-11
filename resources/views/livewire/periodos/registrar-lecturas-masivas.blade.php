@@ -4,8 +4,8 @@
         <div class="px-4 sm:px-6 lg:px-8 py-4">
             <div class="flex items-center justify-between mb-4">
                 <div>
-                    <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Lecturas Masivas</h1>
-                    <p class="text-sm text-gray-600 mt-1">{{ $this->periodo->nombre_periodo }}</p>
+                    <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Lecturas Individuales</h1>
+                    <p class="text-sm text-gray-600 mt-1">{{ $this->periodo->nombre_periodo }} - Medidores individuales por unidad</p>
                 </div>
                 <a href="{{ route('periodos.lecturas', $periodoId) }}"
                    class="text-blue-600 hover:text-blue-800 text-sm font-medium inline-flex items-center">
@@ -47,15 +47,17 @@
                 </div>
                 <div class="bg-green-50 rounded-lg p-2 sm:p-3 text-center">
                     <p class="text-xl sm:text-2xl font-bold text-green-600">
-                        {{ \App\Models\LecturaMedidor::where('periodo_id', $periodoId)->where('tipo', 'individual')->count() }}
+                        {{ \App\Models\LecturaMedidor::where('periodo_id', $periodoId)
+                            ->whereHas('unidad', fn($q) => $q->where('tipo_medidor', 'individual'))
+                            ->count() }}
                     </p>
                     <p class="text-xs text-green-700">Registradas</p>
                 </div>
                 <div class="bg-orange-50 rounded-lg p-2 sm:p-3 text-center">
                     <p class="text-xl sm:text-2xl font-bold text-orange-600">
-                        {{ \App\Models\Unidad::where('activo', true)->where('tiene_medidor', true)->whereDoesntHave('medidorGrupo')->count() }}
+                        {{ \App\Models\Unidad::where('activo', true)->where('tiene_medidor', true)->where('tipo_medidor', 'individual')->count() }}
                     </p>
-                    <p class="text-xs text-orange-700">Total Unidades</p>
+                    <p class="text-xs text-orange-700">Total Individuales</p>
                 </div>
             </div>
         </div>
@@ -183,7 +185,7 @@
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                 </svg>
-                Guardar Todas las Diligenciadas
+                Guardar Lecturas Individuales
             </button>
 
             <!-- Contador de lectura -->
