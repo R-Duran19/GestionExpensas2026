@@ -24,22 +24,13 @@ return new class extends Migration
             $table->decimal('deuda_anterior', 10, 2)->default(0)->comment('Deuda de meses anteriores');
 
             // Totales
-            $table->decimal('monto_total', 10, 2)->comment('Suma: expensa + agua + deuda anterior');
-            $table->decimal('monto_pagado', 10, 2)->default(0)->comment('Monto pagado hasta ahora');
-            $table->decimal('monto_pendiente', 10, 2)->default(0)->comment('Saldo pendiente de pago');
-            $table->decimal('saldo_a_favor', 10, 2)->default(0)->comment('Si pagó de más, queda como crédito');
-
-            // Estado
-            $table->enum('estado', ['pendiente', 'parcial', 'pagado'])->default('pendiente');
-            $table->text('observaciones')->nullable();
+            $table->decimal('monto_total', 10, 2)->comment('Suma: expensa + agua + deuda anterior (total individual de la unidad)');
 
             $table->timestamps();
             $table->softDeletes();
 
             // Índices
             $table->unique(['periodo_id', 'unidad_id']);
-            $table->index('estado');
-            $table->index(['periodo_id', 'estado']);
         });
     }
 

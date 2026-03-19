@@ -44,9 +44,12 @@ class ExpensaService
         DB::beginTransaction();
 
         try {
+            // Generar expensas individuales por unidad
+            $expensasGeneradas = [];
             foreach ($unidades as $unidad) {
                 try {
                     $expensa = $this->generarExpensaUnidad($periodoId, $unidad->id);
+                    $expensasGeneradas[] = $expensa;
                     $resultados['exitosas']++;
                     $resultados['detalles'][] = [
                         'unidad' => $unidad->nombre_completo,
@@ -59,6 +62,9 @@ class ExpensaService
                     ];
                 }
             }
+
+            // Generar expensas totales por propietario
+            $this->generarExpensasTotales($periodoId, $expensasGeneradas);
 
             DB::commit();
         } catch (\Exception $e) {
@@ -107,7 +113,7 @@ class ExpensaService
         // Calcular total usando los montos redondeados para consistencia
         $montoTotal = $montoExpensa + $montoAgua + $deudaAnterior - $saldoAFavor;
 
-        // 7. Crear o actualizar expensa
+        // 7. Crear o actualizar expensa individual
         $expensa = Expensa::updateOrCreate(
             [
                 'periodo_id' => $periodoId,
@@ -118,10 +124,6 @@ class ExpensaService
                 'monto_agua' => $montoAgua,
                 'deuda_anterior' => $deudaAnterior,
                 'monto_total' => $montoTotal,
-                'monto_pagado' => 0,
-                'monto_pendiente' => $montoTotal,
-                'saldo_a_favor' => 0, // Se actualiza cuando hay pagos
-                'estado' => 'pendiente',
             ]
         );
 
@@ -339,6 +341,9 @@ class ExpensaService
         // Eliminar expensas existentes del período
         Expensa::where('periodo_id', $periodoId)->delete();
 
+        // Eliminar expensas totales existentes del período
+        \App\Models\ExpensaTotal::where('periodo_id', $periodoId)->delete();
+
         // Generar nuevamente
         return $this->generarExpensas($periodoId);
     }
@@ -377,5 +382,132 @@ class ExpensaService
             'valido' => empty($errores),
             'errores' => $errores
         ];
+    }
+
+    /**
+     * Generar expensas totales por propietario
+     *
+     * @param int $periodoId
+     * @param array $expensasGeneradas
+     * @return void
+     */
+    protected function generarExpensasTotales(int $periodoId, array $expensasGeneradas): void
+    {
+        $periodo = PeriodoExpensa::findOrFail($periodoId);
+
+        // Agrupar expensas por propietario
+        $expensasPorPropietario = [];
+        foreach ($expensasGeneradas as $expensa) {
+            $propietario = $expensa->unidad->propietarioActual;
+            if (!$propietario) {
+                continue; // Saltar unidades sin propietario
+            }
+
+            $propietarioId = $propietario->id;
+            if (!isset($expensasPorPropietario[$propietarioId])) {
+                $expensasPorPropietario[$propietarioId] = [
+                    'propietario' => $propietario,
+                    'expensas' => [],
+                    'monto_total' => 0
+                ];
+            }
+
+            $expensasPorPropietario[$propietarioId]['expensas'][] = $expensa;
+            $expensasPorPropietario[$propietarioId]['monto_total'] += $expensa->monto_total;
+        }
+
+        // Generar expensas totales para cada propietario
+        foreach ($expensasPorPropietario as $propietarioId => $datos) {
+            $propietario = $datos['propietario'];
+            $montoTotalBruto = $datos['monto_total'];
+
+            // Buscar saldo a favor del período anterior
+            $saldoAFavorAnterior = $this->obtenerSaldoAFavorAnterior($propietarioId, $periodoId);
+
+            // Calcular monto total neto (aplicando saldo a favor si existe)
+            $montoTotalNeto = $montoTotalBruto - $saldoAFavorAnterior;
+
+            // Determinar estado y valores finales
+            if ($montoTotalNeto > 0) {
+                $estado = 'pendiente';
+                $montoPagado = 0;
+                $montoPendiente = $montoTotalNeto;
+                $saldoAFavor = 0;
+            } elseif ($montoTotalNeto == 0) {
+                $estado = 'pagado';
+                $montoPagado = 0;
+                $montoPendiente = 0;
+                $saldoAFavor = 0;
+            } else {
+                // Saldo a favor
+                $estado = 'pagado';
+                $montoPagado = 0;
+                $montoPendiente = 0;
+                $saldoAFavor = abs($montoTotalNeto);
+            }
+
+            // Redondear montos
+            $montoTotal = $this->redondear($montoTotalNeto);
+            $montoPagado = $this->redondear($montoPagado);
+            $montoPendiente = $this->redondear($montoPendiente);
+            $saldoAFavor = $this->redondear($saldoAFavor);
+
+            // Crear o actualizar expensa total
+            $expensaTotal = \App\Models\ExpensaTotal::updateOrCreate(
+                [
+                    'periodo_id' => $periodoId,
+                    'propietario_id' => $propietarioId,
+                ],
+                [
+                    'monto_total' => $montoTotal,
+                    'monto_pagado' => $montoPagado,
+                    'monto_pendiente' => $montoPendiente,
+                    'saldo_a_favor' => $saldoAFavor,
+                    'estado' => $estado,
+                ]
+            );
+
+            Log::info('Expensa total generada', [
+                'periodo' => $periodo->nombre_periodo,
+                'propietario' => $propietario->nombre . ' ' . $propietario->apellido,
+                'monto_total_bruto' => $montoTotalBruto,
+                'saldo_a_favor_anterior' => $saldoAFavorAnterior,
+                'monto_total_neto' => $montoTotal,
+                'estado' => $estado
+            ]);
+        }
+    }
+
+    /**
+     * Obtener saldo a favor del período anterior
+     *
+     * @param int $propietarioId
+     * @param int $periodoIdActual
+     * @return float
+     */
+    protected function obtenerSaldoAFavorAnterior(int $propietarioId, int $periodoIdActual): float
+    {
+        $periodoActual = PeriodoExpensa::find($periodoIdActual);
+
+        // Buscar expensa total de períodos ANTERIORES del mismo propietario
+        $expensaTotalAnterior = \App\Models\ExpensaTotal::where('propietario_id', $propietarioId)
+            ->whereHas('periodo', function ($query) use ($periodoActual) {
+                $query->where(function ($q) use ($periodoActual) {
+                    $q->where('año', '<', $periodoActual->año)
+                      ->orWhere(function ($q2) use ($periodoActual) {
+                          $q2->where('año', '=', $periodoActual->año)
+                             ->where('mes', '<', $periodoActual->mes);
+                      });
+                });
+            })
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        // Retornar saldo a favor del período anterior si existe y está pagado
+        if ($expensaTotalAnterior && $expensaTotalAnterior->saldo_a_favor > 0) {
+            return $expensaTotalAnterior->saldo_a_favor;
+        }
+
+        return 0;
     }
 }

@@ -28,11 +28,6 @@ class Expensa extends Model
         'monto_agua',
         'deuda_anterior',
         'monto_total',
-        'monto_pagado',
-        'monto_pendiente',
-        'saldo_a_favor',
-        'estado',
-        'observaciones',
     ];
 
     /**
@@ -45,9 +40,6 @@ class Expensa extends Model
         'monto_agua' => 'decimal:2',
         'deuda_anterior' => 'decimal:2',
         'monto_total' => 'decimal:2',
-        'monto_pagado' => 'decimal:2',
-        'monto_pendiente' => 'decimal:2',
-        'saldo_a_favor' => 'decimal:2',
     ];
 
     /**
@@ -67,76 +59,10 @@ class Expensa extends Model
     }
 
     /**
-     * Get the pagos for this expensa.
-     */
-    public function pagos(): HasMany
-    {
-        return $this->hasMany(Pago::class, 'expensa_id');
-    }
-
-    /**
      * Get the boleta for this expensa.
      */
     public function boleta()
     {
         return $this->hasOne(Boleta::class, 'expensa_id');
-    }
-
-    /**
-     * Scope to get expensas by estado.
-     */
-    public function scopePorEstado($query, string $estado)
-    {
-        return $query->where('estado', $estado);
-    }
-
-    /**
-     * Scope to get only pending expensas.
-     */
-    public function scopePendientes($query)
-    {
-        return $query->where('estado', 'pendiente');
-    }
-
-    /**
-     * Scope to get only partially paid expensas.
-     */
-    public function scopeParciales($query)
-    {
-        return $query->where('estado', 'parcial');
-    }
-
-    /**
-     * Scope to get only paid expensas.
-     */
-    public function scopePagadas($query)
-    {
-        return $query->where('estado', 'pagado');
-    }
-
-    /**
-     * Get estado label.
-     */
-    public function getEstadoLabelAttribute(): string
-    {
-        return match($this->estado) {
-            'pendiente' => 'Pendiente',
-            'parcial' => 'Parcial',
-            'pagado' => 'Pagado',
-            default => 'Desconocido',
-        };
-    }
-
-    /**
-     * Get estado color for UI.
-     */
-    public function getEstadoColorAttribute(): string
-    {
-        return match($this->estado) {
-            'pendiente' => 'red',
-            'parcial' => 'yellow',
-            'pagado' => 'green',
-            default => 'gray',
-        };
     }
 }
