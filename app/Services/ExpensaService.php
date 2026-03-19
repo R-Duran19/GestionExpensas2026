@@ -27,8 +27,10 @@ class ExpensaService
             throw new \Exception("El período debe estar abierto para calcular expensas");
         }
 
-        // Obtener factor de agua del período
-        $factorAgua = $this->calcularFactorAgua($periodoId);
+        // Validar que el período tenga los factores de agua calculados
+        if (is_null($periodo->factor_domiciliario) || is_null($periodo->factor_comercial)) {
+            throw new \Exception("El período {$periodo->nombre_periodo} no tiene los factores de agua calculados. Debe calcular los factores antes de generar las expensas.");
+        }
 
         // Obtener todas las unidades activas
         $unidades = Unidad::activos()->get();
@@ -44,7 +46,7 @@ class ExpensaService
         try {
             foreach ($unidades as $unidad) {
                 try {
-                    $expensa = $this->generarExpensaUnidad($periodoId, $unidad->id, $factorAgua);
+                    $expensa = $this->generarExpensaUnidad($periodoId, $unidad->id);
                     $resultados['exitosas']++;
                     $resultados['detalles'][] = [
                         'unidad' => $unidad->nombre_completo,
@@ -72,25 +74,19 @@ class ExpensaService
      *
      * @param int $periodoId
      * @param int $unidadId
-     * @param float|null $factorAgua
      * @return Expensa
      */
-    public function generarExpensaUnidad(int $periodoId, int $unidadId, ?float $factorAgua = null): Expensa
+    public function generarExpensaUnidad(int $periodoId, int $unidadId): Expensa
     {
         $periodo = PeriodoExpensa::findOrFail($periodoId);
         $unidad = Unidad::findOrFail($unidadId);
-
-        // Si no se proporciona factor de agua, calcularlo
-        if ($factorAgua === null) {
-            $factorAgua = $this->calcularFactorAgua($periodoId);
-        }
 
         // 1. Calcular expensa de departamento/oficina
         $montoExpensa = $this->calcularMontoExpensa($unidad);
 
         // 2. Calcular monto de agua (solo si tiene medidor)
         $montoAgua = $unidad->tiene_medidor
-            ? $this->calcularMontoAgua($periodoId, $unidadId, $factorAgua)
+            ? $this->calcularMontoAgua($periodoId, $unidadId)
             : 0;
 
         // 3. Obtener deuda anterior de períodos cerrados
@@ -108,7 +104,8 @@ class ExpensaService
         $montoAgua = $this->redondear($montoAgua);
         $deudaAnterior = $this->redondear($deudaAnterior);
         $saldoAFavor = $this->redondear($saldoAFavor);
-        $montoTotal = $this->redondear($montoTotal);
+        // Calcular total usando los montos redondeados para consistencia
+        $montoTotal = $montoExpensa + $montoAgua + $deudaAnterior - $saldoAFavor;
 
         // 7. Crear o actualizar expensa
         $expensa = Expensa::updateOrCreate(
@@ -154,15 +151,22 @@ class ExpensaService
 
     /**
      * Calcular el monto de agua para una unidad
-     * Fórmula: consumo_m3 × factor_agua
+     * Fórmula: consumo_m3 × factor_agua (según categoría de la unidad)
      *
      * @param int $periodoId
      * @param int $unidadId
-     * @param float $factorAgua
      * @return float
      */
-    protected function calcularMontoAgua(int $periodoId, int $unidadId, float $factorAgua): float
+    protected function calcularMontoAgua(int $periodoId, int $unidadId): float
     {
+        $periodo = PeriodoExpensa::findOrFail($periodoId);
+        $unidad = Unidad::findOrFail($unidadId);
+
+        // Validar que el período tenga factores calculados
+        if (is_null($periodo->factor_domiciliario) || is_null($periodo->factor_comercial)) {
+            throw new \Exception("El período {$periodo->nombre_periodo} no tiene los factores de agua calculados. Debe calcular los factores antes de generar las expensas.");
+        }
+
         // Buscar lectura de medidor de este período
         $lectura = LecturaMedidor::where('periodo_id', $periodoId)
             ->where('unidad_id', $unidadId)
@@ -175,6 +179,11 @@ class ExpensaService
 
         // El consumo ya está calculado en la lectura
         $consumoM3 = $lectura->consumo_m3;
+
+        // Usar el factor correspondiente según la categoría de la unidad
+        $factorAgua = $unidad->categoria_unidad === \App\Enums\CategoriaUnidad::DOMICILIARIA
+            ? $periodo->factor_domiciliario
+            : $periodo->factor_comercial;
 
         return $consumoM3 * $factorAgua;
     }

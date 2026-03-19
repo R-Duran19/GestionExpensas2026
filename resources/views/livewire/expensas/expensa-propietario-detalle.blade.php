@@ -91,6 +91,10 @@
                                         @if($expensa->unidad->tiene_medidor)
                                             @php
                                                 $lectura = $this->getLecturaAgua($expensa->unidad->id);
+                                                // Determinar el factor correcto según la categoría de la unidad
+                                                $factorAgua = $expensa->unidad->categoria_unidad === \App\Enums\CategoriaUnidad::DOMICILIARIA
+                                                    ? $periodo->factor_domiciliario
+                                                    : $periodo->factor_comercial;
                                             @endphp
                                             @if($lectura && $expensa->monto_agua > 0)
                                                 <div class="bg-blue-50 rounded p-2 text-xs space-y-1">
@@ -110,14 +114,14 @@
                                                     </div>
                                                     <div class="border-t border-blue-200 pt-1 mt-1">
                                                         <div class="flex justify-between items-center">
-                                                            <span class="text-gray-600">Factor agua:</span>
-                                                            <span class="font-medium text-gray-900">{{ number_format($periodo->factor_domiciliario, 4) }} Bs/m³</span>
+                                                            <span class="text-gray-600">Factor agua ({{ $expensa->unidad->categoria_unidad->getLabel() }}):</span>
+                                                            <span class="font-medium text-gray-900">{{ number_format($factorAgua, 4) }} Bs/m³</span>
                                                         </div>
                                                     </div>
                                                     <div class="border-t border-blue-200 pt-1 mt-1 bg-blue-100 -mx-2 -mb-2 px-2 py-1 rounded-b">
                                                         <div class="flex justify-between items-center">
                                                             <span class="text-xs text-gray-700">
-                                                                {{ number_format($lectura->consumo_m3, 2) }} m³ × {{ number_format($periodo->factor_domiciliario, 4) }} Bs/m³ =
+                                                                {{ number_format($lectura->consumo_m3, 2) }} m³ × {{ number_format($factorAgua, 4) }} Bs/m³ =
                                                             </span>
                                                             <span class="font-bold text-lg text-blue-700">{{ number_format($expensa->monto_agua, 2) }} Bs</span>
                                                         </div>
