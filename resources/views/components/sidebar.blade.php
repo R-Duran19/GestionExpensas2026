@@ -90,6 +90,15 @@
                 Expensas
             </a>
 
+            <!-- Caja -->
+            <a href="{{ route('caja.dashboard') }}"
+               class="flex items-center px-3 py-3 text-sm font-medium rounded-lg {{ request()->routeIs('caja.*') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-100' }}">
+                <svg class="shrink-0 h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                Caja
+            </a>
+
         <!-- Períodos -->
         <x-sidebar-link
             :href="route('periodos.index')"
@@ -203,6 +212,15 @@
             icon="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
         >
             Expensas
+        </x-sidebar-link>
+
+        <!-- Caja -->
+        <x-sidebar-link
+            :href="route('caja.dashboard')"
+            :active="request()->routeIs('caja.*')"
+            icon="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+        >
+            Caja
         </x-sidebar-link>
 
         <!-- Períodos -->

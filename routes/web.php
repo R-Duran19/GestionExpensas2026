@@ -161,6 +161,45 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
+    | MÓDULO DE CAJA (INGRESOS Y EGRESOS)
+    |--------------------------------------------------------------------------
+    | Sistema completo de gestión de caja con:
+    | - Ingresos (con numeración mensual REC-XX-XX-XXXXXXX)
+    | - Egresos (con numeración continua EGR-XXXXXX)
+    | - Categorías configurables por el usuario
+    | - Dashboard con totales en tiempo real
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('caja')->name('caja.')->group(function () {
+        // Dashboard principal
+        Route::get('/', \App\Livewire\Caja\CajaDashboard::class)->name('dashboard');
+
+        // Módulo de INGRESOS
+        Route::prefix('ingresos')->name('ingresos.')->group(function () {
+            Route::get('/', \App\Livewire\Caja\Ingresos\IngresoList::class)->name('index');
+            Route::get('/crear', \App\Livewire\Caja\Ingresos\IngresoForm::class)->name('create');
+            Route::get('/{ingreso}/editar', \App\Livewire\Caja\Ingresos\IngresoForm::class)->name('edit');
+        });
+
+        // Módulo de EGRESOS
+        Route::prefix('egresos')->name('egresos.')->group(function () {
+            Route::get('/', \App\Livewire\Caja\Egresos\EgresoList::class)->name('index');
+            Route::get('/crear', \App\Livewire\Caja\Egresos\EgresoForm::class)->name('create');
+            Route::get('/{egreso}/editar', \App\Livewire\Caja\Egresos\EgresoForm::class)->name('edit');
+        });
+
+        // Módulo de CATEGORÍAS
+        Route::prefix('categorias')->name('categorias.')->group(function () {
+            // Categorías de Ingresos
+            Route::get('/ingresos', \App\Livewire\Caja\Categorias\CategoriaIngresoList::class)->name('ingresos.index');
+
+            // Categorías de Egresos
+            Route::get('/egresos', \App\Livewire\Caja\Categorias\CategoriaEgresoList::class)->name('egresos.index');
+        });
+    });
+
+    /*
+    |--------------------------------------------------------------------------
     | MÓDULO DE PAGOS (FASE 5)
     |--------------------------------------------------------------------------
     */

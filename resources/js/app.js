@@ -49,5 +49,17 @@ Livewire.on('alerta', (data) => {
         confirmButtonColor: '#4F46E5',
         background: '#fff',
         color: '#1f2937'
+    }).then(() => {
+        // Después de cerrar la alerta, redirigir si es una alerta de éxito
+        if (tipo === 'success' && window.livewireCurrentUrl) {
+            window.location.href = window.livewireCurrentUrl;
+            window.livewireCurrentUrl = null;
+        }
     });
+});
+
+// Escuchar redirecciones de Livewire
+Livewire.on('redirect-to', (url) => {
+    console.log('Redirect-to:', url);
+    window.livewireCurrentUrl = url;
 });
