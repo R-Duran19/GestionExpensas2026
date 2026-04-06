@@ -32,5 +32,11 @@ class DatabaseSeeder extends Seeder
             FactorProrrateoSeeder::class,
             FacturaAguaSeeder::class,
         ]);
+
+        // FASE 1.6: Categorías de Caja
+        $this->call([
+            CategoriaIngresoSeeder::class,
+            CategoriaEgresoSeeder::class,
+        ]);
     }
 }
