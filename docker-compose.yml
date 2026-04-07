@@ -37,9 +37,9 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_DATABASE: ${DB_DATABASE:-expensas_db}
-      MYSQL_USER: ${DB_USERNAME:-expensas_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-secret_password}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_secret_password}
+      MYSQL_USER: ${DB_USERNAME:-AdminUserExpe2026}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-AdminExpe8119}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-AdminExpe8119}
       MYSQL_ALLOW_EMPTY_PASSWORD: 'no'
     # Puerto MySQL comentado - no es necesario exponerlo externamente
     # La aplicación se conecta internamente por la red Docker
