@@ -54,10 +54,6 @@ COPY docker/nginx/default.conf /etc/nginx/sites-available/default
 # Copiar configuración de supervisor
 COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Copiar script de entrada
-COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
 # Exponer puertos
 EXPOSE 80 9000
 

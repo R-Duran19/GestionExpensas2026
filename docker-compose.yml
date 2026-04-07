@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Contenedor de la aplicación Laravel
   app:
@@ -21,8 +19,6 @@ services:
       - DB_DATABASE=${DB_DATABASE:-expensas_db}
       - DB_USERNAME=${DB_USERNAME:-expensas_user}
       - DB_PASSWORD=${DB_PASSWORD:-secret_password}
-      - RUN_MIGRATIONS=${RUN_MIGRATIONS:-false}
-      - RUN_SEEDERS=${RUN_SEEDERS:-false}
     networks:
       - geopricer_365soft_app-network
       - expensas_network
