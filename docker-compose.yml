@@ -21,10 +21,9 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-secret_password}
     networks:
       - expensas_network
+      - geopricer_365soft_app-network
     depends_on:
       - mysql
-    ports:
-      - "127.0.0.1:8001:80"  # Exponer solo en localhost para nginx-proxy-manager
     expose:
       - "80"
       - "9000"
