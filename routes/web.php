@@ -3,6 +3,7 @@
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReciboPDFController;
+use App\Http\Controllers\EgresoPDFController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -195,6 +196,10 @@ Route::middleware(['auth', 'admin'])->group(function () {
             Route::get('/', \App\Livewire\Caja\Egresos\EgresoList::class)->name('index');
             Route::get('/crear', \App\Livewire\Caja\Egresos\EgresoForm::class)->name('create');
             Route::get('/{egreso}/editar', \App\Livewire\Caja\Egresos\EgresoForm::class)->name('edit');
+
+            // Rutas para PDF de egresos
+            Route::get('/{egreso}/pdf', [EgresoPDFController::class, 'mostrar'])->name('pdf');
+            Route::get('/{egreso}/pdf/descargar', [EgresoPDFController::class, 'descargar'])->name('pdf.descargar');
         });
 
         // Módulo de CATEGORÍAS

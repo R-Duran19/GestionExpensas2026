@@ -163,6 +163,14 @@
                                             <i class="fas fa-image text-sm"></i>
                                         </button>
                                     @endif
+
+                                    {{-- Botón de descarga de PDF --}}
+                                    <a href="{{ route('caja.egresos.pdf.descargar', $egreso) }}"
+                                       class="text-red-600 hover:text-red-900 p-1"
+                                       title="Descargar comprobante PDF">
+                                        <i class="fas fa-file-pdf text-sm"></i>
+                                    </a>
+
                                     <a href="{{ route('caja.egresos.edit', $egreso) }}"
                                        class="text-blue-600 hover:text-blue-900 p-1"
                                        title="Editar">
