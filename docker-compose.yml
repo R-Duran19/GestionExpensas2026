@@ -20,8 +20,8 @@ services:
       - DB_USERNAME=${DB_USERNAME:-expensas_user}
       - DB_PASSWORD=${DB_PASSWORD:-secret_password}
     networks:
-      - geopricer_365soft_app-network
       - expensas_network
+      - geopricer_365soft_app-network
     depends_on:
       - mysql
     ports:
