@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReciboPDFController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -183,6 +184,10 @@ Route::middleware(['auth', 'admin'])->group(function () {
             Route::get('/', \App\Livewire\Caja\Ingresos\IngresoList::class)->name('index');
             Route::get('/crear', \App\Livewire\Caja\Ingresos\IngresoForm::class)->name('create');
             Route::get('/{ingreso}/editar', \App\Livewire\Caja\Ingresos\IngresoForm::class)->name('edit');
+
+            // Rutas para PDF de recibos
+            Route::get('/{ingreso}/pdf', [ReciboPDFController::class, 'mostrar'])->name('pdf');
+            Route::get('/{ingreso}/pdf/descargar', [ReciboPDFController::class, 'descargar'])->name('pdf.descargar');
         });
 
         // Módulo de EGRESOS
