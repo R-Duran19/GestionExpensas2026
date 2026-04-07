@@ -44,15 +44,8 @@ WORKDIR /var/www/html
 # Copiar los archivos del proyecto
 COPY . .
 
-# Crear directorios necesarios antes de composer
+# Crear directorios necesarios
 RUN mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs
-
-# Instalar dependencias de PHP
-RUN composer install --no-interaction --optimize-autoloader --no-dev
-
-# Instalar dependencias de Node.js y construir assets
-RUN npm install \
-    && npm run build
 
 # Dar permisos al directorio de almacenamiento
 RUN chown -R www-data:www-data /var/www/html \
