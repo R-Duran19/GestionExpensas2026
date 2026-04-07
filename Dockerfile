@@ -39,6 +39,9 @@ WORKDIR /var/www/html
 # Copiar los archivos del proyecto
 COPY . .
 
+# Crear directorios necesarios antes de composer
+RUN mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs
+
 # Instalar dependencias de PHP
 RUN composer install --no-interaction --optimize-autoloader --no-dev
 
@@ -48,8 +51,13 @@ RUN npm install \
 
 # Dar permisos al directorio de almacenamiento
 RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html/storage \
-    && chmod -R 755 /var/www/html/bootstrap/cache
+    && chmod -R 775 /var/www/html/storage \
+    && chmod -R 775 /var/www/html/bootstrap/cache \
+    && mkdir -p /var/www/html/storage/app/public \
+    && mkdir -p /var/www/html/storage/framework/cache \
+    && mkdir -p /var/www/html/storage/framework/sessions \
+    && mkdir -p /var/www/html/storage/framework/views \
+    && mkdir -p /var/www/html/storage/logs
 
 # Copiar configuración de nginx
 COPY docker/nginx/default.conf /etc/nginx/sites-available/default
