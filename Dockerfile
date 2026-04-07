@@ -17,6 +17,11 @@ RUN apt-get update && apt-get install -y \
     libwebp-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Instalar Node.js desde NodeSource (versión 22, misma que en local)
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
 # Instalar extensiones de PHP necesarias para Laravel
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-install -j$(nproc) \
