@@ -19,7 +19,7 @@ class IngresoList extends Component
     public $filtro_metodo = '';
     public $filtro_fecha_desde = '';
     public $filtro_fecha_hasta = '';
-    public $sortField = 'fecha';
+    public $sortField = 'numero_recibo';
     public $sortDirection = 'desc';
 
     public $mostrarModalEliminar = false;
@@ -34,7 +34,7 @@ class IngresoList extends Component
         'buscar' => ['except' => ''],
         'filtro_categoria' => ['except' => ''],
         'filtro_metodo' => ['except' => ''],
-        'sortField' => ['except' => 'fecha'],
+        'sortField' => ['except' => 'numero_recibo'],
         'sortDirection' => ['except' => 'desc'],
     ];
 

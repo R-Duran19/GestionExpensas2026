@@ -19,7 +19,7 @@ class EgresoList extends Component
     public $filtro_proveedor = '';
     public $filtro_fecha_desde = '';
     public $filtro_fecha_hasta = '';
-    public $sortField = 'fecha';
+    public $sortField = 'numero_egreso';
     public $sortDirection = 'desc';
 
     public $mostrarModalEliminar = false;
@@ -34,7 +34,7 @@ class EgresoList extends Component
         'buscar' => ['except' => ''],
         'filtro_categoria' => ['except' => ''],
         'filtro_proveedor' => ['except' => ''],
-        'sortField' => ['except' => 'fecha'],
+        'sortField' => ['except' => 'numero_egreso'],
         'sortDirection' => ['except' => 'desc'],
     ];
 
