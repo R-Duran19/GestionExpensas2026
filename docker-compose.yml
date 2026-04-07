@@ -21,6 +21,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-secret_password}
     networks:
       - expensas_network
+      - geopricer_365soft_app-network
     depends_on:
       - mysql
     ports:
