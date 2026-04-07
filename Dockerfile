@@ -12,10 +12,13 @@ RUN apt-get update && apt-get install -y \
     unzip \
     nginx \
     supervisor \
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
+    libwebp-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Instalar extensiones de PHP necesarias para Laravel
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-install -j$(nproc) \
     pdo \
     pdo_mysql \
