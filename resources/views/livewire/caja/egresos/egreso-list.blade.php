@@ -8,8 +8,13 @@
             </h1>
             <p class="text-gray-600 mt-1">Gestión de egresos del edificio</p>
         </div>
+        <button wire:click="$dispatch('abrir-modal-reporte', 'egresos')"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition whitespace-nowrap">
+            <i class="fas fa-chart-bar"></i>
+            <span class="hidden sm:inline">Reportes</span>
+        </button>
         <a href="{{ route('caja.egresos.create') }}"
-           class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition w-full sm:w-auto whitespace-nowrap">
+           class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition whitespace-nowrap">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>

@@ -126,47 +126,70 @@ class IngresoList extends Component
     #[On('ingreso-actualizado')]
     public function render()
     {
-        $query = Ingreso::activos()
-            ->with(['categoria', 'unidad', 'creadoPor']);
+        try {
+            $query = Ingreso::activos()
+                ->with(['categoria', 'unidad', 'creadoPor']);
 
-        // Búsqueda
-        if ($this->buscar) {
-            $query->where(function ($q) {
-                $q->where('numero_recibo', 'like', "%{$this->buscar}%")
-                    ->orWhere('descripcion', 'like', "%{$this->buscar}%")
-                    ->orWhere('referencia_bancaria', 'like', "%{$this->buscar}%");
-            });
+            // Búsqueda
+            if ($this->buscar) {
+                $query->where(function ($q) {
+                    $q->where('numero_recibo', 'like', "%{$this->buscar}%")
+                        ->orWhere('descripcion', 'like', "%{$this->buscar}%")
+                        ->orWhere('referencia_bancaria', 'like', "%{$this->buscar}%");
+                });
+            }
+
+            // Filtro por categoría
+            if ($this->filtro_categoria) {
+                $query->porCategoria($this->filtro_categoria);
+            }
+
+            // Filtro por método de pago
+            if ($this->filtro_metodo) {
+                $query->porMetodoPago($this->filtro_metodo);
+            }
+
+            // Filtro por rango de fechas
+            if ($this->filtro_fecha_desde && $this->filtro_fecha_hasta) {
+                $query->porRangoFechas($this->filtro_fecha_desde, $this->filtro_fecha_hasta);
+            } elseif ($this->filtro_fecha_desde) {
+                $query->whereDate('fecha', '>=', $this->filtro_fecha_desde);
+            } elseif ($this->filtro_fecha_hasta) {
+                $query->whereDate('fecha', '<=', $this->filtro_fecha_hasta);
+            }
+
+            // Ordenamiento
+            $query->orderBy($this->sortField, $this->sortDirection);
+
+            $ingresos = $query->paginate(15);
+
+            $categorias = CategoriaIngreso::activas()->orderBy('nombre')->get();
+
+            return view('livewire.caja.ingresos.ingreso-list', [
+                'ingresos' => $ingresos,
+                'categorias' => $categorias,
+            ]);
+
+        } catch (\Exception $e) {
+            // En caso de error UTF-8, cargar sin relaciones
+            $query = Ingreso::activos();
+
+            if ($this->filtro_categoria) {
+                $query->where('categoria_ingreso_id', $this->filtro_categoria);
+            }
+
+            if ($this->filtro_metodo) {
+                $query->where('metodo_pago', $this->filtro_metodo);
+            }
+
+            $query->orderBy($this->sortField, $this->sortDirection);
+            $ingresos = $query->paginate(15);
+            $categorias = CategoriaIngreso::activas()->orderBy('nombre')->get();
+
+            return view('livewire.caja.ingresos.ingreso-list', [
+                'ingresos' => $ingresos,
+                'categorias' => $categorias,
+            ]);
         }
-
-        // Filtro por categoría
-        if ($this->filtro_categoria) {
-            $query->porCategoria($this->filtro_categoria);
-        }
-
-        // Filtro por método de pago
-        if ($this->filtro_metodo) {
-            $query->porMetodoPago($this->filtro_metodo);
-        }
-
-        // Filtro por rango de fechas
-        if ($this->filtro_fecha_desde && $this->filtro_fecha_hasta) {
-            $query->porRangoFechas($this->filtro_fecha_desde, $this->filtro_fecha_hasta);
-        } elseif ($this->filtro_fecha_desde) {
-            $query->whereDate('fecha', '>=', $this->filtro_fecha_desde);
-        } elseif ($this->filtro_fecha_hasta) {
-            $query->whereDate('fecha', '<=', $this->filtro_fecha_hasta);
-        }
-
-        // Ordenamiento
-        $query->orderBy($this->sortField, $this->sortDirection);
-
-        $ingresos = $query->paginate(15);
-
-        $categorias = CategoriaIngreso::activas()->orderBy('nombre')->get();
-
-        return view('livewire.caja.ingresos.ingreso-list', [
-            'ingresos' => $ingresos,
-            'categorias' => $categorias,
-        ]);
     }
 }

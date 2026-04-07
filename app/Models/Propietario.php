@@ -37,6 +37,53 @@ class Propietario extends Model
     ];
 
     /**
+     * Boot del modelo para limpiar caracteres UTF-8
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::retrieved(function ($model) {
+            $model->limpiarUtf8();
+        });
+    }
+
+    /**
+     * Limpiar caracteres UTF-8 inválidos del modelo
+     */
+    protected function limpiarUtf8()
+    {
+        $camposTexto = ['nombre', 'apellido', 'email', 'observaciones'];
+
+        foreach ($camposTexto as $campo) {
+            if (!empty($this->{$campo}) && is_string($this->{$campo})) {
+                $this->{$campo} = $this->limpiarString($this->{$campo});
+            }
+        }
+    }
+
+    /**
+     * Limpiar caracteres UTF-8 inválidos de un string
+     */
+    protected function limpiarString($string)
+    {
+        if (empty($string)) {
+            return $string;
+        }
+
+        // Convertir a UTF-8 válido
+        $string = mb_convert_encoding($string, 'UTF-8', 'UTF-8');
+
+        // Remover caracteres UTF-8 inválidos
+        $string = preg_replace('/[^\x{0009}\x{000A}\x{000D}\x{0020}-\x{D7FF}\x{E000}-\x{FFFD}]+/u', '', $string);
+
+        // Remover caracteres de control problemáticos
+        $string = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $string);
+
+        return $string;
+    }
+
+    /**
      * Accesores y Mutators
      */
 

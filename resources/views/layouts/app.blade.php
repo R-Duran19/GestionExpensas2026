@@ -42,6 +42,9 @@
             </div>
         </div>
 
+        <!-- Componente de Reportes Global -->
+        <livewire:reportes.generar-reporte />
+
         @stack('scripts')
     </body>
 </html>
