@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 
 class Ingreso extends Model
@@ -21,6 +22,8 @@ class Ingreso extends Model
         'comprobante_foto',
         'referencia_bancaria',
         'unidad_id',
+        'expensa_total_id',
+        'propietario_id',
         'observaciones',
         'activo',
         'creado_por',
@@ -36,7 +39,7 @@ class Ingreso extends Model
     /**
      * Relación con la categoría de ingreso
      */
-    public function categoria()
+    public function categoria(): BelongsTo
     {
         return $this->belongsTo(CategoriaIngreso::class, 'categoria_ingreso_id');
     }
@@ -44,9 +47,41 @@ class Ingreso extends Model
     /**
      * Relación con la unidad (opcional)
      */
-    public function unidad()
+    public function unidad(): BelongsTo
     {
         return $this->belongsTo(Unidad::class);
+    }
+
+    /**
+     * Relación con expensa_total (para pagos de expensas)
+     */
+    public function expensaTotal(): BelongsTo
+    {
+        return $this->belongsTo(ExpensaTotal::class, 'expensa_total_id');
+    }
+
+    /**
+     * Relación con propietario (para pagos de expensas)
+     */
+    public function propietario(): BelongsTo
+    {
+        return $this->belongsTo(Propietario::class, 'propietario_id');
+    }
+
+    /**
+     * Scope para filtrar pagos de expensas
+     */
+    public function scopePagosExpensas($query)
+    {
+        return $query->whereNotNull('expensa_total_id');
+    }
+
+    /**
+     * Scope para filtrar por propietario
+     */
+    public function scopePorPropietario($query, $propietarioId)
+    {
+        return $query->where('propietario_id', $propietarioId);
     }
 
     /**

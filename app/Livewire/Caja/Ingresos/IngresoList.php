@@ -88,9 +88,31 @@ class IngresoList extends Component
         $this->ingresoAEliminar = null;
     }
 
-    public function verComprobante($ruta)
+    public function verComprobante($ingresoId)
     {
-        $this->comprobanteUrl = Storage::url($ruta);
+        $ingreso = Ingreso::findOrFail($ingresoId);
+
+        if (!$ingreso->comprobante_foto) {
+            $this->dispatch('alerta', [
+                'tipo' => 'error',
+                'titulo' => 'Error',
+                'mensaje' => 'Este ingreso no tiene comprobante adjunto',
+            ]);
+            return;
+        }
+
+        // Verificar que el archivo exista en el disco 'public'
+        if (!Storage::disk('public')->exists($ingreso->comprobante_foto)) {
+            $this->dispatch('alerta', [
+                'tipo' => 'error',
+                'titulo' => 'Error',
+                'mensaje' => 'El archivo del comprobante no existe. Ruta: ' . $ingreso->comprobante_foto,
+            ]);
+            return;
+        }
+
+        // Generar URL usando el disco 'public'
+        $this->comprobanteUrl = Storage::disk('public')->url($ingreso->comprobante_foto);
         $this->mostrarModalComprobante = true;
     }
 

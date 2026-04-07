@@ -138,25 +138,38 @@
                     <tbody class="bg-white divide-y divide-gray-200">
                         @forelse($this->propietariosConExpensas as $propietario)
                             @php
-                                // Calcular totales del propietario
-                                $unidadIds = $propietario->unidades->pluck('id');
-                                $expensasPropietario = \App\Models\Expensa::where('periodo_id', $this->periodoId)
-                                    ->whereIn('unidad_id', $unidadIds)
-                                    ->get();
+                                // Buscar expensa_total PRIMERO (prioridad)
+                                $expensaTotal = \App\Models\ExpensaTotal::where('periodo_id', $this->periodoId)
+                                    ->where('propietario_id', $propietario->id)
+                                    ->first();
 
-                                $montoTotal = $expensasPropietario->sum('monto_total');
-                                $montoPagado = $expensasPropietario->sum('monto_pagado');
-                                $montoPendiente = $expensasPropietario->sum('monto_pendiente');
-
-                                // Determinar estado del propietario
-                                if ($montoPagado >= $montoTotal && $montoTotal > 0) {
-                                    $estado = 'pagado';
-                                } elseif ($montoPagado > 0) {
-                                    $estado = 'parcial';
-                                } elseif ($expensasPropietario->isEmpty()) {
-                                    $estado = 'sin_calcular';
+                                // Si existe expensa_total, usar sus valores
+                                if ($expensaTotal) {
+                                    $montoTotal = $expensaTotal->monto_total;
+                                    $montoPagado = $expensaTotal->monto_pagado;
+                                    $montoPendiente = $expensaTotal->monto_pendiente;
+                                    $estado = $expensaTotal->estado;
                                 } else {
-                                    $estado = 'pendiente';
+                                    // Sino, calcular desde expensas individuales (backward compatibility)
+                                    $unidadIds = $propietario->unidades->pluck('id');
+                                    $expensasPropietario = \App\Models\Expensa::where('periodo_id', $this->periodoId)
+                                        ->whereIn('unidad_id', $unidadIds)
+                                        ->get();
+
+                                    $montoTotal = $expensasPropietario->sum('monto_total');
+                                    $montoPagado = $expensasPropietario->sum('monto_pagado');
+                                    $montoPendiente = $expensasPropietario->sum('monto_pendiente');
+
+                                    // Determinar estado del propietario
+                                    if ($montoPagado >= $montoTotal && $montoTotal > 0) {
+                                        $estado = 'pagado';
+                                    } elseif ($montoPagado > 0) {
+                                        $estado = 'parcial';
+                                    } elseif ($expensasPropietario->isEmpty()) {
+                                        $estado = 'sin_calcular';
+                                    } else {
+                                        $estado = 'pendiente';
+                                    }
                                 }
                             @endphp
 
@@ -235,6 +248,19 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                             </svg>
                                         </a>
+
+                                        <!-- Pagar expensa -->
+                                        @if($expensaTotal)
+                                            <a
+                                                href="{{ route('expensas.pagar', $expensaTotal->id) }}"
+                                                class="@if($montoPendiente > 0) text-green-600 hover:text-green-900 @else text-gray-400 hover:text-gray-600 @endif"
+                                                title="@if($montoPendiente > 0) Registrar pago @else Ya pagado - Ver detalles @endif"
+                                            >
+                                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                </svg>
+                                            </a>
+                                        @endif
 
                                         <!-- Regenerar expensas -->
                                         @if($this->periodo->estado === 'abierto')

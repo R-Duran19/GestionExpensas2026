@@ -112,9 +112,13 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::prefix('expensas')->name('expensas.')->group(function () {
         // Listado principal de expensas (por propietarios)
         Route::get('/', \App\Livewire\Expensas\ExpensaList::class)->name('index');
+        Route::get('/list', \App\Livewire\Expensas\ExpensaList::class)->name('list'); // Alias para redirecciones
 
         // Boleta de expensas de un propietario (todas sus unidades)
         Route::get('/propietario/{periodo}/{propietario}', \App\Livewire\Expensas\ExpensaPropietarioDetalle::class)->name('propietario');
+
+        // Sistema de pagos de expensas
+        Route::get('/pagar/{expensaTotal}', \App\Livewire\Expensas\PagoExpensaForm::class)->name('pagar');
 
         // Detalle de expensa individual (mantenido para compatibilidad)
         Route::get('/{expensa}', \App\Livewire\Expensas\ExpensaDetalle::class)->name('detalle');

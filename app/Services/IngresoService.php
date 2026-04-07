@@ -75,6 +75,11 @@ class IngresoService
         return DB::transaction(function () use ($ingreso, $datos, $archivoComprobante) {
             $fechaOriginal = $ingreso->fecha->format('Y-m-d');
             $fechaNueva = \Carbon\Carbon::parse($datos['fecha'])->format('Y-m-d');
+            $montoOriginal = $ingreso->importe;
+
+            // Verificar si es un pago de expensa
+            $esPagoExpensa = !is_null($ingreso->expensa_total_id);
+            $expensaTotalId = $ingreso->expensa_total_id;
 
             // Procesar nuevo comprobante si se proporciona
             if ($archivoComprobante) {
@@ -91,6 +96,11 @@ class IngresoService
 
             // Actualizar ingreso
             $ingreso->update($datos);
+
+            // Si es pago de expensa y cambió el monto, recalcular expensa_total
+            if ($esPagoExpensa && isset($datos['importe']) && $datos['importe'] != $montoOriginal) {
+                $this->recalcularExpensaTotal($expensaTotalId);
+            }
 
             // Actualizar totales de ambas fechas si cambió la fecha
             if ($fechaOriginal !== $fechaNueva) {
@@ -113,6 +123,10 @@ class IngresoService
         return DB::transaction(function () use ($ingreso) {
             $fecha = $ingreso->fecha->format('Y-m-d');
 
+            // Verificar si es un pago de expensa
+            $esPagoExpensa = !is_null($ingreso->expensa_total_id);
+            $expensaTotalId = $ingreso->expensa_total_id;
+
             // Eliminar archivo de comprobante si existe
             if ($ingreso->comprobante_foto && Storage::exists($ingreso->comprobante_foto)) {
                 Storage::delete($ingreso->comprobante_foto);
@@ -120,6 +134,11 @@ class IngresoService
 
             // Soft delete
             $ingreso->delete();
+
+            // Si es pago de expensa, recalcular expensa_total
+            if ($esPagoExpensa) {
+                $this->recalcularExpensaTotal($expensaTotalId);
+            }
 
             // Actualizar totales del día
             $this->actualizarTotalesDia($fecha);
@@ -138,7 +157,17 @@ class IngresoService
     {
         return DB::transaction(function () use ($id) {
             $ingreso = Ingreso::withTrashed()->findOrFail($id);
+
+            // Verificar si es un pago de expensa
+            $esPagoExpensa = !is_null($ingreso->expensa_total_id);
+            $expensaTotalId = $ingreso->expensa_total_id;
+
             $ingreso->restore();
+
+            // Si es pago de expensa, recalcular expensa_total
+            if ($esPagoExpensa) {
+                $this->recalcularExpensaTotal($expensaTotalId);
+            }
 
             // Actualizar totales del día
             $this->actualizarTotalesDia($ingreso->fecha->format('Y-m-d'));
@@ -242,6 +271,74 @@ class IngresoService
                     'metodo_pago' => $ingreso->metodo_pago,
                     'categoria' => $ingreso->categoria?->nombre,
                     'fecha' => $ingreso->fecha->format('Y-m-d'),
+                ],
+            ]);
+        }
+    }
+
+    /**
+     * Recalcular expensa_total después de editar/eliminar un pago
+     *
+     * @param int $expensaTotalId
+     * @return void
+     */
+    protected function recalcularExpensaTotal(int $expensaTotalId): void
+    {
+        $expensaTotal = \App\Models\ExpensaTotal::find($expensaTotalId);
+
+        if (!$expensaTotal) {
+            return;
+        }
+
+        // Sumar todos los pagos (ingresos) activos de este expensa_total
+        $montoPagado = Ingreso::where('expensa_total_id', $expensaTotalId)
+            ->activos()
+            ->sum('importe');
+
+        // Calcular nuevo monto pendiente
+        $montoPendiente = $expensaTotal->monto_total - $montoPagado;
+
+        // Calcular saldo a favor si sobra
+        $saldoFavor = 0;
+        if ($montoPendiente < 0) {
+            $saldoFavor = abs($montoPendiente);
+            $montoPendiente = 0;
+        }
+
+        // Determinar nuevo estado
+        $nuevoEstado = $expensaTotal->estado;
+        if ($montoPendiente == 0 && $saldoFavor == 0) {
+            $nuevoEstado = 'pagado';
+        } elseif ($montoPagado > 0 && $montoPendiente > 0) {
+            $nuevoEstado = 'parcial';
+        } elseif ($montoPagado == 0) {
+            $nuevoEstado = 'pendiente';
+        }
+
+        // Actualizar expensa_total
+        $expensaTotal->update([
+            'monto_pagado' => $montoPagado,
+            'monto_pendiente' => $montoPendiente,
+            'saldo_a_favor' => $saldoFavor,
+            'estado' => $nuevoEstado,
+        ]);
+
+        // Registrar en Activity Log
+        if (class_exists(\App\Models\ActivityLog::class)) {
+            \App\Models\ActivityLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'expensa_total.recalculada',
+                'model_type' => \App\Models\ExpensaTotal::class,
+                'model_id' => $expensaTotal->id,
+                'description' => "Expensa total recalculada automáticamente",
+                'properties' => [
+                    'expensa_total_id' => $expensaTotal->id,
+                    'propietario' => $expensaTotal->propietario->nombre . ' ' . $expensaTotal->propietario->apellido,
+                    'periodo' => $expensaTotal->periodo->nombre_periodo,
+                    'monto_pagado' => $montoPagado,
+                    'monto_pendiente' => $montoPendiente,
+                    'saldo_a_favor' => $saldoFavor,
+                    'estado' => $nuevoEstado,
                 ],
             ]);
         }
