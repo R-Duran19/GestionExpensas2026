@@ -72,6 +72,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::prefix('propietarios')->name('propietarios.')->group(function () {
         Route::get('/', \App\Livewire\Propietarios\PropietarioList::class)->name('index');
         Route::get('/crear', \App\Livewire\Propietarios\PropietarioForm::class)->name('create');
+        Route::get('/{propietario}', \App\Livewire\Propietarios\PropietarioShow::class)->name('show');
         Route::get('/{propietario}/editar', \App\Livewire\Propietarios\PropietarioForm::class)->name('edit');
     });
 

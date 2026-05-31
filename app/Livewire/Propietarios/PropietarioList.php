@@ -4,7 +4,6 @@ namespace App\Livewire\Propietarios;
 
 use App\Models\Propietario;
 use App\Services\PropietarioService;
-use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
 
