@@ -68,6 +68,67 @@ class UnidadService
         ?string $motivo = null
     ): void {
         DB::transaction(function () use ($unidad, $propietario, $fechaInicio, $motivo) {
+            // 0. Verificar si el propietario YA es el actual de esta unidad
+            $asignacionActual = DB::table('propietario_unidad')
+                ->where('unidad_id', $unidad->id)
+                ->where('propietario_id', $propietario->id)
+                ->where('es_propietario_actual', true)
+                ->first();
+
+            if ($asignacionActual) {
+                throw new \Exception(
+                    "El propietario {$propietario->nombre_completo} ya está asignado como propietario actual de la unidad {$unidad->codigo}"
+                );
+            }
+
+            // 0.5 Verificar si ya existe un registro con la misma fecha (para reactivar)
+            $fechaInicioFormat = $fechaInicio ? date('Y-m-d', strtotime($fechaInicio)) : now()->format('Y-m-d');
+            $existeMismaFecha = DB::table('propietario_unidad')
+                ->where('unidad_id', $unidad->id)
+                ->where('propietario_id', $propietario->id)
+                ->where('fecha_inicio', $fechaInicioFormat)
+                ->first();
+
+            if ($existeMismaFecha) {
+                // Si el registro existe pero NO es el actual, reactivarlo
+                if (!$existeMismaFecha->es_propietario_actual) {
+                    DB::table('propietario_unidad')
+                        ->where('id', $existeMismaFecha->id)
+                        ->update([
+                            'es_propietario_actual' => true,
+                            'fecha_fin' => null,
+                            'updated_at' => now(),
+                        ]);
+
+                    // Activar la unidad
+                    if (!$unidad->activo) {
+                        $unidad->activo = true;
+                        $unidad->save();
+                    }
+
+                    // Log de reactivación
+                    ActivityLog::create([
+                        'user_id' => Auth::id(),
+                        'action' => 'propietario.reactivado',
+                        'model_type' => Unidad::class,
+                        'model_id' => $unidad->id,
+                        'description' => "Propietario {$propietario->nombre_completo} reactivado para unidad {$unidad->codigo}",
+                        'properties' => [
+                            'unidad_codigo' => $unidad->codigo,
+                            'propietario_nombre' => $propietario->nombre_completo,
+                            'fecha_inicio' => $fechaInicioFormat,
+                        ],
+                    ]);
+
+                    return; // Salir, ya reactivamos
+                } else {
+                    // Si ya es el actual, lanzar error
+                    throw new \Exception(
+                        "El propietario {$propietario->nombre_completo} ya está asignado como propietario actual de la unidad {$unidad->codigo}"
+                    );
+                }
+            }
+
             // 1. Buscar propietario anterior de esta unidad
             $asignacionAnterior = DB::table('propietario_unidad')
                 ->where('unidad_id', $unidad->id)

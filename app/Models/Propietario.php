@@ -90,10 +90,27 @@ class Propietario extends Model
      */
     public function scopeBuscar($query, $termino)
     {
-        return $query->where('ci', 'like', "%{$termino}%")
-                    ->orWhere('nombre', 'like', "%{$termino}%")
-                    ->orWhere('apellido', 'like', "%{$termino}%")
-                    ->orWhere('email', 'like', "%{$termino}%");
+        // Limpiar y dividir en palabras
+        $termino = trim($termino);
+        $palabras = explode(' ', $termino);
+
+        // Si es una sola palabra, búsqueda normal
+        if (count($palabras) === 1) {
+            return $query->where('ci', 'like', "%{$termino}%")
+                        ->orWhere('nombre', 'like', "%{$termino}%")
+                        ->orWhere('apellido', 'like', "%{$termino}%")
+                        ->orWhere('email', 'like', "%{$termino}%");
+        }
+
+        // Si son múltiples palabras, buscar cada una en cualquier campo
+        return $query->where(function ($q) use ($palabras) {
+            foreach ($palabras as $palabra) {
+                $q->orWhere('ci', 'like', "%{$palabra}%")
+                  ->orWhere('nombre', 'like', "%{$palabra}%")
+                  ->orWhere('apellido', 'like', "%{$palabra}%")
+                  ->orWhere('email', 'like', "%{$palabra}%");
+            }
+        });
     }
 
     /**
@@ -127,5 +144,13 @@ class Propietario extends Model
     public function historialUnidades()
     {
         return $this->unidades()->withTimestamps();
+    }
+
+    /**
+     * Expensas totales de este propietario (agrupadas por período)
+     */
+    public function expensaTotal()
+    {
+        return $this->hasMany(ExpensaTotal::class, 'propietario_id');
     }
 }

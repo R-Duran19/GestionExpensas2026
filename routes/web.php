@@ -65,7 +65,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::prefix('unidades')->name('unidades.')->group(function () {
         Route::get('/', \App\Livewire\Propiedades\UnidadList::class)->name('index');
         Route::get('/crear', \App\Livewire\Propiedades\UnidadForm::class)->name('create');
-        Route::get('/{unidad}/editar', \App\Livewire\Propiedades\UnidadForm::class)->name('edit');
+        Route::get('/{unidad}/editar', \App\Livewire\Propiedades\UnidadEditConPropietario::class)->name('edit');
     });
 
     // Rutas de Propietarios
@@ -73,7 +73,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
         Route::get('/', \App\Livewire\Propietarios\PropietarioList::class)->name('index');
         Route::get('/crear', \App\Livewire\Propietarios\PropietarioForm::class)->name('create');
         Route::get('/{propietario}', \App\Livewire\Propietarios\PropietarioShow::class)->name('show');
-        Route::get('/{propietario}/editar', \App\Livewire\Propietarios\PropietarioForm::class)->name('edit');
+        Route::get('/{propietario}/editar', \App\Livewire\Propietarios\PropietarioEditConUnidades::class)->name('edit');
     });
 
     // Rutas de Asignación

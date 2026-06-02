@@ -131,6 +131,9 @@ class Unidad extends Model
      */
     public function scopeBuscar($query, $termino)
     {
+        // Limpiar espacios
+        $termino = trim($termino);
+
         return $query->where('codigo', 'like', "%{$termino}%")
                     ->orWhere('piso', 'like', "%{$termino}%");
     }
