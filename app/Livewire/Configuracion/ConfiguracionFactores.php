@@ -5,6 +5,7 @@ namespace App\Livewire\Configuracion;
 use App\Services\FactorService;
 use Livewire\Component;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Database\QueryException;
 
 class ConfiguracionFactores extends Component
 {
@@ -94,6 +95,21 @@ class ConfiguracionFactores extends Component
             ]);
 
             $this->cerrarModal();
+        } catch (QueryException $e) {
+            // Error de base de datos (duplicados, etc.)
+            if ($e->getCode() == 23000) {
+                $this->dispatch('alerta', [
+                    'tipo' => 'error',
+                    'titulo' => 'Factor duplicado',
+                    'mensaje' => "Ya existe un factor para esta categoría creado hoy. Espere hasta mañana o actualice el registro existente.",
+                ]);
+            } else {
+                $this->dispatch('alerta', [
+                    'tipo' => 'error',
+                    'titulo' => 'Error de base de datos',
+                    'mensaje' => 'Error al guardar en la base de datos. Código: ' . $e->getCode(),
+                ]);
+            }
         } catch (\Exception $e) {
             $this->dispatch('alerta', [
                 'tipo' => 'error',

@@ -6,6 +6,7 @@ use App\Models\FactorHistorial;
 use App\Models\FactorProrrateo;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Database\QueryException;
 
 class FactorService
 {
@@ -61,8 +62,9 @@ class FactorService
         }
 
         $userId = auth()->id();
+        $hoy = now()->startOfDay();
 
-        return DB::transaction(function () use ($categoria, $nuevoFactor, $motivo, $userId) {
+        return DB::transaction(function () use ($categoria, $nuevoFactor, $motivo, $userId, $hoy) {
             // Obtener factor anterior vigente
             $anterior = $this->obtenerFactorVigente($categoria);
 
@@ -70,28 +72,78 @@ class FactorService
                 throw new \Exception("No existe un factor vigente para la categoría {$categoria}. Debe crear uno primero.");
             }
 
-            // Desactivar factor anterior
-            $anterior->activo = false;
-            $anterior->save();
+            // Verificar si ya existe un registro creado hoy
+            $factorHoy = FactorProrrateo::where('categoria', $categoria)
+                ->whereDate('vigencia_desde', $hoy)
+                ->first();
 
-            // Crear nuevo factor
-            $nuevo = FactorProrrateo::create([
-                'categoria' => $categoria,
-                'factor' => $nuevoFactor,
-                'vigencia_desde' => now(),
-                'activo' => true,
-                'creado_por' => $userId,
-            ]);
+            if ($factorHoy) {
+                // Ya existe un registro creado hoy, actualizarlo
+                $factorAnteriorValor = $factorHoy->factor;
+                $factorHoy->factor = $nuevoFactor;
+                $factorHoy->activo = true;
+                $factorHoy->save();
 
-            // Guardar en historial
-            FactorHistorial::create([
-                'factor_prorrateo_id' => $nuevo->id,
-                'factor_anterior' => $anterior->factor,
-                'factor_nuevo' => $nuevoFactor,
-                'cambiado_por' => $userId,
-                'motivo' => $motivo,
-                'vigencia_desde' => now(),
-            ]);
+                $nuevo = $factorHoy;
+
+                // Guardar en historial con el valor anterior
+                FactorHistorial::create([
+                    'factor_prorrateo_id' => $nuevo->id,
+                    'factor_anterior' => $factorAnteriorValor,
+                    'factor_nuevo' => $nuevoFactor,
+                    'cambiado_por' => $userId,
+                    'motivo' => $motivo,
+                    'vigencia_desde' => $hoy,
+                ]);
+
+                Log::info("Factor actualizado (registro existente hoy)", [
+                    'categoria' => $categoria,
+                    'anterior' => $factorAnteriorValor,
+                    'nuevo' => $nuevoFactor,
+                    'usuario' => $userId,
+                ]);
+            } else {
+                // No existe registro hoy, desactivar anterior y crear nuevo
+                $anterior->activo = false;
+                $anterior->save();
+
+                try {
+                    // Crear nuevo factor
+                    $nuevo = FactorProrrateo::create([
+                        'categoria' => $categoria,
+                        'factor' => $nuevoFactor,
+                        'vigencia_desde' => $hoy,
+                        'activo' => true,
+                        'creado_por' => $userId,
+                    ]);
+
+                    // Guardar en historial
+                    FactorHistorial::create([
+                        'factor_prorrateo_id' => $nuevo->id,
+                        'factor_anterior' => $anterior->factor,
+                        'factor_nuevo' => $nuevoFactor,
+                        'cambiado_por' => $userId,
+                        'motivo' => $motivo,
+                        'vigencia_desde' => $hoy,
+                    ]);
+
+                    Log::info("Factor actualizado (nuevo registro)", [
+                        'categoria' => $categoria,
+                        'anterior' => $anterior->factor,
+                        'nuevo' => $nuevoFactor,
+                        'usuario' => $userId,
+                    ]);
+                } catch (QueryException $e) {
+                    // Capturar error de duplicado y dar mensaje claro
+                    if ($e->getCode() == 23000) {
+                        throw new \Exception(
+                            "Ya existe un factor para la categoría {$categoria} creado hoy. " .
+                            "Espere hasta mañana para crear uno nuevo o actualice el existente."
+                        );
+                    }
+                    throw $e;
+                }
+            }
 
             // Registrar en log de actividad
             if (class_exists('App\Models\ActivityLog')) {
@@ -100,22 +152,15 @@ class FactorService
                     'action' => 'factor.actualizado',
                     'model_type' => FactorProrrateo::class,
                     'model_id' => $nuevo->id,
-                    'description' => "Factor {$categoria} actualizado de {$anterior->factor} a {$nuevoFactor}",
+                    'description' => "Factor {$categoria} actualizado a {$nuevoFactor}",
                     'properties' => [
                         'categoria' => $categoria,
-                        'factor_anterior' => $anterior->factor,
+                        'factor_anterior' => isset($factorAnteriorValor) ? $factorAnteriorValor : $anterior->factor,
                         'factor_nuevo' => $nuevoFactor,
                         'motivo' => $motivo,
                     ],
                 ]);
             }
-
-            Log::info("Factor actualizado", [
-                'categoria' => $categoria,
-                'anterior' => $anterior->factor,
-                'nuevo' => $nuevoFactor,
-                'usuario' => $userId,
-            ]);
 
             return $nuevo;
         });
@@ -133,7 +178,7 @@ class FactorService
         return FactorProrrateo::create([
             'categoria' => $categoria,
             'factor' => $factor,
-            'vigencia_desde' => now(),
+            'vigencia_desde' => now()->startOfDay(),
             'activo' => true,
             'creado_por' => auth()->id() ?? 1,
         ]);
