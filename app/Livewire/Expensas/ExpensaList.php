@@ -3,6 +3,7 @@
 namespace App\Livewire\Expensas;
 
 use App\Models\Expensa;
+use App\Models\ExpensaTotal;
 use App\Models\PeriodoExpensa;
 use App\Models\Unidad;
 use App\Services\ExpensaService;
@@ -92,15 +93,21 @@ class ExpensaList extends Component
                           }
                       }]);
             }])
+            ->with(['expensaTotal' => function ($query) {
+                if ($this->periodoId) {
+                    $query->where('periodo_id', $this->periodoId);
+                }
+            }])
             ->orderBy('apellido')
             ->orderBy('nombre');
 
         // Filtro de búsqueda
         if ($this->search) {
-            $query->where(function ($q) {
-                $q->where('nombre', 'like', '%' . $this->search . '%')
-                  ->orWhere('apellido', 'like', '%' . $this->search . '%')
-                  ->orWhere('ci', 'like', '%' . $this->search . '%');
+            $termino = '%' . $this->search . '%';
+            $query->where(function ($q) use ($termino) {
+                $q->where('nombre', 'like', $termino)
+                  ->orWhere('apellido', 'like', $termino)
+                  ->orWhere('ci', 'like', $termino);
             });
         }
 
@@ -170,14 +177,31 @@ class ExpensaList extends Component
             ];
         }
 
-        $expensas = Expensa::where('periodo_id', $this->periodoId)->get();
+        // Contar unidades activas
         $unidades = Unidad::activos()->count();
 
-        if ($expensas->isEmpty()) {
+        // Obtener estadísticas desde expensa_total (agregación en BD)
+        $estadisticasExpensas = ExpensaTotal::where('periodo_id', $this->periodoId)
+            ->selectRaw('
+                COUNT(*) as total_registros,
+                SUM(CASE WHEN estado = "pendiente" THEN 1 ELSE 0 END) as pendientes,
+                SUM(CASE WHEN estado = "parcial" THEN 1 ELSE 0 END) as parciales,
+                SUM(CASE WHEN estado = "pagado" THEN 1 ELSE 0 END) as pagadas,
+                SUM(monto_total) as monto_total,
+                SUM(monto_pagado) as monto_pagado,
+                SUM(monto_pendiente) as monto_pendiente
+            ')
+            ->first();
+
+        // Si no hay expensas totales, retornar valores vacíos
+        if (!$estadisticasExpensas || $estadisticasExpensas->total_registros === 0) {
+            // Backward compatibility: verificar si hay expensas individuales
+            $expensasCount = Expensa::where('periodo_id', $this->periodoId)->count();
+
             return [
                 'total_propietarios' => 0,
                 'total_unidades' => $unidades,
-                'expensas_calculadas' => 0,
+                'expensas_calculadas' => $expensasCount,
                 'pendientes' => 0,
                 'parciales' => 0,
                 'pagadas' => 0,
@@ -187,54 +211,21 @@ class ExpensaList extends Component
             ];
         }
 
-        // Obtener IDs de unidades con expensas y luego los IDs de propietarios
-        $unidadIds = $expensas->pluck('unidad_id')->unique();
-        $propietariosIds = \DB::table('propietario_unidad')
-            ->whereIn('unidad_id', $unidadIds)
-            ->where('es_propietario_actual', true)
-            ->pluck('propietario_id')
-            ->unique();
-
-        $propietarios = \App\Models\Propietario::with('unidades')
-            ->whereIn('id', $propietariosIds)
-            ->get();
-
-        // Contar estados por propietario
-        $pendientes = 0;
-        $parciales = 0;
-        $pagadas = 0;
-
-        foreach ($propietarios as $propietario) {
-            $expensasPropietario = $expensas->filter(function($expensa) use ($propietario) {
-                // Obtener IDs de unidades del propietario
-                $unidadIds = $propietario->unidades->pluck('id');
-                return $unidadIds->contains($expensa->unidad_id);
-            });
-
-            if ($expensasPropietario->isNotEmpty()) {
-                $montoPagado = $expensasPropietario->sum('monto_pagado');
-                $montoTotal = $expensasPropietario->sum('monto_total');
-
-                if ($montoPagado >= $montoTotal && $montoTotal > 0) {
-                    $pagadas++;
-                } elseif ($montoPagado > 0) {
-                    $parciales++;
-                } else {
-                    $pendientes++;
-                }
-            }
-        }
+        // Contar propietarios únicos desde expensa_total
+        $totalPropietarios = ExpensaTotal::where('periodo_id', $this->periodoId)
+            ->distinct('propietario_id')
+            ->count('propietario_id');
 
         return [
-            'total_propietarios' => $propietarios->count(),
+            'total_propietarios' => $totalPropietarios,
             'total_unidades' => $unidades,
-            'expensas_calculadas' => $expensas->count(),
-            'pendientes' => $pendientes,
-            'parciales' => $parciales,
-            'pagadas' => $pagadas,
-            'monto_total' => $expensas->sum('monto_total'),
-            'monto_pagado' => $expensas->sum('monto_pagado'),
-            'monto_pendiente' => $expensas->sum('monto_pendiente'),
+            'expensas_calculadas' => Expensa::where('periodo_id', $this->periodoId)->count(),
+            'pendientes' => $estadisticasExpensas->pendientes ?? 0,
+            'parciales' => $estadisticasExpensas->parciales ?? 0,
+            'pagadas' => $estadisticasExpensas->pagadas ?? 0,
+            'monto_total' => $estadisticasExpensas->monto_total ?? 0,
+            'monto_pagado' => $estadisticasExpensas->monto_pagado ?? 0,
+            'monto_pendiente' => $estadisticasExpensas->monto_pendiente ?? 0,
         ];
     }
 

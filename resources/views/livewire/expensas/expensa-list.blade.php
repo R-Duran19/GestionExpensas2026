@@ -138,10 +138,11 @@
                     <tbody class="bg-white divide-y divide-gray-200">
                         @forelse($this->propietariosConExpensas as $propietario)
                             @php
-                                // Buscar expensa_total PRIMERO (prioridad)
-                                $expensaTotal = \App\Models\ExpensaTotal::where('periodo_id', $this->periodoId)
-                                    ->where('propietario_id', $propietario->id)
-                                    ->first();
+                                // Buscar expensa_total en la colección cargada (eager loading)
+                                $periodoIdActual = $this->periodoId;
+                                $expensaTotal = $propietario->expensaTotal->first(function($et) use ($periodoIdActual) {
+                                    return $et->periodo_id == $periodoIdActual;
+                                });
 
                                 // Si existe expensa_total, usar sus valores
                                 if ($expensaTotal) {
@@ -238,8 +239,7 @@
                                     <div class="flex items-center justify-center space-x-2">
                                         <!-- Ver detalle -->
                                         <a
-                                            href="#"
-                                            wire:click="verDetallePropietario({{ $propietario->id }})"
+                                            href="{{ route('expensas.propietario', [$this->periodoId, $propietario->id]) }}"
                                             class="text-blue-600 hover:text-blue-900"
                                             title="Ver detalle"
                                         >
