@@ -101,13 +101,33 @@ class ExpensaList extends Component
             ->orderBy('apellido')
             ->orderBy('nombre');
 
-        // Filtro de búsqueda
+        // Filtro de búsqueda (por propietario O por unidad)
         if ($this->search) {
             $termino = '%' . $this->search . '%';
-            $query->where(function ($q) use ($termino) {
+
+            // Buscar unidades que coinciden con el término de búsqueda
+            $unidadIds = \DB::table('unidades')
+                ->where('codigo', 'like', $termino)
+                ->pluck('id');
+
+            // Obtener IDs de propietarios actuales de esas unidades
+            $propietarioIdsDesdeUnidades = [];
+            if ($unidadIds->isNotEmpty()) {
+                $propietarioIdsDesdeUnidades = \DB::table('propietario_unidad')
+                    ->whereIn('unidad_id', $unidadIds)
+                    ->where('es_propietario_actual', true)
+                    ->pluck('propietario_id')
+                    ->unique()
+                    ->toArray();
+            }
+
+            $query->where(function ($q) use ($termino, $propietarioIdsDesdeUnidades) {
+                // Búsqueda por datos del propietario (nombre, apellido, CI)
                 $q->where('nombre', 'like', $termino)
                   ->orWhere('apellido', 'like', $termino)
-                  ->orWhere('ci', 'like', $termino);
+                  ->orWhere('ci', 'like', $termino)
+                  // O por propietarios de las unidades encontradas
+                  ->orWhereIn('id', $propietarioIdsDesdeUnidades);
             });
         }
 

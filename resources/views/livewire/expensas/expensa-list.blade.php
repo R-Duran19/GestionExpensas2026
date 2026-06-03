@@ -100,7 +100,7 @@
                 <input
                     type="text"
                     wire:model.live="search"
-                    placeholder="Buscar propietario por nombre, apellido o CI..."
+                    placeholder="Buscar por propietario (nombre, CI) o por unidad (ej: DEP-11-A, 11-A, 3-A)..."
                     class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 >
             </div>
