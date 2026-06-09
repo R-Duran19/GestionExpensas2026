@@ -130,6 +130,9 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
         // Detalle de expensa individual (mantenido para compatibilidad)
         Route::get('/{expensa}', \App\Livewire\Expensas\ExpensaDetalle::class)->name('detalle');
+
+        // Detalle de expensa por unidad (con selector de período)
+        Route::get('/unidad/{unidad}', \App\Livewire\Expensas\ExpensaUnidadDetalle::class)->name('unidad.detalle');
     });
 
     /*

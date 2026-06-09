@@ -190,6 +190,14 @@ class UnidadList extends Component
         // La lista se refrescará automáticamente
     }
 
+    /**
+     * Ver expensa de la unidad
+     */
+    public function verExpensa($unidadId)
+    {
+        return redirect()->route('expensas.unidad.detalle', $unidadId);
+    }
+
     public function getIconoTipo($tipoUnidad): string
     {
         return TipoUnidad::from($tipoUnidad)->getIcon();

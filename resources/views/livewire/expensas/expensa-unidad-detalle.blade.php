@@ -1,0 +1,259 @@
+<div>
+    <div class="mb-6">
+        <a href="{{ route('unidades.index') }}" class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
+            <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+            Volver a unidades
+        </a>
+    </div>
+
+    <!-- Header con selector de período -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Detalle de Expensa por Unidad</h1>
+                <p class="text-sm text-gray-600 mt-1">
+                    {{ $unidad->tipo_unidad->getLabel() }} {{ $unidad->codigo }}
+                    @if($periodoActual)
+                        - {{ $periodoActual->nombre_periodo }}
+                    @endif
+                </p>
+            </div>
+
+            @if(!empty($periodosDisponibles))
+                <div class="flex items-center gap-2">
+                    <label class="text-sm text-gray-600">Período:</label>
+                    <select wire:model.live="periodoId"
+                            wire:change="cambiarPeriodo($event.target.value)"
+                            class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        @foreach($periodosDisponibles as $periodo)
+                            <option value="{{ $periodo['id'] }}">
+                                {{ $periodo['nombre'] }}
+                                @if($periodo['id'] == $periodoId) (Actual) @endif
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+        </div>
+    </div>
+
+    {{-- Mensaje si no hay expensa --}}
+    @if(!$expensa)
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="text-center py-12">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <h3 class="mt-2 text-lg font-medium text-gray-900">Sin expensa generada</h3>
+                <p class="mt-1 text-sm text-gray-500">
+                    Esta unidad no tiene expensa generada para este período.
+                </p>
+                @if($periodoActual)
+                    <div class="mt-4 text-sm text-gray-600">
+                        <span class="font-medium">Período:</span> {{ $periodoActual->nombre_periodo }}<br>
+                        <span class="font-medium">Unidad:</span> {{ $unidad->tipo_unidad->getLabel() }} {{ $unidad->codigo }}
+                    </div>
+                @endif
+            </div>
+        </div>
+    @else
+
+    <!-- Información de la unidad -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Información de la Unidad</h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Datos de la unidad -->
+            <div>
+                <h4 class="text-sm font-medium text-gray-900 mb-3">Datos de la Unidad</h4>
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <div class="text-sm text-gray-500">Tipo</div>
+                            <div class="text-sm font-medium text-gray-900">{{ $unidad->tipo_unidad->getLabel() }}</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-500">Código</div>
+                            <div class="text-sm font-medium text-gray-900">{{ $unidad->codigo }}</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-500">Ubicación</div>
+                            <div class="text-sm font-medium text-gray-900">{{ $unidad->piso }}</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-500">Metros²</div>
+                            <div class="text-sm font-medium text-gray-900">{{ number_format($unidad->metros_cuadrados, 2) }} m²</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-500">Factor Prorrateo</div>
+                            <div class="text-sm font-medium text-gray-900">{{ $unidad->factor_prorrateo }}</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-500">Categoría</div>
+                            <div class="text-sm font-medium text-gray-900">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                    bg-{{ $unidad->categoria_unidad->getColor() }}-100 text-{{ $unidad->categoria_unidad->getColor() }}-800">
+                                    {{ $unidad->categoria_unidad->getLabel() }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Información del propietario -->
+            <div>
+                <h4 class="text-sm font-medium text-gray-900 mb-3">Propietario Actual</h4>
+                @if($unidad->propietarioActual)
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="text-sm font-medium text-gray-900 mb-2">
+                            {{ $unidad->propietarioActual->nombre_completo }}
+                        </div>
+                        <div class="space-y-1 text-sm text-gray-600">
+                            <div>CI: {{ $unidad->propietarioActual->ci }}</div>
+                            @if($unidad->propietarioActual->telefono)
+                                <div>Tel: {{ $unidad->propietarioActual->telefono }}</div>
+                            @endif
+                            @if($unidad->propietarioActual->email)
+                                <div>{{ $unidad->propietarioActual->email }}</div>
+                            @endif
+                        </div>
+                    </div>
+                @else
+                    <div class="bg-gray-50 rounded-lg p-4 text-sm text-gray-500">
+                        Sin propietario asignado
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
+
+    <!-- Desglose de montos -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Desglose de Montos</h3>
+
+        <div class="space-y-3">
+            <!-- Expensa de departamento/oficina -->
+            <div class="flex justify-between items-center py-3 border-b border-gray-200">
+                <div>
+                    <div class="text-sm font-medium text-gray-900">
+                        Expensa de {{ $unidad->tipo_unidad->getLabel() }}
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        {{ number_format($unidad->metros_cuadrados, 2) }} m² × {{ $unidad->factor_prorrateo }}
+                    </div>
+                </div>
+                <div class="text-sm font-medium text-gray-900">
+                    {{ number_format($expensa->monto_expensa, 2) }} Bs
+                </div>
+            </div>
+
+            <!-- Agua -->
+            @if($unidad->tiene_medidor)
+                <div class="flex justify-between items-center py-3 border-b border-gray-200">
+                    <div>
+                        <div class="text-sm font-medium text-gray-900">Agua</div>
+                        @if($expensa->monto_agua > 0)
+                            <div class="text-xs text-gray-500">Consumo del período</div>
+                        @else
+                            <div class="text-xs text-gray-500">Sin consumo</div>
+                        @endif
+                    </div>
+                    <div class="text-sm font-medium text-gray-900">
+                        {{ number_format($expensa->monto_agua, 2) }} Bs
+                    </div>
+                </div>
+            @endif
+
+            <!-- Deuda anterior -->
+            @if($expensa->deuda_anterior > 0)
+                <div class="flex justify-between items-center py-3 border-b border-gray-200">
+                    <div>
+                        <div class="text-sm font-medium text-red-600">Deuda de períodos anteriores</div>
+                        <div class="text-xs text-gray-500">Meses impagos anteriores</div>
+                    </div>
+                    <div class="text-sm font-medium text-red-600">
+                        +{{ number_format($expensa->deuda_anterior, 2) }} Bs
+                    </div>
+                </div>
+            @endif
+
+            <!-- Total -->
+            <div class="flex justify-between items-center py-4 bg-indigo-50 rounded-lg px-4 mt-4">
+                <div class="text-lg font-bold text-gray-900">Total a Pagar</div>
+                <div class="text-2xl font-bold text-indigo-600">
+                    {{ number_format($expensa->monto_total, 2) }} Bs
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalle de agua (si tiene medidor) -->
+    @if($unidad->tiene_medidor && $lecturaMedidor)
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Detalle de Agua</h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Información del medidor -->
+                <div>
+                    <h4 class="text-sm font-medium text-gray-900 mb-3">Información del Medidor</h4>
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Número:</span>
+                                <span class="font-medium text-gray-900">{{ $lecturaMedidor->numero_medidor }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Tipo:</span>
+                                <span class="font-medium text-gray-900">{{ ucfirst($lecturaMedidor->tipo_medidor) }}</span>
+                            </div>
+                            @if($lecturaMedidor->tipo_medidor === 'compartido' && $lecturaMedidor->medidorGrupo)
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Grupo:</span>
+                                    <span class="font-medium text-gray-900">{{ $lecturaMedidor->medidorGrupo->nombre }}</span>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Consumo -->
+                <div>
+                    <h4 class="text-sm font-medium text-gray-900 mb-3">Consumo del Período</h4>
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Lectura Anterior:</span>
+                                <span class="font-medium text-gray-900">{{ number_format($lecturaMedidor->lectura_anterior, 2) }} m³</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Lectura Actual:</span>
+                                <span class="font-medium text-gray-900">{{ number_format($lecturaMedidor->lectura_actual, 2) }} m³</span>
+                            </div>
+                            <div class="flex justify-between border-t border-blue-200 pt-2">
+                                <span class="text-gray-600">Consumo:</span>
+                                <span class="font-bold text-gray-900">{{ number_format($lecturaMedidor->consumo_m3, 2) }} m³</span>
+                            </div>
+                            @if($expensa->monto_agua > 0)
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Factor:</span>
+                                    <span class="font-medium text-gray-900">
+                                        {{ number_format($expensa->monto_agua / $lecturaMedidor->consumo_m3, 2) }} Bs/m³
+                                    </span>
+                                </div>
+                                <div class="flex justify-between border-t border-blue-200 pt-2">
+                                    <span class="text-gray-600">Monto Agua:</span>
+                                    <span class="font-bold text-indigo-600">{{ number_format($expensa->monto_agua, 2) }} Bs</span>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @endif
+</div>
