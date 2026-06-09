@@ -4,6 +4,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReciboPDFController;
 use App\Http\Controllers\EgresoPDFController;
+use App\Http\Controllers\BoletaExpensaPDFController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -119,6 +120,10 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
         // Boleta de expensas de un propietario (todas sus unidades)
         Route::get('/propietario/{periodo}/{propietario}', \App\Livewire\Expensas\ExpensaPropietarioDetalle::class)->name('propietario');
+
+        // PDF de boleta de expensa
+        Route::get('/propietario/{periodo}/{propietario}/pdf', [BoletaExpensaPDFController::class, 'mostrar'])->name('propietario.pdf');
+        Route::get('/propietario/{periodo}/{propietario}/pdf/descargar', [BoletaExpensaPDFController::class, 'descargar'])->name('propietario.pdf.descargar');
 
         // Sistema de pagos de expensas
         Route::get('/pagar/{expensaTotal}', \App\Livewire\Expensas\PagoExpensaForm::class)->name('pagar');
