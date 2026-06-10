@@ -76,6 +76,7 @@ class ExpensaUnidadDetalle extends Component
             'periodo',
             'unidad.propietarioActual',
             'unidad.medidorGrupo',
+            'ingresos',
         ])
         ->where('unidad_id', $this->unidadId)
         ->where('periodo_id', $this->periodoId)

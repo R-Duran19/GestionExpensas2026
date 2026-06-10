@@ -187,8 +187,84 @@
                     {{ number_format($expensa->monto_total, 2) }} Bs
                 </div>
             </div>
+
+            <!-- Información de pagos -->
+            <div class="mt-6 pt-4 border-t border-gray-200">
+                <h4 class="text-sm font-medium text-gray-900 mb-3">Estado de Pago</h4>
+
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">Estado:</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            bg-{{ $expensa->estado_color }}-100 text-{{ $expensa->estado_color }}-800">
+                            {{ $expensa->estado_label }}
+                        </span>
+                    </div>
+
+                    @if($expensa->monto_pagado > 0)
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Monto Pagado:</span>
+                            <span class="text-sm font-medium text-green-600">
+                                {{ number_format($expensa->monto_pagado, 2) }} Bs
+                            </span>
+                        </div>
+                    @endif
+
+                    @if($expensa->monto_pendiente > 0)
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Monto Pendiente:</span>
+                            <span class="text-sm font-medium text-red-600">
+                                {{ number_format($expensa->monto_pendiente, 2) }} Bs
+                            </span>
+                        </div>
+                    @endif
+
+                    @if($expensa->fecha_pago)
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Fecha Último Pago:</span>
+                            <span class="text-sm font-medium text-gray-900">
+                                {{ $expensa->fecha_pago->format('d/m/Y') }}
+                            </span>
+                        </div>
+                    @endif
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Historial de pagos (si existen) -->
+    @if($expensa && $expensa->ingresos->count() > 0)
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Historial de Pagos</h3>
+
+            <div class="space-y-3">
+                @foreach($expensa->ingresos as $ingreso)
+                    <div class="flex justify-between items-center py-3 border-b border-gray-200 last:border-b-0">
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">
+                                Recibo #{{ $ingreso->numero_recibo }}
+                            </div>
+                            <div class="text-xs text-gray-500">
+                                {{ $ingreso->fecha->format('d/m/Y') }}
+                                @if($ingreso->metodo_pago)
+                                    - {{ ucfirst($ingreso->metodo_pago) }}
+                                @endif
+                            </div>
+                        </div>
+                        <div class="text-sm font-medium text-green-600">
+                            {{ number_format($ingreso->importe, 2) }} Bs
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+
+            @if($expensa->monto_pendiente > 0)
+                <div class="mt-4 pt-4 border-t border-gray-200 text-sm text-gray-500">
+                    <p>Total pagado: {{ number_format($expensa->monto_pagado, 2) }} Bs de {{ number_format($expensa->monto_total, 2) }} Bs</p>
+                </div>
+            @endif
+        </div>
+    @endif
 
     <!-- Detalle de agua (si tiene medidor) -->
     @if($unidad->tiene_medidor && $lecturaMedidor)
@@ -236,13 +312,15 @@
                                 <span class="text-gray-600">Consumo:</span>
                                 <span class="font-bold text-gray-900">{{ number_format($lecturaMedidor->consumo_m3, 2) }} m³</span>
                             </div>
-                            @if($expensa->monto_agua > 0)
+                            @if($expensa->monto_agua > 0 && $lecturaMedidor->consumo_m3 > 0)
                                 <div class="flex justify-between">
                                     <span class="text-gray-600">Factor:</span>
                                     <span class="font-medium text-gray-900">
                                         {{ number_format($expensa->monto_agua / $lecturaMedidor->consumo_m3, 2) }} Bs/m³
                                     </span>
                                 </div>
+                            @endif
+                            @if($expensa->monto_agua > 0)
                                 <div class="flex justify-between border-t border-blue-200 pt-2">
                                     <span class="text-gray-600">Monto Agua:</span>
                                     <span class="font-bold text-indigo-600">{{ number_format($expensa->monto_agua, 2) }} Bs</span>
