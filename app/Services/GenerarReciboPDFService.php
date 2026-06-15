@@ -11,7 +11,7 @@ use Exception;
 
 class GenerarReciboPDFService
 {
-    protected ConfiguracionEdificio $configuracion;
+    protected object $configuracion;
 
     public function __construct()
     {

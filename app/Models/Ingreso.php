@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Expensa;
+use App\Models\ExpensaTotal;
 
 class Ingreso extends Model
 {
@@ -59,6 +60,14 @@ class Ingreso extends Model
     public function expensa(): BelongsTo
     {
         return $this->belongsTo(Expensa::class, 'expensa_id');
+    }
+
+    /**
+     * Relación con expensa total (para pagos de expensas)
+     */
+    public function expensaTotal(): BelongsTo
+    {
+        return $this->belongsTo(ExpensaTotal::class, 'expensa_total_id');
     }
 
     /**

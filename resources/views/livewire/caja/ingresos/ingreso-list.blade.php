@@ -184,10 +184,11 @@
                                         </button>
                                     @endif
 
-                                    {{-- Botón de descarga de PDF para todos los ingresos --}}
-                                    <a href="{{ route('caja.ingresos.pdf.descargar', $ingreso) }}"
+                                    {{-- Botón de ver PDF para todos los ingresos --}}
+                                    <a href="{{ route('caja.ingresos.pdf', $ingreso) }}"
+                                       target="_blank"
                                        class="text-green-600 hover:text-green-900 p-1"
-                                       title="Descargar recibo PDF">
+                                       title="Ver recibo PDF">
                                         <i class="fas fa-file-pdf text-sm"></i>
                                     </a>
 

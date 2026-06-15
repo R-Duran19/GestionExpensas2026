@@ -164,10 +164,11 @@
                                         </button>
                                     @endif
 
-                                    {{-- Botón de descarga de PDF --}}
-                                    <a href="{{ route('caja.egresos.pdf.descargar', $egreso) }}"
+                                    {{-- Botón de ver PDF --}}
+                                    <a href="{{ route('caja.egresos.pdf', $egreso) }}"
+                                       target="_blank"
                                        class="text-red-600 hover:text-red-900 p-1"
-                                       title="Descargar comprobante PDF">
+                                       title="Ver comprobante PDF">
                                         <i class="fas fa-file-pdf text-sm"></i>
                                     </a>
 
