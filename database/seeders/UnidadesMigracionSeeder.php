@@ -127,7 +127,7 @@ class UnidadesMigracionSeeder extends Seeder
             // PLANTA 25
             ['codigo' => 'DEP-25-A', 'piso' => 'Planta 25', 'm2' => 148.04],
             ['codigo' => 'DEP-25-B', 'piso' => 'Planta 25', 'm2' => 147.97],
-            ['codigo' => 'DEP-25-C-T', 'piso' => 'Planta 25 Terraza', 'm2' => 108.92],
+            ['codigo' => 'DEP-25-C-T', 'piso' => 'Planta 25 Terraza', 'm2' => 47.92],
             ['codigo' => 'DEP-25-D', 'piso' => 'Planta 25', 'm2' => 47.78],
 
             // PLANTA 26
@@ -144,6 +144,9 @@ class UnidadesMigracionSeeder extends Seeder
             // PLANTA 28-29 (Duplex)
             ['codigo' => 'DEP-28-29-A', 'piso' => 'Planta 28-29', 'm2' => 260.96],
             ['codigo' => 'DEP-28-29-B', 'piso' => 'Planta 28-29', 'm2' => 254.76],
+
+            // PLANTA 30
+            ['codigo' => 'DEP-30', 'piso' => 'Planta 30', 'm2' => 253.93],
         ];
 
         foreach ($departamentos as $depto) {
@@ -358,7 +361,7 @@ class UnidadesMigracionSeeder extends Seeder
         }
 
         // SOTANO 3 - Parqueos
-        $parqueos_s3 = ['P-93', 'P-92', 'P-91', 'P-90', 'P-89', 'P-88', 'P-87', 'P-86', 'P-85', 'P-84', 'P-83', 'P-82', 'P-81', 'P-80', 'P-79', 'P-78', 'P-77', 'P-76', 'P-75', 'P-74', 'P-73-300', 'P-72', 'P-71', 'P-70', 'P-69', 'P-68', 'P-67', 'P-66', 'P-65', 'P-64', 'P-63'];
+        $parqueos_s3 = ['P-93', 'P-92', 'P-91', 'P-90', 'P-89', 'P-88', 'P-87', 'P-86', 'P-85', 'P-84', 'P-83', 'P-82', 'P-81', 'P-80', 'P-79', 'P-78', 'P-77', 'P-76', 'P-75', 'P-74', 'PB-73-300', 'P-72', 'P-71', 'P-70', 'P-69', 'P-68', 'P-67', 'P-66', 'P-65', 'P-64', 'P-63'];
         $m2_parqueos_s3 = [12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 25.00, 12.50, 12.50, 12.50, 12.50, 12.50, 24.10, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50];
 
         foreach ($parqueos_s3 as $i => $codigo) {
@@ -392,7 +395,7 @@ class UnidadesMigracionSeeder extends Seeder
         }
 
         // SOTANO 2 - Parqueos (parcial)
-        $parqueos_s2 = ['P-62', 'P-61', 'P-60', 'P-59', 'P-58', 'P-57', 'P-56', 'P-55', 'P-54', 'P-53', 'P-52', 'P-51', 'P-50', 'P-49', 'P-48', 'P-47', 'P-46', 'P-45', 'P-44', 'P-43-11', 'P-42-12', 'P-41-13', 'P-40-14', 'P-39-15', 'P-38', 'P-37', 'P-36', 'P-35', 'P-34', 'P-33', 'P-32'];
+        $parqueos_s2 = ['P-62', 'P-61', 'P-60', 'P-59', 'P-58', 'P-57', 'P-56', 'P-55', 'P-54', 'P-53', 'P-52', 'P-51', 'P-50', 'P-49', 'P-48', 'P-47', 'P-46', 'P-45', 'P-44', 'PB-43-11', 'PB-42-12', 'PB-41-13', 'PB-40-14', 'PB-39-15', 'P-38', 'P-37', 'P-36', 'P-35', 'P-34', 'P-33', 'P-32'];
         $m2_parqueos_s2 = [12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 12.50, 20.27, 20.61, 20.40, 20.67, 23.39, 12.50, 12.50, 25.00, 12.50, 12.50, 12.50, 12.50, 12.50];
 
         foreach ($parqueos_s2 as $i => $codigo) {
@@ -425,17 +428,26 @@ class UnidadesMigracionSeeder extends Seeder
             $contador++;
         }
 
-        // SOTANO 1 - Parqueo Público
-        Unidad::create([
-            'codigo' => 'P-1',
-            'tipo_unidad' => TipoUnidad::PARQUEO,
-            'piso' => 'Sótano 1',
-            'metros_cuadrados' => 899.10,
-            'categoria_unidad' => CategoriaUnidad::DOMICILIARIA,
-            'tiene_medidor' => false,
-            'activo' => false,
-        ]);
-        $contador++;
+        // SOTANO 1 - Parqueo Público Subdivisiones
+        $m2_s1_sub = [
+            1 => 12.5, 2 => 25, 3 => 12.5, 4 => 12.5, 5 => 12.5,
+            6 => 12.5, 7 => 12.5, 8 => 12.5, 9 => 12.5, 10 => 12.5,
+            11 => 12.5, 12 => 12.5, 13 => 12.5, 14 => 12.5, 15 => 12.5,
+            16 => 12.5, 17 => 12.5, 18 => 12.5, 19 => 25, 20 => 25, 21 => 25
+        ];
+
+        foreach ($m2_s1_sub as $num => $m2) {
+            Unidad::create([
+                'codigo' => "P-1-{$num}",
+                'tipo_unidad' => TipoUnidad::PARQUEO,
+                'piso' => 'Sótano 1',
+                'metros_cuadrados' => $m2,
+                'categoria_unidad' => CategoriaUnidad::DOMICILIARIA,
+                'tiene_medidor' => false,
+                'activo' => false,
+            ]);
+            $contador++;
+        }
 
         // PLANTA 1 - Parqueos
         $parqueos_p1 = ['P-5', 'P-6', 'P-13', 'P-126', 'P-127', 'P-128', 'P-129', 'P-130'];

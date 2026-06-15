@@ -24,7 +24,13 @@ class DatabaseSeeder extends Seeder
         // FASE 1.2: Propiedades y Propietarios
         $this->call([
             \Database\Seeders\UnidadesMigracionSeeder::class,
-            \Database\Seeders\PropietarioSeeder::class,
+            // \Database\Seeders\PropietarioSeeder::class,
+            // \Database\Seeders\PropietarioUnidadFromExcelSeeder::class,
+            \Database\Seeders\DepartamentosFromExcelSeeder::class,
+            \Database\Seeders\OficinasFromExcelSeeder::class,
+            \Database\Seeders\LocalesFromExcelSeeder::class,
+            \Database\Seeders\ParqueosBaulerasFromExcelSeeder::class,
+            \Database\Seeders\CrearOficinas4D4ESeeder::class,
         ]);
 
         // FASE 1.5: Configuración del Sistema
@@ -37,6 +43,15 @@ class DatabaseSeeder extends Seeder
         $this->call([
             CategoriaIngresoSeeder::class,
             CategoriaEgresoSeeder::class,
+        ]);
+
+        // FASE 2: Histórico de Expensas (Enero - Mayo 2026)
+        $this->call([
+            \Database\Seeders\PeriodoEnero2026DesdeJSONSeeder::class,
+            \Database\Seeders\PeriodoFebrero2026DesdeJSONSeeder::class,
+            \Database\Seeders\PeriodoMarzo2026DesdeJSONSeeder::class,
+            \Database\Seeders\PeriodoAbril2026DesdeJSONSeeder::class,
+            \Database\Seeders\PeriodoMayo2026DesdeJSONSeeder::class,
         ]);
     }
 }
