@@ -21,6 +21,7 @@
                 <input type="hidden" name="periodo_id" value="{{ $filtroPeriodo }}">
                 <input type="hidden" name="unidad_id" value="{{ $filtroUnidad }}">
                 <input type="hidden" name="agrupacion" value="{{ $agrupacion }}">
+                <input type="hidden" name="filtro_año" value="{{ $filtroAño }}">
 
                 <button type="submit"
                         class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700 active:bg-green-900 focus:outline-none focus:border-green-900 focus:ring ring-green-300 disabled:opacity-25 transition ease-in-out duration-150">
