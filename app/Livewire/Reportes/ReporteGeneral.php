@@ -300,14 +300,47 @@ class ReporteGeneral extends Component
         }
 
         $filas = $this->datosHorizontales['filas'];
+        $periodos = $this->datosHorizontales['periodos'];
 
-        // Sumar totales de todas las filas
-        return collect($filas)->reduce(function ($carry, $fila) {
-            $carry['generado'] += $fila['totales']['generado'];
-            $carry['cobrado'] += $fila['totales']['cobrado'];
-            $carry['deuda'] += $fila['totales']['deuda'];
-            return $carry;
-        }, ['generado' => 0, 'cobrado' => 0, 'deuda' => 0]);
+        // Inicializar array de totales por período
+        $totalesPorPeriodo = [];
+        foreach ($periodos as $periodo) {
+            $totalesPorPeriodo[$periodo['id']] = [
+                'generado' => 0,
+                'cobrado' => 0,
+                'deuda' => 0,
+            ];
+        }
+
+        // Sumar totales generales
+        $totalesGenerales = [
+            'generado' => 0,
+            'cobrado' => 0,
+            'deuda' => 0,
+        ];
+
+        // Sumar datos de cada fila
+        foreach ($filas as $fila) {
+            // Sumar a los totales generales
+            $totalesGenerales['generado'] += $fila['totales']['generado'];
+            $totalesGenerales['cobrado'] += $fila['totales']['cobrado'];
+            $totalesGenerales['deuda'] += $fila['totales']['deuda'];
+
+            // Sumar a cada período
+            foreach ($fila['periodos'] as $periodo) {
+                $periodoId = $periodo['periodo_id'];
+                if (isset($totalesPorPeriodo[$periodoId])) {
+                    $totalesPorPeriodo[$periodoId]['generado'] += $periodo['generado'];
+                    $totalesPorPeriodo[$periodoId]['cobrado'] += $periodo['cobrado'];
+                    $totalesPorPeriodo[$periodoId]['deuda'] += $periodo['deuda'];
+                }
+            }
+        }
+
+        return [
+            'por_periodo' => $totalesPorPeriodo,
+            'generales' => $totalesGenerales,
+        ];
     }
 
     /**

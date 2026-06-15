@@ -329,18 +329,18 @@
                                         Σ TOTAL
                                     </td>
                                     @foreach($datosHorizontales['periodos'] as $periodo)
-                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">
-                                            —
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
+                                            Bs.{{ number_format($this->totalesColumnas['por_periodo'][$periodo['id']]['generado'], 2) }}
                                         </td>
                                     @endforeach
                                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold bg-indigo-100">
-                                        Bs.{{ number_format($this->totalesColumnas['generado'], 2) }}
+                                        Bs.{{ number_format($this->totalesColumnas['generales']['generado'], 2) }}
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap text-sm text-green-700 text-right font-bold bg-green-100">
-                                        Bs.{{ number_format($this->totalesColumnas['cobrado'], 2) }}
+                                        Bs.{{ number_format($this->totalesColumnas['generales']['cobrado'], 2) }}
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap text-sm text-red-700 text-right font-bold bg-red-100">
-                                        Bs.{{ number_format($this->totalesColumnas['deuda'], 2) }}
+                                        Bs.{{ number_format($this->totalesColumnas['generales']['deuda'], 2) }}
                                     </td>
                                 </tr>
                             </tfoot>
@@ -414,21 +414,21 @@
                                         Σ TOTAL
                                     </td>
                                     @foreach($datosHorizontales['periodos'] as $periodo)
-                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">
-                                            —
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
+                                            Bs.{{ number_format($this->totalesColumnas['por_periodo'][$periodo['id']]['generado'], 2) }}
                                         </td>
                                     @endforeach
                                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold bg-indigo-100">
-                                        Bs.{{ number_format($this->totalesColumnas['generado'], 2) }}
+                                        Bs.{{ number_format($this->totalesColumnas['generales']['generado'], 2) }}
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap text-sm text-green-700 text-right font-bold bg-green-100">
-                                        Bs.{{ number_format($this->totalesColumnas['cobrado'], 2) }}
+                                        Bs.{{ number_format($this->totalesColumnas['generales']['cobrado'], 2) }}
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap text-sm text-red-700 text-right font-bold bg-red-100">
-                                        Bs.{{ number_format($this->totalesColumnas['deuda'], 2) }}
+                                        Bs.{{ number_format($this->totalesColumnas['generales']['deuda'], 2) }}
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
-                                        {{ $this->totalesColumnas['generado'] > 0 ? number_format(($this->totalesColumnas['cobrado'] / $this->totalesColumnas['generado']) * 100, 1) : 0 }}%
+                                        {{ $this->totalesColumnas['generales']['generado'] > 0 ? number_format(($this->totalesColumnas['generales']['cobrado'] / $this->totalesColumnas['generales']['generado']) * 100, 1) : 0 }}%
                                     </td>
                                 </tr>
                             </tfoot>
