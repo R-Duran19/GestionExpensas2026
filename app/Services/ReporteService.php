@@ -202,7 +202,7 @@ class ReporteService
         $query->orderByDesc('p.año')
             ->orderByDesc('p.mes')
             ->orderBy('u.tipo_unidad')
-            ->orderByRaw("LENGTH(u.codigo), u.codigo");
+            ->orderByRaw("SUBSTRING_INDEX(u.codigo, '-', -1) + 0");
 
         $results = $query->get();
 

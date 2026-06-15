@@ -28,7 +28,7 @@ class GestionMedidores extends Component
         $query = Unidad::with('medidorGrupo', 'propietarios')
             ->whereIn('tipo_unidad', ['departamento', 'oficina', 'local']) // Solo los que pueden tener medidor
             ->orderBy('tipo_unidad')
-            ->orderBy('codigo');
+            ->orderByRaw("SUBSTRING_INDEX(codigo, '-', -1) + 0");
 
         if ($this->search) {
             $query->where(function ($q) {

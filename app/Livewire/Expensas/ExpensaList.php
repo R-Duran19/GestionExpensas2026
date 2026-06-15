@@ -155,7 +155,7 @@ class ExpensaList extends Component
             })
             ->select('unidades.*', 'expensas.id as expensa_id', 'expensas.estado as expensa_estado', 'expensas.monto_total', 'expensas.monto_pagado', 'expensas.monto_pendiente', 'expensas.deuda_anterior')
             ->orderBy('unidades.tipo_unidad')
-            ->orderBy('unidades.codigo');
+            ->orderByRaw("SUBSTRING_INDEX(unidades.codigo, '-', -1) + 0");
 
         // Filtro de búsqueda
         if ($this->search) {

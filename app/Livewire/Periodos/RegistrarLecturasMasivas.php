@@ -59,7 +59,7 @@ class RegistrarLecturasMasivas extends Component
             ->whereNotIn('id', $unidadesConLectura) // Excluir unidades con lectura registrada
             ->with(['propietarios'])
             ->orderBy('tipo_unidad')
-            ->orderBy('codigo');
+            ->orderByRaw("SUBSTRING_INDEX(codigo, '-', -1) + 0");
 
         // Filtro de búsqueda
         if ($this->search) {
