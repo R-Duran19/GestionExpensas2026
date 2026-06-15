@@ -2,10 +2,12 @@ import './bootstrap';
 
 import Alpine from 'alpinejs';
 import Swal from 'sweetalert2';
+import collapse from '@alpinejs/collapse';
 
 window.Alpine = Alpine;
 window.Swal = Swal;
 
+Alpine.plugin(collapse);
 Alpine.start();
 
 // Escuchar alertas de Livewire

@@ -167,15 +167,51 @@
                 </div>
             @endif
 
+            <!-- Subtotal expensa actual -->
+            <div class="flex justify-between items-center py-3 bg-gray-50 rounded-lg px-4 my-2">
+                <div class="text-sm font-medium text-gray-700">Subtotal Expensa Actual</div>
+                <div class="text-lg font-bold text-gray-900">
+                    {{ number_format($subtotalExpensaActual, 2) }} Bs
+                </div>
+            </div>
+
             <!-- Deuda anterior -->
-            @if($expensa->deuda_anterior > 0)
-                <div class="flex justify-between items-center py-3 border-b border-gray-200">
-                    <div>
-                        <div class="text-sm font-medium text-red-600">Deuda de períodos anteriores</div>
-                        <div class="text-xs text-gray-500">Meses impagos anteriores</div>
+            @if($totalDeudasAnterioresCalculado > 0)
+                <div class="py-3 border-b border-gray-200" x-data="{ open: false }">
+                    <div class="flex justify-between items-center cursor-pointer" x-on:click="open = !open">
+                        <div>
+                            <div class="text-sm font-medium text-red-600">Deuda de períodos anteriores</div>
+                            <div class="text-xs text-gray-500">Meses impagos anteriores</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="text-sm font-medium text-red-600">
+                                +{{ number_format($totalDeudasAnterioresCalculado, 2) }} Bs
+                            </div>
+                            <svg class="w-5 h-5 text-gray-400 transition-transform duration-200"
+                                 :class="{ 'rotate-180': open }"
+                                 fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </div>
                     </div>
-                    <div class="text-sm font-medium text-red-600">
-                        +{{ number_format($expensa->deuda_anterior, 2) }} Bs
+
+                    <div x-show="open"
+                         x-collapse
+                         class="mt-3 pl-4 border-l-2 border-red-200">
+                        @if($deudasAnterioresDetalladas->count() > 0)
+                            <div class="text-xs text-gray-600 mb-2">Desglose de deuda:</div>
+                            @foreach($deudasAnterioresDetalladas as $deuda)
+                                <div class="flex justify-between items-center py-1 text-xs">
+                                    <div class="text-gray-600">
+                                        {{ $deuda->periodo->nombre_periodo }}
+                                        <span class="text-gray-400">({{ $deuda->estado_label }})</span>
+                                    </div>
+                                    <div class="font-medium text-red-500">
+                                        {{ number_format($deuda->monto_pendiente_real, 2) }} Bs
+                                    </div>
+                                </div>
+                            @endforeach
+                        @endif
                     </div>
                 </div>
             @endif
@@ -272,60 +308,41 @@
             <h3 class="text-lg font-medium text-gray-900 mb-4">Detalle de Agua</h3>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Información del medidor -->
-                <div>
-                    <h4 class="text-sm font-medium text-gray-900 mb-3">Información del Medidor</h4>
-                    <div class="bg-blue-50 rounded-lg p-4">
-                        <div class="space-y-2 text-sm">
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Número:</span>
-                                <span class="font-medium text-gray-900">{{ $lecturaMedidor->numero_medidor }}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Tipo:</span>
-                                <span class="font-medium text-gray-900">{{ ucfirst($lecturaMedidor->tipo_medidor) }}</span>
-                            </div>
-                            @if($lecturaMedidor->tipo_medidor === 'compartido' && $lecturaMedidor->medidorGrupo)
-                                <div class="flex justify-between">
-                                    <span class="text-gray-600">Grupo:</span>
-                                    <span class="font-medium text-gray-900">{{ $lecturaMedidor->medidorGrupo->nombre }}</span>
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Consumo -->
-                <div>
+                <div class="md:col-span-2">
                     <h4 class="text-sm font-medium text-gray-900 mb-3">Consumo del Período</h4>
                     <div class="bg-blue-50 rounded-lg p-4">
-                        <div class="space-y-2 text-sm">
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Lectura Anterior:</span>
-                                <span class="font-medium text-gray-900">{{ number_format($lecturaMedidor->lectura_anterior, 2) }} m³</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-gray-600">Lectura Actual:</span>
-                                <span class="font-medium text-gray-900">{{ number_format($lecturaMedidor->lectura_actual, 2) }} m³</span>
-                            </div>
-                            <div class="flex justify-between border-t border-blue-200 pt-2">
-                                <span class="text-gray-600">Consumo:</span>
-                                <span class="font-bold text-gray-900">{{ number_format($lecturaMedidor->consumo_m3, 2) }} m³</span>
-                            </div>
-                            @if($expensa->monto_agua > 0 && $lecturaMedidor->consumo_m3 > 0)
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-2 text-sm">
                                 <div class="flex justify-between">
-                                    <span class="text-gray-600">Factor:</span>
-                                    <span class="font-medium text-gray-900">
-                                        {{ number_format($expensa->monto_agua / $lecturaMedidor->consumo_m3, 2) }} Bs/m³
-                                    </span>
+                                    <span class="text-gray-600">Lectura Anterior:</span>
+                                    <span class="font-medium text-gray-900">{{ number_format($lecturaMedidor->lectura_anterior, 2) }} m³</span>
                                 </div>
-                            @endif
-                            @if($expensa->monto_agua > 0)
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Lectura Actual:</span>
+                                    <span class="font-medium text-gray-900">{{ number_format($lecturaMedidor->lectura_actual, 2) }} m³</span>
+                                </div>
                                 <div class="flex justify-between border-t border-blue-200 pt-2">
-                                    <span class="text-gray-600">Monto Agua:</span>
-                                    <span class="font-bold text-indigo-600">{{ number_format($expensa->monto_agua, 2) }} Bs</span>
+                                    <span class="text-gray-600">Consumo:</span>
+                                    <span class="font-bold text-gray-900">{{ number_format($lecturaMedidor->consumo_m3, 2) }} m³</span>
                                 </div>
-                            @endif
+                            </div>
+                            <div class="space-y-2 text-sm">
+                                @if($expensa->monto_agua > 0 && $lecturaMedidor->consumo_m3 > 0)
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Factor:</span>
+                                        <span class="font-medium text-gray-900">
+                                            {{ number_format($expensa->monto_agua / $lecturaMedidor->consumo_m3, 2) }} Bs/m³
+                                        </span>
+                                    </div>
+                                @endif
+                                @if($expensa->monto_agua > 0)
+                                    <div class="flex justify-between border-t border-blue-200 pt-2">
+                                        <span class="text-gray-600">Monto Agua:</span>
+                                        <span class="font-bold text-indigo-600">{{ number_format($expensa->monto_agua, 2) }} Bs</span>
+                                    </div>
+                                @endif
+                            </div>
                         </div>
                     </div>
                 </div>
