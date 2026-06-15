@@ -124,6 +124,11 @@ class ExpensaService
                 'monto_agua' => $montoAgua,
                 'deuda_anterior' => $deudaAnterior,
                 'monto_total' => $montoTotal,
+                // Inicializar campos de pago correctamente
+                'monto_pendiente' => $montoTotal,  // Al crear, pendiente = total
+                'monto_pagado' => 0,
+                'estado' => 'pendiente',
+                'fecha_pago' => null,
             ]
         );
 
@@ -208,11 +213,9 @@ class ExpensaService
         $totalImporte = $facturas->sum('importe');
         $totalConsumo = $facturas->sum('consumo_m3');
 
-        if ($totalConsumo == 0) {
-            throw new \Exception("El consumo total de agua no puede ser cero");
-        }
-
-        $factorAgua = $totalImporte / $totalConsumo;
+        $factorAgua = $totalConsumo > 0
+            ? ($totalImporte / $totalConsumo)
+            : 0.0;
 
         // Guardar el factor en el período (para auditoría)
         $periodo = PeriodoExpensa::find($periodoId);
@@ -408,18 +411,26 @@ class ExpensaService
                 $expensasPorPropietario[$propietarioId] = [
                     'propietario' => $propietario,
                     'expensas' => [],
-                    'monto_total' => 0
+                    'monto_total' => 0,
+                    'monto_pagado' => 0,
+                    'monto_pendiente' => 0,
                 ];
             }
 
             $expensasPorPropietario[$propietarioId]['expensas'][] = $expensa;
             $expensasPorPropietario[$propietarioId]['monto_total'] += $expensa->monto_total;
+
+            // Sumar montos de pagos de las expensas individuales
+            $expensasPorPropietario[$propietarioId]['monto_pagado'] += $expensa->monto_pagado;
+            $expensasPorPropietario[$propietarioId]['monto_pendiente'] += $expensa->monto_pendiente;
         }
 
         // Generar expensas totales para cada propietario
         foreach ($expensasPorPropietario as $propietarioId => $datos) {
             $propietario = $datos['propietario'];
             $montoTotalBruto = $datos['monto_total'];
+            $montoPagadoTotal = $datos['monto_pagado'];
+            $montoPendienteTotal = $datos['monto_pendiente'];
 
             // Buscar saldo a favor del período anterior
             $saldoAFavorAnterior = $this->obtenerSaldoAFavorAnterior($propietarioId, $periodoId);
@@ -427,29 +438,36 @@ class ExpensaService
             // Calcular monto total neto (aplicando saldo a favor si existe)
             $montoTotalNeto = $montoTotalBruto - $saldoAFavorAnterior;
 
-            // Determinar estado y valores finales
-            if ($montoTotalNeto > 0) {
+            // Determinar estado según los montos de las expensas individuales
+            if ($montoPendienteTotal > 0 && $montoPagadoTotal > 0) {
+                // Pagó parcialmente
+                $estado = 'parcial';
+            } elseif ($montoPendienteTotal > 0 && $montoPagadoTotal === 0) {
+                // No pagó nada
                 $estado = 'pendiente';
-                $montoPagado = 0;
-                $montoPendiente = $montoTotalNeto;
-                $saldoAFavor = 0;
-            } elseif ($montoTotalNeto == 0) {
+            } elseif ($montoPendienteTotal === 0 && $montoPagadoTotal > 0) {
+                // Pagó todo (o más, si hay saldo a favor)
                 $estado = 'pagado';
-                $montoPagado = 0;
-                $montoPendiente = 0;
-                $saldoAFavor = 0;
             } else {
-                // Saldo a favor
+                // Caso edge: pagó exacto o hay variación por redondeo
                 $estado = 'pagado';
-                $montoPagado = 0;
-                $montoPendiente = 0;
+            }
+
+            // Recalcular montos finales considerando saldo a favor
+            $saldoAFavor = 0;
+            if ($montoTotalNeto < 0) {
+                // Saldo a favor del período actual
                 $saldoAFavor = abs($montoTotalNeto);
+                $montoTotalNeto = 0;
+                $montoPendienteTotal = 0;
+                $montoPagadoTotal += $saldoAFavor; // Considerar como pago
+                $estado = 'pagado';
             }
 
             // Redondear montos
             $montoTotal = $this->redondear($montoTotalNeto);
-            $montoPagado = $this->redondear($montoPagado);
-            $montoPendiente = $this->redondear($montoPendiente);
+            $montoPagado = $this->redondear($montoPagadoTotal);
+            $montoPendiente = $this->redondear($montoPendienteTotal);
             $saldoAFavor = $this->redondear($saldoAFavor);
 
             // Crear o actualizar expensa total
@@ -471,8 +489,13 @@ class ExpensaService
                 'periodo' => $periodo->nombre_periodo,
                 'propietario' => $propietario->nombre . ' ' . $propietario->apellido,
                 'monto_total_bruto' => $montoTotalBruto,
+                'monto_pagado_unidades' => $montoPagadoTotal,
+                'monto_pendiente_unidades' => $montoPendienteTotal,
                 'saldo_a_favor_anterior' => $saldoAFavorAnterior,
                 'monto_total_neto' => $montoTotal,
+                'monto_pagado_final' => $montoPagado,
+                'monto_pendiente_final' => $montoPendiente,
+                'saldo_a_favor_final' => $saldoAFavor,
                 'estado' => $estado
             ]);
         }

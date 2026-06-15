@@ -128,7 +128,8 @@ class RegistrarLecturasMasivas extends Component
 
             // Solo procesar si tiene lectura actual diligenciada
             if (isset($this->lecturas[$unidadId]) &&
-                !empty($this->lecturas[$unidadId]['lectura_actual'])) {
+                $this->lecturas[$unidadId]['lectura_actual'] !== null &&
+                $this->lecturas[$unidadId]['lectura_actual'] !== '') {
 
                 try {
                     $this->medidorService->registrarLecturaIndividual(
@@ -174,7 +175,8 @@ class RegistrarLecturasMasivas extends Component
     public function guardarFila($unidadId)
     {
         if (!isset($this->lecturas[$unidadId]) ||
-            empty($this->lecturas[$unidadId]['lectura_actual'])) {
+            $this->lecturas[$unidadId]['lectura_actual'] === null ||
+            $this->lecturas[$unidadId]['lectura_actual'] === '') {
             $this->dispatch('alerta', [
                 'tipo' => 'warning',
                 'titulo' => 'Dato requerido',

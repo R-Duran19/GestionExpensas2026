@@ -23,7 +23,7 @@ class FacturaAguaSeeder extends Seeder
                 'tipo' => 'domiciliaria_1',
             ],
             [
-                'numero_factura' => 'DOM-001',
+                'numero_factura' => 'DOM-001-0B22TS000518',
                 'categoria' => 'domiciliaria',
                 'activo' => true,
                 'creado_por' => $adminUserId,
@@ -36,7 +36,7 @@ class FacturaAguaSeeder extends Seeder
                 'tipo' => 'domiciliaria_2',
             ],
             [
-                'numero_factura' => 'DOM-002',
+                'numero_factura' => 'DOM-002-16498',
                 'categoria' => 'domiciliaria',
                 'activo' => true,
                 'creado_por' => $adminUserId,
@@ -49,7 +49,7 @@ class FacturaAguaSeeder extends Seeder
                 'tipo' => 'comercial',
             ],
             [
-                'numero_factura' => 'COM-001',
+                'numero_factura' => 'COM-00B16S002189',
                 'categoria' => 'comercial',
                 'activo' => true,
                 'creado_por' => $adminUserId,

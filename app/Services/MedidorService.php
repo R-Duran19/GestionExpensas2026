@@ -320,11 +320,9 @@ class MedidorService
         $totalImporte = $facturasDomiciliarias->sum('importe');
         $totalConsumoM3 = $facturasDomiciliarias->sum('consumo_m3');
 
-        if ($totalConsumoM3 <= 0) {
-            throw new \Exception("El consumo total de las facturas domiciliarias no puede ser cero o negativo.");
-        }
-
-        $factor = $totalImporte / $totalConsumoM3;
+        $factor = $totalConsumoM3 > 0
+            ? ($totalImporte / $totalConsumoM3)
+            : 0.0;
 
         Log::info('Factor domiciliario calculado', [
             'periodo_id' => $periodoId,
@@ -354,11 +352,9 @@ class MedidorService
             throw new \Exception("No se encontró la factura comercial para este período.");
         }
 
-        if ($facturaComercial->consumo_m3 <= 0) {
-            throw new \Exception("El consumo de la factura comercial no puede ser cero o negativo.");
-        }
-
-        $factor = $facturaComercial->importe / $facturaComercial->consumo_m3;
+        $factor = $facturaComercial->consumo_m3 > 0
+            ? ($facturaComercial->importe / $facturaComercial->consumo_m3)
+            : 0.0;
 
         Log::info('Factor comercial calculado', [
             'periodo_id' => $periodoId,

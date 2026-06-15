@@ -130,13 +130,13 @@ class RegistrarFacturasAgua extends Component
         $totalImporteDom = $domiciliarias->sum('importe');
         $totalConsumoDom = $domiciliarias->sum('consumo_m3');
 
-        if ($totalConsumoDom > 0) {
-            $this->factorDomiciliario = round($totalImporteDom / $totalConsumoDom, 8);
-        }
+        $this->factorDomiciliario = $totalConsumoDom > 0
+            ? round($totalImporteDom / $totalConsumoDom, 8)
+            : 0.0;
 
-        if ($comercial && $comercial['consumo_m3'] > 0) {
-            $this->factorComercial = round($comercial['importe'] / $comercial['consumo_m3'], 8);
-        }
+        $this->factorComercial = ($comercial && $comercial['consumo_m3'] > 0)
+            ? round($comercial['importe'] / $comercial['consumo_m3'], 8)
+            : 0.0;
 
         $this->mostrarResumen = true;
     }
@@ -151,11 +151,11 @@ class RegistrarFacturasAgua extends Component
 
         $factorDomiciliario = $totalConsumoDom > 0
             ? round($totalImporteDom / $totalConsumoDom, 8)
-            : null;
+            : 0.0;
 
         $factorComercial = ($comercial && $comercial['consumo_m3'] > 0)
             ? round($comercial['importe'] / $comercial['consumo_m3'], 8)
-            : null;
+            : 0.0;
 
         PeriodoExpensa::where('id', $this->periodoId)->update([
             'factor_domiciliario' => $factorDomiciliario,

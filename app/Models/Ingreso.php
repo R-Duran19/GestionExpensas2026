@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
+use App\Models\Expensa;
 
 class Ingreso extends Model
 {
@@ -53,11 +54,11 @@ class Ingreso extends Model
     }
 
     /**
-     * Relación con expensa_total (para pagos de expensas)
+     * Relación con expensa (para pagos de expensas)
      */
-    public function expensaTotal(): BelongsTo
+    public function expensa(): BelongsTo
     {
-        return $this->belongsTo(ExpensaTotal::class, 'expensa_total_id');
+        return $this->belongsTo(Expensa::class, 'expensa_id');
     }
 
     /**
@@ -73,7 +74,7 @@ class Ingreso extends Model
      */
     public function scopePagosExpensas($query)
     {
-        return $query->whereNotNull('expensa_total_id');
+        return $query->whereNotNull('expensa_id');
     }
 
     /**

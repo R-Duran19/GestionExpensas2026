@@ -22,7 +22,7 @@ class FactorProrrateoSeeder extends Seeder
                 'activo' => true,
             ],
             [
-                'factor' => 2.10,
+                'factor' => 2.40,
                 'vigencia_desde' => now(),
                 'creado_por' => $adminUserId,
             ]
@@ -35,7 +35,7 @@ class FactorProrrateoSeeder extends Seeder
                 'activo' => true,
             ],
             [
-                'factor' => 3.50,
+                'factor' => 4.20,
                 'vigencia_desde' => now(),
                 'creado_por' => $adminUserId,
             ]
