@@ -236,7 +236,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::prefix('reportes')->name('reportes.')->group(function () {
-        // Placeholder para futuras rutas
+        Route::get('/', \App\Livewire\Reportes\ReporteGeneral::class)->name('index');
     });
 
     /*
