@@ -14,13 +14,22 @@
         </div>
 
         <div class="flex gap-2">
-            <button wire:click="exportarExcel"
-                    class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700 active:bg-green-900 focus:outline-none focus:border-green-900 focus:ring ring-green-300 disabled:opacity-25 transition ease-in-out duration-150">
-                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Excel
-            </button>
+            {{-- Formulario para exportar Excel --}}
+            <form method="GET" action="{{ route('reportes.exportar.excel') }}" target="_blank" class="inline">
+                <input type="hidden" name="vista" value="{{ $vista === 'resumida' ? 'resumido' : 'detallado' }}">
+                <input type="hidden" name="tipo_unidad" value="{{ $filtroTipoUnidad }}">
+                <input type="hidden" name="periodo_id" value="{{ $filtroPeriodo }}">
+                <input type="hidden" name="unidad_id" value="{{ $filtroUnidad }}">
+                <input type="hidden" name="agrupacion" value="{{ $agrupacion }}">
+
+                <button type="submit"
+                        class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700 active:bg-green-900 focus:outline-none focus:border-green-900 focus:ring ring-green-300 disabled:opacity-25 transition ease-in-out duration-150">
+                    <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Excel
+                </button>
+            </form>
 
             <button wire:click="exportarPDF"
                     class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-700 active:bg-red-900 focus:outline-none focus:border-red-900 focus:ring ring-red-300 disabled:opacity-25 transition ease-in-out duration-150">
@@ -118,11 +127,11 @@
         <div class="p-6 border-b border-gray-200">
             <h3 class="text-lg font-medium text-gray-900 mb-4">Filtros del Reporte</h3>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- Tipo de Unidad -->
                 <div>
                     <label for="filtroTipoUnidad" class="block text-sm font-medium text-gray-700">Tipo de Unidad</label>
-                    <select wire:model.live="filtroTipoUnidad" id="filtroTipoUnidad"
+                    <select wire:model="filtroTipoUnidad" id="filtroTipoUnidad"
                             class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
                         @foreach($this->tiposUnidad as $key => $label)
                             <option value="{{ $key }}">{{ $label }}</option>
@@ -130,13 +139,25 @@
                     </select>
                 </div>
 
+                <!-- Año -->
+                <div>
+                    <label for="filtroAño" class="block text-sm font-medium text-gray-700">Año</label>
+                    <select wire:model="filtroAño" id="filtroAño"
+                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <option value="">Todos los años</option>
+                        @foreach($this->añosDisponibles as $año)
+                            <option value="{{ $año }}">{{ $año }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
                 <!-- Período -->
                 <div>
                     <label for="filtroPeriodo" class="block text-sm font-medium text-gray-700">Período</label>
-                    <select wire:model.live="filtroPeriodo" id="filtroPeriodo"
+                    <select wire:model.debounce.500ms="filtroPeriodo" id="filtroPeriodo"
                             class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
                         <option value="todos">Todos los períodos</option>
-                        @foreach($this->periodos as $periodo)
+                        @foreach($this->periodosFiltrados as $periodo)
                             <option value="{{ $periodo['id'] }}">{{ $periodo['nombre'] }}</option>
                         @endforeach
                     </select>
@@ -145,7 +166,7 @@
                 <!-- Unidad -->
                 <div>
                     <label for="filtroUnidad" class="block text-sm font-medium text-gray-700">Unidad</label>
-                    <select wire:model.live="filtroUnidad" id="filtroUnidad"
+                    <select wire:model.debounce.500ms="filtroUnidad" id="filtroUnidad"
                             class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
                         <option value="todas">Todas las unidades</option>
                         @foreach($this->unidades as $unidad)
@@ -191,14 +212,20 @@
                 <!-- Botones de acción -->
                 <div class="flex gap-2">
                     <button wire:click="generarReporte"
+                            wire:loading.attr="disabled"
                             class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:border-indigo-900 focus:ring ring-indigo-300 disabled:opacity-25 transition ease-in-out duration-150">
                         <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
-                        Generar
+                        @if($datosCargados)
+                            Actualizar
+                        @else
+                            Generar Reporte
+                        @endif
                     </button>
 
                     <button wire:click="limpiarFiltros"
+                            wire:loading.attr="disabled"
                             class="inline-flex items-center px-4 py-2 bg-gray-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 active:bg-gray-900 focus:outline-none focus:border-gray-900 focus:ring ring-gray-300 disabled:opacity-25 transition ease-in-out duration-150">
                         Limpiar
                     </button>
@@ -209,7 +236,23 @@
 
     {{-- Tabla de resultados --}}
     <div class="bg-white shadow rounded-lg">
-        @if($cargando)
+        @if(!$datosCargados)
+            <div class="p-12 text-center">
+                <svg class="h-12 w-12 text-indigo-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Listo para generar reporte</h3>
+                <p class="text-gray-600 mb-4">Selecciona los filtros deseados y haz clic en "Generar Reporte" para ver los resultados.</p>
+                <button wire:click="generarReporte"
+                        wire:loading.attr="disabled"
+                        class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:border-indigo-900 focus:ring ring-indigo-300 disabled:opacity-25 transition ease-in-out duration-150">
+                    <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Generar Reporte
+                </button>
+            </div>
+        @elseif($cargando)
             <div class="p-12 text-center">
                 <svg class="animate-spin h-12 w-12 text-indigo-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -226,213 +269,183 @@
                 <p class="text-gray-600">Intenta cambiar los filtros o selecciona diferentes opciones.</p>
             </div>
         @else
-            <div class="overflow-x-auto">
-                @if($vista === 'resumida')
-                    {{-- Vista Resumida --}}
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Tipo Unidad
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Período
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Unidades
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Generado
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Cobrado
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Deuda
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    % Cobranza
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            @foreach($this->vistaActual as $fila)
+            @if($datosHorizontales && !empty($datosHorizontales['filas']))
+                {{-- Tabla Horizontal con Scroll --}}
+                <div class="overflow-x-auto">
+                    @if($vista === 'resumida')
+                        {{-- Vista Resumida Horizontal --}}
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
                                 <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                        {{ $fila['tipo_unidad'] }}
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 shadow-sm">
+                                        Tipo Unidad
+                                    </th>
+                                    @foreach($datosHorizontales['periodos'] as $periodo)
+                                        <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                            {{ $periodo['nombre'] }}
+                                        </th>
+                                    @endforeach
+                                    <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-900 uppercase tracking-wider whitespace-nowrap bg-indigo-50">
+                                        TOTAL GENERADO
+                                    </th>
+                                    <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-green-700 uppercase tracking-wider whitespace-nowrap bg-green-50">
+                                        TOTAL PAGADO
+                                    </th>
+                                    <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-red-700 uppercase tracking-wider whitespace-nowrap bg-red-50">
+                                        TOTAL DEUDA
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                @foreach($datosHorizontales['filas'] as $fila)
+                                    <tr>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white shadow-sm">
+                                            {{ $fila['tipo_unidad'] }}
+                                        </td>
+                                        @foreach($fila['periodos'] as $periodo)
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
+                                                Bs.{{ number_format($periodo['generado'], 2) }}
+                                            </td>
+                                        @endforeach
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold bg-indigo-50">
+                                            Bs.{{ number_format($fila['totales']['generado'], 2) }}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-green-600 font-medium text-right bg-green-50">
+                                            Bs.{{ number_format($fila['totales']['cobrado'], 2) }}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-medium text-right bg-red-50">
+                                            Bs.{{ number_format($fila['totales']['deuda'], 2) }}
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+
+                            {{-- Footer con totales generales --}}
+                            @if($this->totalesColumnas)
+                            <tfoot class="bg-blue-50 border-t-2 border-blue-300">
+                                <tr>
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900 sticky left-0 bg-blue-50 shadow-sm">
+                                        Σ TOTAL
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {{ $fila['periodo'] }}
+                                    @foreach($datosHorizontales['periodos'] as $periodo)
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">
+                                            —
+                                        </td>
+                                    @endforeach
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold bg-indigo-100">
+                                        Bs.{{ number_format($this->totalesColumnas['generado'], 2) }}
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                                        {{ $fila['unidades'] }}
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-green-700 text-right font-bold bg-green-100">
+                                        Bs.{{ number_format($this->totalesColumnas['cobrado'], 2) }}
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                                        Bs.{{ number_format($fila['generado'], 2) }}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium text-right">
-                                        Bs.{{ number_format($fila['cobrado'], 2) }}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium text-right">
-                                        Bs.{{ number_format($fila['deuda'], 2) }}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                                        {{ number_format($fila['porcentaje_cobranza'], 1) }}%
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-red-700 text-right font-bold bg-red-100">
+                                        Bs.{{ number_format($this->totalesColumnas['deuda'], 2) }}
                                     </td>
                                 </tr>
-                            @endforeach
-                        </tbody>
-
-                        {{-- Footer con totales de columnas --}}
-                        @if($this->totalesColumnas)
-                        <tfoot class="bg-blue-50 border-t-2 border-blue-300">
-                            <tr>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
-                                    Σ TOTAL
-                                </td>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                                    Todos
-                                </td>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
-                                    {{ number_format($this->totalesColumnas['unidades'], 0) }}
-                                </td>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
-                                    Bs.{{ number_format($this->totalesColumnas['generado'], 2) }}
-                                </td>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm text-green-600 text-right font-bold">
-                                    Bs.{{ number_format($this->totalesColumnas['cobrado'], 2) }}
-                                </td>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm text-red-600 text-right font-bold">
-                                    Bs.{{ number_format($this->totalesColumnas['deuda'], 2) }}
-                                </td>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
-                                    {{ number_format(($this->totalesColumnas['cobrado'] / $this->totalesColumnas['generado']) * 100, 1) }}%
-                                </td>
-                            </tr>
-                        </tfoot>
-                        @endif
-                    </table>
-                @else
-                    {{-- Vista Detallada --}}
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Unidad
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Tipo
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Propietario
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Período
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Generado
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Cobrado
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Deuda
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Estado
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    % Cobranza
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            @foreach($this->vistaActual as $fila)
+                            </tfoot>
+                            @endif
+                        </table>
+                    @else
+                        {{-- Vista Detallada Horizontal --}}
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
                                 <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                        {{ $fila['unidad'] }}
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 shadow-sm">
+                                        Unidad
+                                    </th>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                        Propietario
+                                    </th>
+                                    @foreach($datosHorizontales['periodos'] as $periodo)
+                                        <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                            {{ $periodo['nombre'] }}
+                                        </th>
+                                    @endforeach
+                                    <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-900 uppercase tracking-wider whitespace-nowrap bg-indigo-50">
+                                        TOTAL GENERADO
+                                    </th>
+                                    <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-green-700 uppercase tracking-wider whitespace-nowrap bg-green-50">
+                                        TOTAL PAGADO
+                                    </th>
+                                    <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-red-700 uppercase tracking-wider whitespace-nowrap bg-red-50">
+                                        TOTAL DEUDA
+                                    </th>
+                                    <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-900 uppercase tracking-wider whitespace-nowrap">
+                                        % COBRANZA
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                @foreach($datosHorizontales['filas'] as $fila)
+                                    <tr>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white shadow-sm">
+                                            {{ $fila['unidad'] }}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                            {{ $fila['propietario'] }}
+                                        </td>
+                                        @foreach($fila['periodos'] as $periodo)
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
+                                                Bs.{{ number_format($periodo['generado'], 2) }}
+                                            </td>
+                                        @endforeach
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold bg-indigo-50">
+                                            Bs.{{ number_format($fila['totales']['generado'], 2) }}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-green-600 font-medium text-right bg-green-50">
+                                            Bs.{{ number_format($fila['totales']['cobrado'], 2) }}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-medium text-right bg-red-50">
+                                            Bs.{{ number_format($fila['totales']['deuda'], 2) }}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
+                                            {{ number_format($fila['totales']['porcentaje_cobranza'], 1) }}%
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+
+                            {{-- Footer con totales generales --}}
+                            @if($this->totalesColumnas)
+                            <tfoot class="bg-blue-50 border-t-2 border-blue-300">
+                                <tr>
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900 sticky left-0 bg-blue-50 shadow-sm" colspan="2">
+                                        Σ TOTAL
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {{ $fila['tipo'] }}
+                                    @foreach($datosHorizontales['periodos'] as $periodo)
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">
+                                            —
+                                        </td>
+                                    @endforeach
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold bg-indigo-100">
+                                        Bs.{{ number_format($this->totalesColumnas['generado'], 2) }}
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {{ $fila['propietario'] }}
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-green-700 text-right font-bold bg-green-100">
+                                        Bs.{{ number_format($this->totalesColumnas['cobrado'], 2) }}
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {{ $fila['periodo'] }}
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-red-700 text-right font-bold bg-red-100">
+                                        Bs.{{ number_format($this->totalesColumnas['deuda'], 2) }}
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                                        Bs.{{ number_format($fila['generado'], 2) }}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium text-right">
-                                        Bs.{{ number_format($fila['cobrado'], 2) }}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium text-right">
-                                        Bs.{{ number_format($fila['deuda'], 2) }}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-center">
-                                        @if($fila['estado'] === 'Pagado')
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                Pagado
-                                            </span>
-                                        @elseif($fila['estado'] === 'Parcial')
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                                                Parcial
-                                            </span>
-                                        @else
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                                Pendiente
-                                            </span>
-                                        @endif
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                                        {{ number_format($fila['porcentaje_cobranza'], 1) }}%
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
+                                        {{ $this->totalesColumnas['generado'] > 0 ? number_format(($this->totalesColumnas['cobrado'] / $this->totalesColumnas['generado']) * 100, 1) : 0 }}%
                                     </td>
                                 </tr>
-                            @endforeach
-                        </tbody>
+                            </tfoot>
+                            @endif
+                        </table>
+                    @endif
+                </div>
 
-                        {{-- Footer con totales de columnas --}}
-                        @if($this->totalesColumnas)
-                        <tfoot class="bg-blue-50 border-t-2 border-blue-300">
-                            <tr>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
-                                    Σ TOTAL
-                                </td>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                                    Todos
-                                </td>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                                    Todos
-                                </td>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                                    Todos
-                                </td>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
-                                    Bs.{{ number_format($this->totalesColumnas['generado'], 2) }}
-                                </td>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm text-green-600 text-right font-bold">
-                                    Bs.{{ number_format($this->totalesColumnas['cobrado'], 2) }}
-                                </td>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500 text-center">
-                                    —
-                                </td>
-                                <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
-                                    {{ number_format(($this->totalesColumnas['cobrado'] / $this->totalesColumnas['generado']) * 100, 1) }}%
-                                </td>
-                            </tr>
-                        </tfoot>
+                {{-- Resumen de registros --}}
+                <div class="bg-gray-50 px-6 py-4 border-t border-gray-200">
+                    <p class="text-sm text-gray-700">
+                        Mostrando <span class="font-medium">{{ count($datosHorizontales['filas']) }}</span> registros
+                        @if($filtroAño)
+                            del año <span class="font-medium">{{ $filtroAño }}</span>
                         @endif
-                    </table>
-                @endif
-            </div>
-
-            {{-- Resumen de registros --}}
-            <div class="bg-gray-50 px-6 py-4 border-t border-gray-200">
-                <p class="text-sm text-gray-700">
-                    Mostrando <span class="font-medium">{{ count($this->vistaActual) }}</span> registros
-                </p>
-            </div>
+                    </p>
+                </div>
+            @endif
         @endif
     </div>
 

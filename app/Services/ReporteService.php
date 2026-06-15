@@ -6,6 +6,7 @@ use App\Models\Expensa;
 use App\Models\Unidad;
 use App\Models\PeriodoExpensa;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class ReporteService
 {
@@ -18,15 +19,77 @@ class ReporteService
      */
     public function generarReporteConsolidado(array $filtros, bool $agruparPorPeriodo = true): array
     {
-        $resumido = $this->obtenerReporteResumido($filtros, $agruparPorPeriodo);
-        $detallado = $this->obtenerReporteDetallado($filtros, $agruparPorPeriodo);
-        $totales = $this->calcularTotalesGenerales($resumido, $detallado);
+        // Generar clave de cache única basada en filtros y agrupación
+        $cacheKey = $this->generarCacheKey($filtros, $agruparPorPeriodo);
 
-        return [
-            'resumido' => $resumido,
-            'detallado' => $detallado,
-            'totales' => $totales,
-        ];
+        // Registrar la clave para invalidación posterior
+        $this->registrarCacheKey($cacheKey);
+
+        return Cache::remember($cacheKey, 300, function() use ($filtros, $agruparPorPeriodo) {
+            $resumido = $this->obtenerReporteResumido($filtros, $agruparPorPeriodo);
+            $detallado = $this->obtenerReporteDetallado($filtros, $agruparPorPeriodo);
+            $totales = $this->calcularTotalesGenerales($resumido, $detallado);
+
+            return [
+                'resumido' => $resumido,
+                'detallado' => $detallado,
+                'totales' => $totales,
+            ];
+        });
+    }
+
+    /**
+     * Generar clave de cache única para el reporte
+     */
+    protected function generarCacheKey(array $filtros, bool $agruparPorPeriodo): string
+    {
+        ksort($filtros); // Ordenar array para consistencia
+        return 'reporte_consolidado:' . md5(json_encode($filtros) . $agruparPorPeriodo);
+    }
+
+    /**
+     * Invalidar cache de reportes cuando se modifican expensas
+     */
+    public function invalidarCacheReportes(): void
+    {
+        // Eliminar todas las claves de cache de reportes
+        // Como no podemos usar tags, limpiamos el cache completo de reportes
+        Cache::forget('reportes.periodos');
+        Cache::forget('reportes.unidades');
+
+        // Invalidar reportes cacheados por prefijo
+        $this->invalidarCachePorPrefijo('reporte_consolidado:');
+    }
+
+    /**
+     * Invalidar cache por prefijo de clave
+     */
+    protected function invalidarCachePorPrefijo(string $prefijo): void
+    {
+        // Para database cache, necesitamos usar una estrategia diferente
+        // Podríamos mantener un registro de las claves activas
+        if (Cache::getStore() instanceof \Illuminate\Cache\DatabaseStore) {
+            // Estrategia para database: eliminar por prefijo
+            $cacheKey = 'reportes_keys';
+            $keys = Cache::get($cacheKey, []);
+
+            foreach ($keys as $key) {
+                if (str_starts_with($key, $prefijo)) {
+                    Cache::forget($key);
+                }
+            }
+        }
+    }
+
+    /**
+     * Registrar clave de cache para invalidación posterior
+     */
+    protected function registrarCacheKey(string $key): void
+    {
+        $cacheKey = 'reportes_keys';
+        $keys = Cache::get($cacheKey, []);
+        $keys[] = $key;
+        Cache::put($cacheKey, array_unique($keys), 7200); // 2 horas
     }
 
     /**
@@ -108,17 +171,11 @@ class ReporteService
         $query = DB::table('expensas as e')
             ->join('unidades as u', 'e.unidad_id', '=', 'u.id')
             ->join('periodos_expensa as p', 'e.periodo_id', '=', 'p.id')
-            ->leftJoin('propietario_unidad as pu', function ($join) {
-                $join->on('u.id', '=', 'pu.unidad_id')->where('pu.es_propietario_actual', true);
-            })
-            ->leftJoin('propietarios as prop', 'pu.propietario_id', '=', 'prop.id')
             ->select([
                 'u.id as unidad_id',
                 'u.codigo',
                 'u.tipo_unidad',
                 'u.piso',
-                'prop.nombre as propietario_nombre',
-                'prop.apellido as propietario_apellido',
                 'p.id as periodo_id',
                 'p.mes',
                 'p.año',
@@ -127,6 +184,15 @@ class ReporteService
                 'e.monto_pagado as total_cobrado',
                 'e.monto_pendiente as total_deuda',
                 'e.estado',
+                // Subquery optimizada para propietario
+                DB::raw('(SELECT CONCAT(prop.nombre, " ", prop.apellido)
+                         FROM propietario_unidad pu
+                         JOIN propietarios prop ON pu.propietario_id = prop.id
+                         WHERE pu.unidad_id = u.id
+                         AND pu.es_propietario_actual = true
+                         AND (pu.fecha_fin IS NULL OR pu.fecha_fin > CURDATE())
+                         LIMIT 1
+                        ) as propietario_nombre')
             ]);
 
         // Aplicar filtros
@@ -145,10 +211,7 @@ class ReporteService
             $generado = (float) $row->total_generado;
             $cobrado = (float) $row->total_cobrado;
 
-            $propietario = trim(($row->propietario_nombre ?? '') . ' ' . ($row->propietario_apellido ?? ''));
-            if (empty($propietario)) {
-                $propietario = 'Sin asignar';
-            }
+            $propietario = $row->propietario_nombre ?? 'Sin asignar';
 
             return [
                 'unidad_id' => $row->unidad_id,
@@ -303,5 +366,228 @@ class ReporteService
             'tipo' => $tipoVista,
             'mensaje' => 'Exportación a PDF no implementada aún'
         ]);
+    }
+
+    /**
+     * Transformar datos resumidos a formato horizontal (períodos como columnas)
+     *
+     * @param array $datosResumido
+     * @param int|null $añoFiltro Año específico para filtrar (opcional)
+     * @return array Formato horizontal con períodos como columnas
+     */
+    public function transformarResumidoAHorizontal(array $datosResumido, ?int $añoFiltro = null): array
+    {
+        if (empty($datosResumido)) {
+            return [];
+        }
+
+        // Filtrar por año si se especifica
+        if ($añoFiltro !== null) {
+            $datosResumido = collect($datosResumido)
+                ->filter(function ($row) use ($añoFiltro) {
+                    return isset($row['año']) && $row['año'] == $añoFiltro;
+                })
+                ->toArray();
+        }
+
+        // Obtener todos los períodos únicos ordenados cronológicamente
+        $periodos = collect($datosResumido)
+            ->sortBy(function ($row) {
+                return ($row['año'] ?? 0) * 100 + ($row['mes'] ?? 0);
+            })
+            ->map(function ($row) {
+                return [
+                    'id' => $row['periodo_id'],
+                    'nombre' => $row['periodo'],
+                    'mes' => $row['mes'],
+                    'año' => $row['año'],
+                ];
+            })
+            ->unique('id')
+            ->values()
+            ->toArray();
+
+        // Agrupar por tipo de unidad
+        $agrupadoPorTipo = collect($datosResumido)
+            ->groupBy('tipo_unidad')
+            ->map(function ($rows, $tipoUnidad) use ($periodos) {
+                // Crear fila base con el tipo de unidad
+                $fila = [
+                    'tipo_unidad' => $tipoUnidad,
+                    'periodos' => [],
+                    'totales' => [
+                        'generado' => 0,
+                        'cobrado' => 0,
+                        'deuda' => 0,
+                    ]
+                ];
+
+                // Llenar datos de cada período
+                foreach ($periodos as $periodo) {
+                    $datoPeriodo = $rows->firstWhere('periodo_id', $periodo['id']);
+
+                    $fila['periodos'][] = [
+                        'periodo_id' => $periodo['id'],
+                        'nombre_periodo' => $periodo['nombre'],
+                        'generado' => $datoPeriodo['generado'] ?? 0,
+                        'cobrado' => $datoPeriodo['cobrado'] ?? 0,
+                        'deuda' => $datoPeriodo['deuda'] ?? 0,
+                    ];
+
+                    // Sumar a los totales
+                    $fila['totales']['generado'] += $datoPeriodo['generado'] ?? 0;
+                    $fila['totales']['cobrado'] += $datoPeriodo['cobrado'] ?? 0;
+                    $fila['totales']['deuda'] += $datoPeriodo['deuda'] ?? 0;
+                }
+
+                return $fila;
+            })
+            ->values()
+            ->toArray();
+
+        return [
+            'periodos' => $periodos,
+            'filas' => $agrupadoPorTipo,
+        ];
+    }
+
+    /**
+     * Transformar datos detallados a formato horizontal (períodos como columnas)
+     *
+     * @param array $datosDetallado
+     * @param int|null $añoFiltro Año específico para filtrar (opcional)
+     * @return array Formato horizontal con períodos como columnas
+     */
+    public function transformarDetalladoAHorizontal(array $datosDetallado, ?int $añoFiltro = null): array
+    {
+        if (empty($datosDetallado)) {
+            return [];
+        }
+
+        // Filtrar por año si se especifica
+        if ($añoFiltro !== null) {
+            $datosDetallado = collect($datosDetallado)
+                ->filter(function ($row) use ($añoFiltro) {
+                    return isset($row['año']) && $row['año'] == $añoFiltro;
+                })
+                ->toArray();
+        }
+
+        // Obtener todos los períodos únicos ordenados cronológicamente
+        $periodos = collect($datosDetallado)
+            ->sortBy(function ($row) {
+                return ($row['año'] ?? 0) * 100 + ($row['mes'] ?? 0);
+            })
+            ->map(function ($row) {
+                return [
+                    'id' => $row['periodo_id'],
+                    'nombre' => $row['periodo'],
+                    'mes' => $row['mes'],
+                    'año' => $row['año'],
+                ];
+            })
+            ->unique('id')
+            ->values()
+            ->toArray();
+
+        // Agrupar por unidad
+        $agrupadoPorUnidad = collect($datosDetallado)
+            ->groupBy('unidad_id')
+            ->map(function ($rows, $unidadId) use ($periodos) {
+                $primerRow = $rows->first();
+
+                // Crear fila base con datos de la unidad
+                $fila = [
+                    'unidad_id' => $unidadId,
+                    'unidad' => $primerRow['unidad'],
+                    'tipo' => $primerRow['tipo'],
+                    'propietario' => $primerRow['propietario'],
+                    'periodos' => [],
+                    'totales' => [
+                        'generado' => 0,
+                        'cobrado' => 0,
+                        'deuda' => 0,
+                    ]
+                ];
+
+                // Llenar datos de cada período
+                foreach ($periodos as $periodo) {
+                    $datoPeriodo = $rows->firstWhere('periodo_id', $periodo['id']);
+
+                    $fila['periodos'][] = [
+                        'periodo_id' => $periodo['id'],
+                        'nombre_periodo' => $periodo['nombre'],
+                        'generado' => $datoPeriodo['generado'] ?? 0,
+                        'cobrado' => $datoPeriodo['cobrado'] ?? 0,
+                        'deuda' => $datoPeriodo['deuda'] ?? 0,
+                        'estado' => $datoPeriodo['estado'] ?? 'Pendiente',
+                    ];
+
+                    // Sumar a los totales
+                    $fila['totales']['generado'] += $datoPeriodo['generado'] ?? 0;
+                    $fila['totales']['cobrado'] += $datoPeriodo['cobrado'] ?? 0;
+                    $fila['totales']['deuda'] += $datoPeriodo['deuda'] ?? 0;
+                }
+
+                // Calcular porcentaje de cobranza
+                $fila['totales']['porcentaje_cobranza'] = $this->calcularPorcentajeCobranza(
+                    $fila['totales']['cobrado'],
+                    $fila['totales']['generado']
+                );
+
+                return $fila;
+            })
+            ->values()
+            ->toArray();
+
+        return [
+            'periodos' => $periodos,
+            'filas' => $agrupadoPorUnidad,
+        ];
+    }
+
+    /**
+     * Obtener años disponibles en los datos de expensas
+     *
+     * @return array Años disponibles ordenados descendente
+     */
+    public function obtenerAñosDisponibles(): array
+    {
+        return Cache::remember('reportes.años_disponibles', 7200, function() {
+            $años = PeriodoExpensa::select('año')
+                ->distinct()
+                ->orderByDesc('año')
+                ->pluck('año')
+                ->toArray();
+
+            return $años;
+        });
+    }
+
+    /**
+     * Obtener períodos disponibles filtrados por año
+     *
+     * @param int|null $año Año específico (opcional)
+     * @return array Períodos disponibles
+     */
+    public function obtenerPeriodosDisponibles(?int $año = null): array
+    {
+        $query = PeriodoExpensa::orderByDesc('año')
+            ->orderByDesc('mes');
+
+        if ($año !== null) {
+            $query->where('año', $año);
+        }
+
+        return $query->get(['id', 'año', 'mes'])
+            ->map(function ($periodo) {
+                return [
+                    'id' => $periodo->id,
+                    'nombre' => $periodo->nombre_periodo,
+                    'mes' => $periodo->mes,
+                    'año' => $periodo->año,
+                ];
+            })
+            ->toArray();
     }
 }

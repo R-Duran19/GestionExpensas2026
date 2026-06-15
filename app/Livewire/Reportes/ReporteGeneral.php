@@ -5,6 +5,7 @@ namespace App\Livewire\Reportes;
 use App\Services\ReporteService;
 use App\Models\PeriodoExpensa;
 use App\Models\Unidad;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -14,12 +15,17 @@ class ReporteGeneral extends Component
     public $filtroTipoUnidad = 'todos'; // todos, departamento, oficina, local, parqueo, baulera
     public $filtroPeriodo = 'todos';    // periodo_id específico o 'todos'
     public $filtroUnidad = 'todas';     // unidad_id específico o 'todas'
+    public $filtroAño = null;           // año específico o null (todos los años)
     public $vista = 'resumida';         // 'resumida' o 'detallada'
     public $agrupacion = 'periodo';     // 'periodo' o 'acumulado'
 
     // Datos cargados
     public $datosReporte = null;
     public $cargando = false;
+    public $datosCargados = false; // Control de estado de carga
+
+    // Datos en formato horizontal
+    public $datosHorizontales = null; // Datos transformados para tabla horizontal
 
     protected ReporteService $reporteService;
 
@@ -30,7 +36,8 @@ class ReporteGeneral extends Component
 
     public function mount()
     {
-        $this->generarReporte();
+        // No cargar automáticamente - el usuario debe activar manualmente
+        // $this->generarReporte(); // Eliminado para optimización
     }
 
     /**
@@ -50,6 +57,10 @@ class ReporteGeneral extends Component
 
         try {
             $this->datosReporte = $this->reporteService->generarReporteConsolidado($filtros, $agruparPorPeriodo);
+            $this->datosCargados = true;
+
+            // Transformar datos a formato horizontal
+            $this->transformarDatosAHorizontal();
 
             if (empty($this->datosReporte['resumido']) && empty($this->datosReporte['detallado'])) {
                 $this->dispatch('notify',
@@ -68,30 +79,57 @@ class ReporteGeneral extends Component
     }
 
     /**
-     * Exportar a Excel
+     * Manejar actualizaciones de filtros - solo actualizar si ya hay datos cargados
      */
-    public function exportarExcel()
+    public function updated($property)
     {
-        $vista = $this->vista === 'resumida' ? 'resumido' : 'detallado';
+        // Solo regenerar si ya hay datos cargados y cambió un filtro relevante
+        if ($this->datosCargados && in_array($property, [
+            'filtroTipoUnidad',
+            'filtroPeriodo',
+            'filtroUnidad',
+            'filtroAño',
+            'agrupacion',
+        ])) {
+            $this->generarReporte();
+        }
+    }
 
-        if (!$this->datosReporte || empty($this->datosReporte[$vista])) {
-            $this->dispatch('notify', message: 'No hay datos para exportar', type: 'warning');
+    /**
+     * Transformar datos actuales a formato horizontal
+     */
+    protected function transformarDatosAHorizontal(): void
+    {
+        if (!$this->datosReporte) {
+            $this->datosHorizontales = null;
             return;
         }
 
-        try {
-            $response = $this->reporteService->exportarExcel($this->datosReporte[$vista], $vista);
+        $vista = $this->vista === 'resumida' ? 'resumido' : 'detallado';
+        $datos = $this->datosReporte[$vista] ?? [];
 
-            $this->dispatch('notify',
-                message: 'Exportación a Excel implementada (ver consola)',
-                type: 'success'
+        if ($vista === 'resumido') {
+            $this->datosHorizontales = $this->reporteService->transformarResumidoAHorizontal(
+                $datos,
+                $this->filtroAño
             );
-        } catch (\Exception $e) {
-            $this->dispatch('notify',
-                message: 'Error al exportar: ' . $e->getMessage(),
-                type: 'error'
+        } else {
+            $this->datosHorizontales = $this->reporteService->transformarDetalladoAHorizontal(
+                $datos,
+                $this->filtroAño
             );
         }
+    }
+
+    /**
+     * Exportar a Excel
+     * Nota: Este método ya no se usa, la exportación se hace directamente desde el formulario HTML
+     */
+    public function exportarExcel()
+    {
+        // Método obsoleto - la exportación se hace ahora desde el formulario HTML
+        // Se mantiene por compatibilidad si es llamado desde otros lugares
+        $this->dispatch('notify', message: 'Use el botón Excel en la interfaz', type: 'info');
     }
 
     /**
@@ -129,8 +167,12 @@ class ReporteGeneral extends Component
         $this->filtroTipoUnidad = 'todos';
         $this->filtroPeriodo = 'todos';
         $this->filtroUnidad = 'todas';
+        $this->filtroAño = null; // Reiniciar filtro de año
         $this->agrupacion = 'periodo';
-        $this->generarReporte();
+        $this->datosCargados = false; // Reiniciar estado
+        $this->datosReporte = null;
+        $this->datosHorizontales = null; // Limpiar datos horizontales
+        // No generar automáticamente - esperar acción del usuario
     }
 
     /**
@@ -139,6 +181,11 @@ class ReporteGeneral extends Component
     public function setVista($vista)
     {
         $this->vista = $vista;
+
+        // Transformar datos a la nueva vista si hay datos cargados
+        if ($this->datosCargados) {
+            $this->transformarDatosAHorizontal();
+        }
     }
 
     /**
@@ -172,21 +219,23 @@ class ReporteGeneral extends Component
     }
 
     /**
-     * Obtener períodos disponibles
+     * Obtener períodos disponibles (cacheado)
      */
-    #[Computed]
+    #[Computed(persist: true)]
     public function periodos()
     {
-        return PeriodoExpensa::orderByDesc('año')
-            ->orderByDesc('mes')
-            ->get()
-            ->map(function ($periodo) {
-                return [
-                    'id' => $periodo->id,
-                    'nombre' => $periodo->nombre_periodo,
-                ];
-            })
-            ->toArray();
+        return Cache::remember('reportes.periodos', 7200, function () {
+            return PeriodoExpensa::orderByDesc('año')
+                ->orderByDesc('mes')
+                ->get(['id', 'año', 'mes'])
+                ->map(function ($periodo) {
+                    return [
+                        'id' => $periodo->id,
+                        'nombre' => $periodo->nombre_periodo, // Usa el accessor del modelo
+                    ];
+                })
+                ->toArray();
+        });
     }
 
     /**
@@ -206,21 +255,23 @@ class ReporteGeneral extends Component
     }
 
     /**
-     * Obtener unidades disponibles (para filtro)
+     * Obtener unidades disponibles (para filtro, cacheado)
      */
-    #[Computed]
+    #[Computed(persist: true)]
     public function unidades()
     {
-        return Unidad::orderByRaw("LENGTH(codigo), codigo")
-            ->get()
-            ->map(function ($unidad) {
-                return [
-                    'id' => $unidad->id,
-                    'codigo' => $unidad->codigo,
-                    'tipo' => ucfirst($unidad->tipo_unidad->value),
-                ];
-            })
-            ->toArray();
+        return Cache::remember('reportes.unidades', 7200, function () {
+            return Unidad::orderByRaw("LENGTH(codigo), codigo")
+                ->get(['id', 'codigo', 'tipo_unidad'])
+                ->map(function ($unidad) {
+                    return [
+                        'id' => $unidad->id,
+                        'codigo' => $unidad->codigo,
+                        'tipo' => ucfirst($unidad->tipo_unidad->value),
+                    ];
+                })
+                ->toArray();
+        });
     }
 
     /**
@@ -244,28 +295,40 @@ class ReporteGeneral extends Component
     #[Computed]
     public function totalesColumnas()
     {
-        if (!$this->datosReporte || empty($this->vistaActual)) {
+        if (!$this->datosHorizontales || empty($this->datosHorizontales['filas'])) {
             return null;
         }
 
-        $datos = $this->vistaActual;
+        $filas = $this->datosHorizontales['filas'];
 
-        if ($this->vista === 'resumida') {
-            // Vista resumida: totales de unidades, generado, cobrado, deuda
-            return [
-                'unidades' => collect($datos)->sum('unidades'),
-                'generado' => collect($datos)->sum('generado'),
-                'cobrado' => collect($datos)->sum('cobrado'),
-                'deuda' => collect($datos)->sum('deuda'),
-            ];
-        } else {
-            // Vista detallada: totales de generado, cobrado, deuda
-            return [
-                'generado' => collect($datos)->sum('generado'),
-                'cobrado' => collect($datos)->sum('cobrado'),
-                'deuda' => collect($datos)->sum('deuda'),
-            ];
-        }
+        // Sumar totales de todas las filas
+        return collect($filas)->reduce(function ($carry, $fila) {
+            $carry['generado'] += $fila['totales']['generado'];
+            $carry['cobrado'] += $fila['totales']['cobrado'];
+            $carry['deuda'] += $fila['totales']['deuda'];
+            return $carry;
+        }, ['generado' => 0, 'cobrado' => 0, 'deuda' => 0]);
+    }
+
+    /**
+     * Obtener años disponibles (cacheado)
+     */
+    #[Computed(persist: true)]
+    public function añosDisponibles()
+    {
+        return Cache::remember('reportes.años_disponibles', 7200, function () {
+            return $this->reporteService->obtenerAñosDisponibles();
+        });
+    }
+
+    /**
+     * Obtener períodos disponibles filtrados por año seleccionado
+     */
+    #[Computed]
+    public function periodosFiltrados()
+    {
+        $año = $this->filtroAño;
+        return $this->reporteService->obtenerPeriodosDisponibles($año);
     }
 
     public function render()

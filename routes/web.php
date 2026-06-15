@@ -5,6 +5,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReciboPDFController;
 use App\Http\Controllers\EgresoPDFController;
 use App\Http\Controllers\BoletaExpensaPDFController;
+use App\Http\Controllers\ReporteExcelController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -237,6 +238,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     */
     Route::prefix('reportes')->name('reportes.')->group(function () {
         Route::get('/', \App\Livewire\Reportes\ReporteGeneral::class)->name('index');
+        Route::get('/exportar-excel', [ReporteExcelController::class, 'exportar'])->name('exportar.excel');
     });
 
     /*
