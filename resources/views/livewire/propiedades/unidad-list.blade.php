@@ -5,7 +5,21 @@
             <h1 class="text-2xl font-bold text-gray-900">Unidades</h1>
             <p class="text-gray-600 mt-1">Gestión de unidades del edificio</p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 items-center">
+            {{-- Selector de período para PDF --}}
+            <div>
+                <select
+                    wire:model.live="periodoId"
+                    class="block px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                >
+                    <option value="">-- Sin período --</option>
+                    @foreach($this->periodos as $periodo)
+                        <option value="{{ $periodo->id }}">
+                            {{ $periodo->nombre_periodo }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
             <a href="{{ route('asignar-propietario') }}"
                class="border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg flex items-center gap-2 transition">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -164,6 +178,16 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                         </svg>
                                     </a>
+                                    @if($periodo)
+                                        <a href="{{ route('expensas.unidad.pdf.mostrar', [$periodo->id, $unidad->id]) }}"
+                                           class="text-red-600 hover:text-red-900"
+                                           title="Ver PDF de expensa"
+                                           target="_blank">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                            </svg>
+                                        </a>
+                                    @endif
                                     <a href="{{ route('unidades.edit', $unidad->id) }}"
                                        class="text-blue-600 hover:text-blue-900"
                                        title="Editar">

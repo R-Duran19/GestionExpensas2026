@@ -5,6 +5,7 @@ namespace App\Livewire\Propiedades;
 use App\Enums\CategoriaUnidad;
 use App\Enums\TipoUnidad;
 use App\Models\Unidad;
+use App\Models\PeriodoExpensa;
 use App\Services\UnidadService;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
@@ -21,6 +22,9 @@ class UnidadList extends Component
     public $filtro_categoria = '';
     public $filtro_activo = '';
 
+    // Período para PDF
+    public $periodoId = null;
+
     // Ordenamiento
     public $ordenar_por = 'codigo';
     public $direccion_orden = 'asc';
@@ -32,6 +36,15 @@ class UnidadList extends Component
     protected $paginationTheme = 'tailwind';
 
     protected UnidadService $unidadService;
+
+    public function mount()
+    {
+        // Cargar el período más reciente por defecto
+        $periodoReciente = PeriodoExpensa::orderBy('fecha_apertura', 'desc')->first();
+        if ($periodoReciente) {
+            $this->periodoId = $periodoReciente->id;
+        }
+    }
 
     public function boot(UnidadService $unidadService)
     {
@@ -90,6 +103,21 @@ class UnidadList extends Component
     public function categorias(): array
     {
         return CategoriaUnidad::toSelectArray();
+    }
+
+    #[Computed]
+    public function periodos()
+    {
+        return PeriodoExpensa::orderBy('fecha_apertura', 'desc')->get();
+    }
+
+    #[Computed]
+    public function periodo()
+    {
+        if ($this->periodoId) {
+            return PeriodoExpensa::find($this->periodoId);
+        }
+        return null;
     }
 
     /**

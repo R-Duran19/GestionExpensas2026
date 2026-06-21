@@ -5,6 +5,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReciboPDFController;
 use App\Http\Controllers\EgresoPDFController;
 use App\Http\Controllers\BoletaExpensaPDFController;
+use App\Http\Controllers\ExpensaUnidadPDFController;
 use App\Http\Controllers\ReporteExcelController;
 use Illuminate\Support\Facades\Route;
 
@@ -113,27 +114,32 @@ Route::middleware(['auth', 'admin'])->group(function () {
     |--------------------------------------------------------------------------
     | MÓDULO DE EXPENSAS (FASE 3)
     |--------------------------------------------------------------------------
+    | Nueva arquitectura descentralizada por unidad (sin consolidación por propietario)
     */
     Route::prefix('expensas')->name('expensas.')->group(function () {
-        // Listado principal de expensas (por propietarios)
+        // Listado principal de expensas (por unidades)
         Route::get('/', \App\Livewire\Expensas\ExpensaList::class)->name('index');
         Route::get('/list', \App\Livewire\Expensas\ExpensaList::class)->name('list'); // Alias para redirecciones
 
-        // Boleta de expensas de un propietario (todas sus unidades)
-        Route::get('/propietario/{periodo}/{propietario}', \App\Livewire\Expensas\ExpensaPropietarioDetalle::class)->name('propietario');
+        // Detalle de expensa por unidad (con selector de período)
+        Route::get('/unidad/{unidad}', \App\Livewire\Expensas\ExpensaUnidadDetalle::class)->name('unidad.detalle');
 
-        // PDF de boleta de expensa
-        Route::get('/propietario/{periodo}/{propietario}/pdf', [BoletaExpensaPDFController::class, 'mostrar'])->name('propietario.pdf');
-        Route::get('/propietario/{periodo}/{propietario}/pdf/descargar', [BoletaExpensaPDFController::class, 'descargar'])->name('propietario.pdf.descargar');
+        // Sistema de pagos de expensas (por unidad)
+        Route::get('/pagar/{unidad}', \App\Livewire\Expensas\PagoExpensaForm::class)->name('pagar.formulario');
 
-        // Sistema de pagos de expensas
-        Route::get('/pagar/{expensaTotal}', \App\Livewire\Expensas\PagoExpensaForm::class)->name('pagar');
+        // Formulario de pago (ruta alternativa para compatibilidad)
+        Route::get('/pago/{unidad}', \App\Livewire\Expensas\PagoExpensaForm::class)->name('pago');
 
         // Detalle de expensa individual (mantenido para compatibilidad)
         Route::get('/{expensa}', \App\Livewire\Expensas\ExpensaDetalle::class)->name('detalle');
 
-        // Detalle de expensa por unidad (con selector de período)
-        Route::get('/unidad/{unidad}', \App\Livewire\Expensas\ExpensaUnidadDetalle::class)->name('unidad.detalle');
+        // PDF de boleta de expensa (por período y propietario)
+        Route::get('/pdf/{periodo}/{propietario}', [BoletaExpensaPDFController::class, 'mostrar'])->name('pdf.mostrar');
+        Route::get('/pdf/{periodo}/{propietario}/descargar', [BoletaExpensaPDFController::class, 'descargar'])->name('pdf.descargar');
+
+        // PDF de expensa de unidad específica
+        Route::get('/unidad-pdf/{periodo}/{unidad}', [ExpensaUnidadPDFController::class, 'mostrar'])->name('unidad.pdf.mostrar');
+        Route::get('/unidad-pdf/{periodo}/{unidad}/descargar', [ExpensaUnidadPDFController::class, 'descargar'])->name('unidad.pdf.descargar');
     });
 
     /*
