@@ -87,28 +87,43 @@ class Propietario extends Model
 
     /**
      * Scope para búsqueda general
+     * Busca por CI, nombre, apellido y email
+     * Maneja múltiples palabras (ej: "Maria Perez" busca Maria en nombre Y Perez en apellido, o viceversa)
      */
     public function scopeBuscar($query, $termino)
     {
-        // Limpiar y dividir en palabras
+        // Limpiar y dividir en palabras (maneja espacios múltiples)
         $termino = trim($termino);
-        $palabras = explode(' ', $termino);
-
-        // Si es una sola palabra, búsqueda normal
-        if (count($palabras) === 1) {
-            return $query->where('ci', 'like', "%{$termino}%")
-                        ->orWhere('nombre', 'like', "%{$termino}%")
-                        ->orWhere('apellido', 'like', "%{$termino}%")
-                        ->orWhere('email', 'like', "%{$termino}%");
+        if (empty($termino)) {
+            return $query;
         }
 
-        // Si son múltiples palabras, buscar cada una en cualquier campo
+        // Dividir por espacios y filtrar palabras vacías
+        $palabras = preg_split('/\s+/', $termino, -1, PREG_SPLIT_NO_EMPTY);
+        $palabras = array_filter($palabras, fn($p) => !empty(trim($p)));
+
+        // Si es una sola palabra, búsqueda simple en cualquier campo
+        if (count($palabras) === 1) {
+            $termino = $palabras[0];
+            return $query->where(function ($q) use ($termino) {
+                $q->where('ci', 'like', "%{$termino}%")
+                  ->orWhere('nombre', 'like', "%{$termino}%")
+                  ->orWhere('apellido', 'like', "%{$termino}%")
+                  ->orWhere('email', 'like', "%{$termino}%");
+            });
+        }
+
+        // Si son múltiples palabras, buscar combinaciones:
+        // 1. Todas las palabras deben aparecer (en nombre o apellido, en cualquier orden)
         return $query->where(function ($q) use ($palabras) {
-            foreach ($palabras as $palabra) {
-                $q->orWhere('ci', 'like', "%{$palabra}%")
-                  ->orWhere('nombre', 'like', "%{$palabra}%")
-                  ->orWhere('apellido', 'like', "%{$palabra}%")
-                  ->orWhere('email', 'like', "%{$palabra}%");
+            foreach ($palabras as $index => $palabra) {
+                $method = $index === 0 ? 'where' : 'orWhere';
+                $q->$method(function ($subQ) use ($palabra) {
+                    $subQ->where('nombre', 'like', "%{$palabra}%")
+                         ->orWhere('apellido', 'like', "%{$palabra}%")
+                         ->orWhere('ci', 'like', "%{$palabra}%")
+                         ->orWhere('email', 'like', "%{$palabra}%");
+                });
             }
         });
     }

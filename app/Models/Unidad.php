@@ -127,15 +127,48 @@ class Unidad extends Model
     }
 
     /**
-     * Scope para buscar por código
+     * Scope para buscar por código, piso o propietario
+     * Busca en código, piso, y en el nombre/apellido del propietario actual
      */
     public function scopeBuscar($query, $termino)
     {
         // Limpiar espacios
         $termino = trim($termino);
+        if (empty($termino)) {
+            return $query;
+        }
 
-        return $query->where('codigo', 'like', "%{$termino}%")
-                    ->orWhere('piso', 'like', "%{$termino}%");
+        // Dividir por espacios y filtrar palabras vacías
+        $palabras = preg_split('/\s+/', $termino, -1, PREG_SPLIT_NO_EMPTY);
+        $palabras = array_filter($palabras, fn($p) => !empty(trim($p)));
+
+        // Si es una sola palabra, búsqueda simple
+        if (count($palabras) === 1) {
+            $termino = $palabras[0];
+            return $query->where(function ($q) use ($termino) {
+                $q->where('codigo', 'like', "%{$termino}%")
+                  ->orWhere('piso', 'like', "%{$termino}%")
+                  ->orWhereHas('propietarioActual', function ($propQ) use ($termino) {
+                      $propQ->where('nombre', 'like', "%{$termino}%")
+                            ->orWhere('apellido', 'like', "%{$termino}%");
+                  });
+            });
+        }
+
+        // Si son múltiples palabras, buscar combinaciones
+        return $query->where(function ($q) use ($palabras) {
+            foreach ($palabras as $index => $palabra) {
+                $method = $index === 0 ? 'where' : 'orWhere';
+                $q->$method(function ($subQ) use ($palabra) {
+                    $subQ->where('codigo', 'like', "%{$palabra}%")
+                          ->orWhere('piso', 'like', "%{$palabra}%")
+                          ->orWhereHas('propietarioActual', function ($propQ) use ($palabra) {
+                              $propQ->where('nombre', 'like', "%{$palabra}%")
+                                    ->orWhere('apellido', 'like', "%{$palabra}%");
+                          });
+                });
+            }
+        });
     }
 
     /**

@@ -123,15 +123,30 @@ class RegistrarLecturaIndividual extends Component
     #[Computed]
     public function unidadesFiltradas()
     {
-        if (empty($this->searchUnidad)) {
+        $search = trim($this->searchUnidad);
+        if (empty($search)) {
             return collect();
         }
 
-        return $this->unidades->filter(function ($unidad) {
-            $search = strtolower($this->searchUnidad);
-            return str_contains(strtolower($unidad['codigo']), $search) ||
-                   str_contains(strtolower($unidad['nombre']), $search) ||
-                   str_contains(strtolower($unidad['propietario']), $search);
+        // Dividir por espacios para búsqueda múltiple (ej: "D-1 Maria")
+        $palabras = preg_split('/\s+/', $search, -1, PREG_SPLIT_NO_EMPTY);
+        $palabras = array_filter($palabras, fn($p) => !empty(trim($p)));
+
+        return $this->unidades->filter(function ($unidad) use ($palabras) {
+            // Todas las palabras deben coincidir (en cualquier campo)
+            foreach ($palabras as $palabra) {
+                $searchLower = strtolower($palabra);
+                $codigoMatch = str_contains(strtolower($unidad['codigo']), $searchLower);
+                $nombreMatch = str_contains(strtolower($unidad['nombre']), $searchLower);
+                $propietarioMatch = str_contains(strtolower($unidad['propietario'] ?? ''), $searchLower);
+
+                // Si ninguna coincide, esta unidad no coincide
+                if (!$codigoMatch && !$nombreMatch && !$propietarioMatch) {
+                    return false;
+                }
+            }
+            // Si todas las palabras coincidieron con algún campo
+            return true;
         })->values();
     }
 

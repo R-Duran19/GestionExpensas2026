@@ -61,12 +61,40 @@ class RegistrarLecturasMasivas extends Component
             ->orderBy('tipo_unidad')
             ->orderByRaw("SUBSTRING_INDEX(codigo, '-', -1) + 0");
 
-        // Filtro de búsqueda
+        // Filtro de búsqueda - usar el scope optimizado del modelo
         if ($this->search) {
-            $query->where(function ($q) {
-                $q->where('codigo', 'like', '%' . $this->search . '%')
-                  ->orWhere('nombre_completo', 'like', '%' . $this->search . '%');
-            });
+            $termino = trim($this->search);
+            if (!empty($termino)) {
+                // Dividir por espacios y filtrar palabras vacías
+                $palabras = preg_split('/\s+/', $termino, -1, PREG_SPLIT_NO_EMPTY);
+                $palabras = array_filter($palabras, fn($p) => !empty(trim($p)));
+
+                // Si es una sola palabra, búsqueda simple
+                if (count($palabras) === 1) {
+                    $termino = $palabras[0];
+                    $query->where(function ($q) use ($termino) {
+                        $q->where('codigo', 'like', "%{$termino}%")
+                          ->orWhereHas('propietarioActual', function ($propQ) use ($termino) {
+                              $propQ->where('nombre', 'like', "%{$termino}%")
+                                    ->orWhere('apellido', 'like', "%{$termino}%");
+                          });
+                    });
+                } else {
+                    // Si son múltiples palabras, buscar combinaciones
+                    $query->where(function ($q) use ($palabras) {
+                        foreach ($palabras as $index => $palabra) {
+                            $method = $index === 0 ? 'where' : 'orWhere';
+                            $q->$method(function ($subQ) use ($palabra) {
+                                $subQ->where('codigo', 'like', "%{$palabra}%")
+                                      ->orWhereHas('propietarioActual', function ($propQ) use ($palabra) {
+                                          $propQ->where('nombre', 'like', "%{$palabra}%")
+                                                ->orWhere('apellido', 'like', "%{$palabra}%");
+                                      });
+                            });
+                        }
+                    });
+                }
+            }
         }
 
         // Filtro por tipo

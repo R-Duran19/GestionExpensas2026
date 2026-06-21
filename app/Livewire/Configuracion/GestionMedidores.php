@@ -31,10 +31,13 @@ class GestionMedidores extends Component
             ->orderByRaw("SUBSTRING_INDEX(codigo, '-', -1) + 0");
 
         if ($this->search) {
-            $query->where(function ($q) {
-                $q->where('codigo', 'like', '%' . $this->search . '%')
-                  ->orWhere('numero_medidor', 'like', '%' . $this->search . '%');
-            });
+            $termino = trim($this->search);
+            if (!empty($termino)) {
+                $query->where(function ($q) use ($termino) {
+                    $q->where('codigo', 'like', "%{$termino}%")
+                      ->orWhere('numero_medidor', 'like', "%{$termino}%");
+                });
+            }
         }
 
         if ($this->filtroTipo) {

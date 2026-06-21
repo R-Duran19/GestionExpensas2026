@@ -3,7 +3,6 @@
 namespace App\Livewire\Expensas;
 
 use App\Models\Expensa;
-use App\Models\ExpensaTotal;
 use App\Models\PeriodoExpensa;
 use App\Models\Unidad;
 use App\Services\ExpensaService;
@@ -26,6 +25,8 @@ class ExpensaList extends Component
     public $generando = false;
 
     protected ExpensaService $expensaService;
+
+    protected $queryString = ['periodoId', 'search', 'filtroEstado', 'filtroTipo'];
 
     public function boot(ExpensaService $expensaService)
     {
@@ -70,102 +71,55 @@ class ExpensaList extends Component
     }
 
     /**
-     * Obtener lista de propietarios con sus expensas agrupadas
-     */
-    #[Computed]
-    public function propietariosConExpensas()
-    {
-        // Obtener IDs de propietarios que tienen unidades activas (desde la tabla pivot)
-        $propietarioIds = \DB::table('propietario_unidad')
-            ->join('unidades', 'propietario_unidad.unidad_id', '=', 'unidades.id')
-            ->where('unidades.activo', true)
-            ->where('propietario_unidad.es_propietario_actual', true)
-            ->pluck('propietario_id')
-            ->unique()
-            ->sort();
-
-        $query = \App\Models\Propietario::whereIn('id', $propietarioIds)
-            ->with(['unidades' => function ($query) {
-                $query->activos()
-                      ->with(['expensas' => function ($query) {
-                          if ($this->periodoId) {
-                              $query->where('periodo_id', $this->periodoId);
-                          }
-                      }]);
-            }])
-            ->with(['expensaTotal' => function ($query) {
-                if ($this->periodoId) {
-                    $query->where('periodo_id', $this->periodoId);
-                }
-            }])
-            ->orderBy('apellido')
-            ->orderBy('nombre');
-
-        // Filtro de búsqueda (por propietario O por unidad)
-        if ($this->search) {
-            $termino = '%' . $this->search . '%';
-
-            // Buscar unidades que coinciden con el término de búsqueda
-            $unidadIds = \DB::table('unidades')
-                ->where('codigo', 'like', $termino)
-                ->pluck('id');
-
-            // Obtener IDs de propietarios actuales de esas unidades
-            $propietarioIdsDesdeUnidades = [];
-            if ($unidadIds->isNotEmpty()) {
-                $propietarioIdsDesdeUnidades = \DB::table('propietario_unidad')
-                    ->whereIn('unidad_id', $unidadIds)
-                    ->where('es_propietario_actual', true)
-                    ->pluck('propietario_id')
-                    ->unique()
-                    ->toArray();
-            }
-
-            $query->where(function ($q) use ($termino, $propietarioIdsDesdeUnidades) {
-                // Búsqueda por datos del propietario (nombre, apellido, CI)
-                $q->where('nombre', 'like', $termino)
-                  ->orWhere('apellido', 'like', $termino)
-                  ->orWhere('ci', 'like', $termino)
-                  // O por propietarios de las unidades encontradas
-                  ->orWhereIn('id', $propietarioIdsDesdeUnidades);
-            });
-        }
-
-        // Paginar
-        return $query->paginate(15);
-    }
-
-    /**
      * Obtener lista de unidades con sus expensas
      */
     #[Computed]
     public function unidadesConExpensas()
     {
         $query = Unidad::activos()
-            ->with(['propietarios', 'expensas' => function ($query) {
-                if ($this->periodoId) {
-                    $query->where('periodo_id', $this->periodoId);
+            ->with([
+                'propietarioActual',
+                'expensas' => function ($query) {
+                    if ($this->periodoId) {
+                        $query->where('periodo_id', $this->periodoId);
+                    }
                 }
-            }])
-            ->leftJoin('expensas', function ($join) {
-                $join->on('unidades.id', '=', 'expensas.unidad_id');
-                if ($this->periodoId) {
-                    $join->where('expensas.periodo_id', '=', $this->periodoId);
-                }
-            })
-            ->select('unidades.*', 'expensas.id as expensa_id', 'expensas.estado as expensa_estado', 'expensas.monto_total', 'expensas.monto_pagado', 'expensas.monto_pendiente', 'expensas.deuda_anterior')
-            ->orderBy('unidades.tipo_unidad')
-            ->orderByRaw("SUBSTRING_INDEX(unidades.codigo, '-', -1) + 0");
+            ]);
 
         // Filtro de búsqueda
         if ($this->search) {
-            $query->where(function ($q) {
-                $q->where('unidades.codigo', 'like', '%' . $this->search . '%')
-                  ->orWhereHas('propietarioActual', function ($q2) {
-                      $q2->where('nombre', 'like', '%' . $this->search . '%')
-                         ->orWhere('apellido', 'like', '%' . $this->search . '%');
-                  });
-            });
+            // Limpiar y dividir en palabras (maneja espacios múltiples)
+            $termino = trim($this->search);
+            if (!empty($termino)) {
+                $palabras = preg_split('/\s+/', $termino, -1, PREG_SPLIT_NO_EMPTY);
+                $palabras = array_filter($palabras, fn($p) => !empty(trim($p)));
+
+                // Si es una sola palabra, búsqueda simple
+                if (count($palabras) === 1) {
+                    $termino = $palabras[0];
+                    $query->where(function ($q) use ($termino) {
+                        $q->where('unidades.codigo', 'like', "%{$termino}%")
+                          ->orWhereHas('propietarioActual', function ($propQ) use ($termino) {
+                              $propQ->where('nombre', 'like', "%{$termino}%")
+                                    ->orWhere('apellido', 'like', "%{$termino}%");
+                          });
+                    });
+                } else {
+                    // Si son múltiples palabras, buscar combinaciones
+                    $query->where(function ($q) use ($palabras) {
+                        foreach ($palabras as $index => $palabra) {
+                            $method = $index === 0 ? 'where' : 'orWhere';
+                            $q->$method(function ($subQ) use ($palabra) {
+                                $subQ->where('unidades.codigo', 'like', "%{$palabra}%")
+                                      ->orWhereHas('propietarioActual', function ($propQ) use ($palabra) {
+                                          $propQ->where('nombre', 'like', "%{$palabra}%")
+                                                ->orWhere('apellido', 'like', "%{$palabra}%");
+                                      });
+                            });
+                        }
+                    });
+                }
+            }
         }
 
         // Filtro por tipo de unidad
@@ -173,123 +127,115 @@ class ExpensaList extends Component
             $query->where('unidades.tipo_unidad', $this->filtroTipo);
         }
 
+        // Ordenar natural por código (ej: D-1, D-2, D-10)
+        $query->orderBy('unidades.tipo_unidad')
+              ->orderByRaw("CAST(SUBSTRING_INDEX(unidades.codigo, '-', -1) AS UNSIGNED)");
+
         // Paginar
-        return $query->paginate(15);
+        return $query->paginate(20);
     }
 
     /**
-     * Obtener estadísticas del período (agrupado por propietarios)
+     * Obtener estadísticas del período
      */
     #[Computed]
     public function estadisticas()
     {
         if (!$this->periodoId) {
             return [
-                'total_propietarios' => 0,
                 'total_unidades' => 0,
                 'expensas_calculadas' => 0,
-                'pendientes' => 0,
-                'parciales' => 0,
+                'con_deuda' => 0,
                 'pagadas' => 0,
-                'monto_total' => 0,
+                'monto_total_emision' => 0,
+                'monto_deuda_total' => 0,
                 'monto_pagado' => 0,
-                'monto_pendiente' => 0,
+                'saldo_a_favor' => 0,
             ];
         }
 
         // Contar unidades activas
-        $unidades = Unidad::activos()->count();
+        $totalUnidades = Unidad::activos()->count();
 
-        // Obtener estadísticas desde expensa_total (agregación en BD)
-        $estadisticasExpensas = ExpensaTotal::where('periodo_id', $this->periodoId)
-            ->selectRaw('
-                COUNT(*) as total_registros,
-                SUM(CASE WHEN estado = "pendiente" THEN 1 ELSE 0 END) as pendientes,
-                SUM(CASE WHEN estado = "parcial" THEN 1 ELSE 0 END) as parciales,
-                SUM(CASE WHEN estado = "pagado" THEN 1 ELSE 0 END) as pagadas,
-                SUM(monto_total) as monto_total,
-                SUM(monto_pagado) as monto_pagado,
-                SUM(monto_pendiente) as monto_pendiente
-            ')
-            ->first();
+        // Obtener estadísticas desde expensas
+        $expensas = Expensa::where('periodo_id', $this->periodoId)->get();
 
-        // Si no hay expensas totales, retornar valores vacíos
-        if (!$estadisticasExpensas || $estadisticasExpensas->total_registros === 0) {
-            // Backward compatibility: verificar si hay expensas individuales
-            $expensasCount = Expensa::where('periodo_id', $this->periodoId)->count();
+        $expensasCalculadas = $expensas->count();
+        $montoTotalEmision = $expensas->sum('monto_total');
 
-            return [
-                'total_propietarios' => 0,
-                'total_unidades' => $unidades,
-                'expensas_calculadas' => $expensasCount,
-                'pendientes' => 0,
-                'parciales' => 0,
-                'pagadas' => 0,
-                'monto_total' => 0,
-                'monto_pagado' => 0,
-                'monto_pendiente' => 0,
-            ];
-        }
+        // Contar expensas con deuda (expensa_pendiente > 0 o agua_pendiente > 0)
+        $conDeuda = $expensas->filter(fn($e) => $e->tieneDeuda())->count();
 
-        // Contar propietarios únicos desde expensa_total
-        $totalPropietarios = ExpensaTotal::where('periodo_id', $this->periodoId)
-            ->distinct('propietario_id')
-            ->count('propietario_id');
+        // Contar expensas pagadas (ambos saldos en 0)
+        $pagadas = $expensas->filter(fn($e) => $e->estaPagada())->count();
+
+        // Monto total de deuda
+        $montoDeudaTotal = $expensas->sum('expensa_pendiente') + $expensas->sum('agua_pendiente');
+
+        // Monto pagado
+        $montoPagado = $montoTotalEmision - $montoDeudaTotal;
+
+        // Total saldos a favor del período
+        $saldoAFavor = \App\Models\SaldoAFavor::whereHas('ingreso', function ($q) {
+            $q->where('tipo_ingreso', 'expensa');
+        })->where('estado', 'disponible')->sum('monto_saldo');
 
         return [
-            'total_propietarios' => $totalPropietarios,
-            'total_unidades' => $unidades,
-            'expensas_calculadas' => Expensa::where('periodo_id', $this->periodoId)->count(),
-            'pendientes' => $estadisticasExpensas->pendientes ?? 0,
-            'parciales' => $estadisticasExpensas->parciales ?? 0,
-            'pagadas' => $estadisticasExpensas->pagadas ?? 0,
-            'monto_total' => $estadisticasExpensas->monto_total ?? 0,
-            'monto_pagado' => $estadisticasExpensas->monto_pagado ?? 0,
-            'monto_pendiente' => $estadisticasExpensas->monto_pendiente ?? 0,
+            'total_unidades' => $totalUnidades,
+            'expensas_calculadas' => $expensasCalculadas,
+            'con_deuda' => $conDeuda,
+            'pagadas' => $pagadas,
+            'monto_total_emision' => $montoTotalEmision,
+            'monto_deuda_total' => $montoDeudaTotal,
+            'monto_pagado' => $montoPagado,
+            'saldo_a_favor' => $saldoAFavor,
         ];
     }
 
     /**
-     * Generar expensas para todas las unidades de un propietario
+     * Generar todas las expensas del período
      */
-    public function generarExpensasPropietario($propietarioId)
+    public function generarTodasExpensas()
     {
         try {
             if (!$this->periodoId) {
                 throw new \Exception('Debe seleccionar un período primero');
             }
 
-            $propietario = \App\Models\Propietario::find($propietarioId);
-
-            if (!$propietario) {
-                throw new \Exception('Propietario no encontrado');
+            if ($this->periodo->estado !== 'abierto') {
+                throw new \Exception('Solo se pueden generar expensas en períodos abiertos');
             }
 
-            $unidades = $propietario->unidades()->activos()->get();
-
-            if ($unidades->isEmpty()) {
-                throw new \Exception('El propietario no tiene unidades activas');
+            // Validar que el período esté completo
+            $validacion = $this->expensaService->validarPeriodoCompleto($this->periodoId);
+            if (!$validacion['valido']) {
+                $errores = implode(', ', $validacion['errores']);
+                throw new \Exception("El período no está completo: {$errores}");
             }
 
             $this->generando = true;
 
-            // Generar expensa para cada unidad del propietario
-            $expensasGeneradas = [];
-            foreach ($unidades as $unidad) {
-                $expensa = $this->expensaService->generarExpensaUnidad(
-                    $this->periodoId,
-                    $unidad->id
-                );
-                $expensasGeneradas[] = $expensa;
-            }
+            // Generar todas las expensas del período
+            $resultados = $this->expensaService->generarExpensas($this->periodoId);
 
-            $montoTotal = collect($expensasGeneradas)->sum('monto_total');
+            $mensaje = "Se generaron {$resultados['exitosas']} expensas";
+            if (!empty($resultados['errores'])) {
+                $mensaje .= " con " . count($resultados['errores']) . " errores";
+            }
 
             $this->dispatch('alerta', [
                 'tipo' => 'success',
                 'titulo' => 'Expensas generadas',
-                'mensaje' => "Se generaron {$unidades->count()} expensas para {$propietario->nombre} {$propietario->apellido}. Total: {$montoTotal} Bs",
+                'mensaje' => $mensaje,
             ]);
+
+            // Si hubo errores, mostrar advertencias
+            if (!empty($resultados['errores'])) {
+                foreach ($resultados['errores'] as $error) {
+                    \Log::warning("Error generando expensa: {$error['unidad']} - {$error['error']}");
+                }
+            }
+
         } catch (\Exception $e) {
             $this->dispatch('alerta', [
                 'tipo' => 'error',
@@ -314,18 +260,18 @@ class ExpensaList extends Component
             $this->unidadIdGenerando = $unidadId;
             $this->generando = true;
 
+            $unidad = Unidad::findOrFail($unidadId);
             $expensa = $this->expensaService->generarExpensaUnidad(
                 $this->periodoId,
-                $unidadId
+                $unidad
             );
-
-            $unidad = Unidad::find($unidadId);
 
             $this->dispatch('alerta', [
                 'tipo' => 'success',
                 'titulo' => 'Expensa generada',
-                'mensaje' => "Expensa de {$unidad->nombre_completo}: {$expensa->monto_total} Bs",
+                'mensaje' => "Expensa de {$unidad->nombre_completo}: {$this->formatoMoneda($expensa->monto_total)} Bs",
             ]);
+
         } catch (\Exception $e) {
             $this->dispatch('alerta', [
                 'tipo' => 'error',
@@ -339,52 +285,33 @@ class ExpensaList extends Component
     }
 
     /**
-     * Generar todas las expensas del período
+     * Recalcular todas las expensas del período
      */
-    public function generarTodasExpensas()
+    public function recalcularExpensas()
     {
         try {
             if (!$this->periodoId) {
                 throw new \Exception('Debe seleccionar un período primero');
             }
 
-            if ($this->periodo->estado !== 'abierto') {
-                throw new \Exception('Solo se pueden generar expensas en períodos abiertos');
+            if ($this->periodo->estado === 'cerrado') {
+                throw new \Exception('No se puede recalcular un período cerrado. Reabra el período primero.');
+            }
+
+            if (!confirm('¿Está seguro de recalcular todas las expensas? Esto eliminará las expensas actuales y las generará nuevamente.')) {
+                return;
             }
 
             $this->generando = true;
 
-            // Obtener todas las unidades activas con propietario
-            $unidades = Unidad::activos()
-                ->whereHas('propietarios')
-                ->get();
-
-            if ($unidades->isEmpty()) {
-                throw new \Exception('No hay unidades activas con propietario');
-            }
-
-            // Generar expensa para cada unidad
-            $expensasGeneradas = [];
-            foreach ($unidades as $unidad) {
-                try {
-                    $expensa = $this->expensaService->generarExpensaUnidad(
-                        $this->periodoId,
-                        $unidad->id
-                    );
-                    $expensasGeneradas[] = $expensa;
-                } catch (\Exception $e) {
-                    // Continuar con la siguiente unidad si falla una
-                    \Log::error("Error generando expensa para unidad {$unidad->id}: " . $e->getMessage());
-                }
-            }
-
-            $montoTotal = collect($expensasGeneradas)->sum('monto_total');
+            $resultados = $this->expensaService->recalcularExpensas($this->periodoId);
 
             $this->dispatch('alerta', [
                 'tipo' => 'success',
-                'titulo' => 'Expensas generadas',
-                'mensaje' => "Se generaron " . count($expensasGeneradas) . " expensas de {$unidades->count()} unidades. Total: {$montoTotal} Bs",
+                'titulo' => 'Expensas recalculadas',
+                'mensaje' => "Se recalculon {$resultados['exitosas']} expensas correctamente",
             ]);
+
         } catch (\Exception $e) {
             $this->dispatch('alerta', [
                 'tipo' => 'error',
@@ -397,59 +324,134 @@ class ExpensaList extends Component
     }
 
     /**
-     * Ver detalle de expensas de un propietario
+     * Cerrar período
      */
-    public function verDetallePropietario($propietarioId)
+    public function cerrarPeriodo()
     {
-        // Redirigir a la vista de detalle del propietario
-        return $this->redirect(route('expensas.propietario', [$this->periodoId, $propietarioId]));
-    }
+        try {
+            if (!$this->periodoId) {
+                throw new \Exception('Debe seleccionar un período primero');
+            }
 
-    /**
-     * Ver detalle de expensa
-     */
-    public function verDetalle($expensaId)
-    {
-        // Redirigir a la vista de detalle
-        return $this->redirect(route('expensas.detalle', $expensaId));
-    }
+            if (!confirm('¿Está seguro de cerrar este período? Una vez cerrado, no se podrán modificar los montos de emisión.')) {
+                return;
+            }
 
-    /**
-     * Obtener color según estado
-     */
-    public function getEstadoColor($estado)
-    {
-        switch ($estado) {
-            case 'pendiente':
-                return 'bg-red-100 text-red-800';
-            case 'parcial':
-                return 'bg-yellow-100 text-yellow-800';
-            case 'pagado':
-                return 'bg-green-100 text-green-800';
-            default:
-                return 'bg-gray-100 text-gray-800';
+            $this->expensaService->cerrarPeriodo($this->periodoId);
+
+            $this->dispatch('alerta', [
+                'tipo' => 'success',
+                'titulo' => 'Período cerrado',
+                'mensaje' => 'El período ha sido cerrado correctamente',
+            ]);
+
+        } catch (\Exception $e) {
+            $this->dispatch('alerta', [
+                'tipo' => 'error',
+                'titulo' => 'Error',
+                'mensaje' => $e->getMessage(),
+            ]);
         }
     }
 
     /**
-     * Obtener texto del estado
+     * Reabrir período
      */
-    public function getEstadoTexto($estado)
+    public function reabrirPeriodo()
     {
-        switch ($estado) {
-            case 'pendiente':
-                return 'Pendiente';
-            case 'parcial':
-                return 'Parcial';
-            case 'pagado':
-                return 'Pagado';
-            default:
-                return 'Sin calcular';
+        try {
+            if (!$this->periodoId) {
+                throw new \Exception('Debe seleccionar un período primero');
+            }
+
+            $motivo = prompt('Motivo de la reapertura (opcional):');
+            if ($motivo === false) {
+                return;
+            }
+
+            $this->expensaService->reabrirPeriodo($this->periodoId, $motivo ?: null);
+
+            $this->dispatch('alerta', [
+                'tipo' => 'success',
+                'titulo' => 'Período reabierto',
+                'mensaje' => 'El período ha sido reabierto correctamente',
+            ]);
+
+        } catch (\Exception $e) {
+            $this->dispatch('alerta', [
+                'tipo' => 'error',
+                'titulo' => 'Error',
+                'mensaje' => $e->getMessage(),
+            ]);
         }
+    }
+
+    /**
+     * Ir al formulario de pago de una unidad
+     */
+    public function pagarUnidad($unidadId)
+    {
+        return $this->redirect(route('expensas.pago', $unidadId));
+    }
+
+    /**
+     * Ver detalle de expensa de una unidad
+     */
+    public function verDetalleUnidad($unidadId)
+    {
+        return $this->redirect(route('expensas.unidad.detalle', [$this->periodoId, $unidadId]));
+    }
+
+    /**
+     * Obtener color según estado de deuda
+     */
+    public function getDeudaColor($expensa)
+    {
+        if ($expensa->estaPagada()) {
+            return 'bg-green-100 text-green-800';
+        } elseif ($expensa->tieneDeuda()) {
+            return 'bg-red-100 text-red-800';
+        } else {
+            return 'bg-yellow-100 text-yellow-800';
+        }
+    }
+
+    /**
+     * Obtener texto del estado de deuda
+     */
+    public function getDeudaTexto($expensa)
+    {
+        if ($expensa->estaPagada()) {
+            return 'Pagado';
+        } elseif ($expensa->tieneDeuda()) {
+            return 'Con deuda';
+        } else {
+            return 'Parcial';
+        }
+    }
+
+    /**
+     * Formatear monto a moneda
+     */
+    protected function formatoMoneda($monto): string
+    {
+        return number_format($monto, 2, ',', '.');
+    }
+
+    /**
+     * Obtener nombre del propietario
+     */
+    public function getPropietarioNombre($unidad): string
+    {
+        if ($unidad->propietarioActual) {
+            return trim($unidad->propietarioActual->nombre . ' ' . $unidad->propietarioActual->apellido);
+        }
+        return 'Sin propietario';
     }
 
     public function render()
     {
-        return view('livewire.expensas.expensa-list');
+        return view('livewire.expensas.expensa-list')
+            ->title('Expensas - Lista');
     }
 }

@@ -69,7 +69,10 @@ class MedidorGrupoList extends Component
             ->orderBy('nombre');
 
         if ($this->search) {
-            $query->where('nombre', 'like', '%' . $this->search . '%');
+            $termino = trim($this->search);
+            if (!empty($termino)) {
+                $query->where('nombre', 'like', "%{$termino}%");
+            }
         }
 
         if ($this->filtroEstado === 'activo') {
