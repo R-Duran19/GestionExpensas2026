@@ -7,6 +7,7 @@ use App\Models\Unidad;
 use App\Models\PeriodoExpensa;
 use App\Models\LecturaMedidor;
 use App\Models\FacturaAguaPeriodo;
+use App\Models\SaldoAFavor;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -32,7 +33,6 @@ class ExpensaService
             throw new \Exception("El período {$periodo->nombre_periodo} no tiene los factores de agua calculados. Debe calcular los factores antes de generar las expensas.");
         }
 
-        // Obtener todas las unidades activas
         $unidades = Unidad::activos()->get();
 
         $resultados = [
@@ -44,16 +44,16 @@ class ExpensaService
         DB::beginTransaction();
 
         try {
-            // Generar expensas individuales por unidad
-            $expensasGeneradas = [];
             foreach ($unidades as $unidad) {
                 try {
-                    $expensa = $this->generarExpensaUnidad($periodoId, $unidad->id);
-                    $expensasGeneradas[] = $expensa;
+                    // Usar bloqueo pesimista para evitar condiciones de carrera
+                    $expensa = $this->generarExpensaUnidadConBloqueo($periodoId, $unidad->id);
                     $resultados['exitosas']++;
                     $resultados['detalles'][] = [
                         'unidad' => $unidad->nombre_completo,
-                        'monto_total' => $expensa->monto_total
+                        'monto_total' => $expensa->monto_total,
+                        'expensa_pendiente' => $expensa->expensa_pendiente,
+                        'agua_pendiente' => $expensa->agua_pendiente,
                     ];
                 } catch (\Exception $e) {
                     $resultados['errores'][] = [
@@ -62,9 +62,6 @@ class ExpensaService
                     ];
                 }
             }
-
-            // Generar expensas totales por propietario
-            $this->generarExpensasTotales($periodoId, $expensasGeneradas);
 
             DB::commit();
         } catch (\Exception $e) {
@@ -76,69 +73,167 @@ class ExpensaService
     }
 
     /**
-     * Generar expensa para una unidad específica
+     * Generar expensa para una unidad con bloqueo pesimista
      *
      * @param int $periodoId
      * @param int $unidadId
      * @return Expensa
      */
-    public function generarExpensaUnidad(int $periodoId, int $unidadId): Expensa
+    protected function generarExpensaUnidadConBloqueo(int $periodoId, int $unidadId): Expensa
+    {
+        // Bloqueo pesimista en unidad para evitar condiciones de carrera
+        $unidad = Unidad::lockForUpdate()->findOrFail($unidadId);
+
+        return $this->generarExpensaUnidad($periodoId, $unidad);
+    }
+
+    /**
+     * Generar expensa para una unidad específica
+     *
+     * @param int $periodoId
+     * @param Unidad $unidad
+     * @return Expensa
+     */
+    public function generarExpensaUnidad(int $periodoId, Unidad $unidad): Expensa
     {
         $periodo = PeriodoExpensa::findOrFail($periodoId);
-        $unidad = Unidad::findOrFail($unidadId);
 
-        // 1. Calcular expensa de departamento/oficina
+        // 1. Calcular montos de emisión (no cambian si el periodo está cerrado)
         $montoExpensa = $this->calcularMontoExpensa($unidad);
-
-        // 2. Calcular monto de agua (solo si tiene medidor)
         $montoAgua = $unidad->tiene_medidor
-            ? $this->calcularMontoAgua($periodoId, $unidadId)
+            ? $this->calcularMontoAgua($periodoId, $unidad->id)
             : 0;
 
-        // 3. Obtener deuda anterior de períodos cerrados
-        $deudaAnterior = $this->obtenerDeudaAnterior($unidadId, $periodoId);
+        // 2. Obtener deuda histórica (calculado al vuelo, sin columna deuda_anterior)
+        $deudaHistorica = $this->calcularDeudaHistorica($unidad->id, $periodoId);
 
-        // 4. Obtener saldo a favor (si pagó de más en períodos anteriores)
-        $saldoAFavor = $this->obtenerSaldoAFavor($unidadId, $periodoId);
+        // 3. Obtener y aplicar saldos a favor disponibles
+        $saldoAFavorDisponible = $this->obtenerSaldoAFavorDisponible($unidad->id);
+        $saldoAFavorAplicado = 0;
 
-        // 5. Calcular total
-        $subtotal = $montoExpensa + $montoAgua;
-        $montoTotal = $subtotal + $deudaAnterior - $saldoAFavor;
+        if ($saldoAFavorDisponible > 0 && $deudaHistorica > 0) {
+            // Aplicar saldo a favor a la deuda histórica primero
+            $saldoAplicar = min($saldoAFavorDisponible, $deudaHistorica);
+            $deudaHistorica -= $saldoAplicar;
+            $saldoAFavorAplicado = $saldoAplicar;
 
-        // 6. Redondear montos
+            // Consumir saldos a favor
+            $this->consumirSaldosAFavor($unidad->id, $saldoAplicar);
+        }
+
+        // 4. Redondear montos de emisión primero
         $montoExpensa = $this->redondear($montoExpensa);
         $montoAgua = $this->redondear($montoAgua);
-        $deudaAnterior = $this->redondear($deudaAnterior);
-        $saldoAFavor = $this->redondear($saldoAFavor);
-        // Calcular total usando los montos redondeados para consistencia
-        $montoTotal = $montoExpensa + $montoAgua + $deudaAnterior - $saldoAFavor;
 
-        // 7. Crear o actualizar expensa individual
+        // 5. Calcular total de emisión CON los montos ya redondeados
+        $montoTotal = $montoExpensa + $montoAgua;
+
+        // 6. Crear o actualizar expensa
         $expensa = Expensa::updateOrCreate(
             [
                 'periodo_id' => $periodoId,
-                'unidad_id' => $unidadId,
+                'unidad_id' => $unidad->id,
             ],
             [
                 'monto_expensa' => $montoExpensa,
                 'monto_agua' => $montoAgua,
-                'deuda_anterior' => $deudaAnterior,
                 'monto_total' => $montoTotal,
-                // Inicializar campos de pago correctamente
-                'monto_pendiente' => $montoTotal,  // Al crear, pendiente = total
-                'monto_pagado' => 0,
-                'estado' => 'pendiente',
-                'fecha_pago' => null,
+                // Al crear, todo está pendiente (los saldos pendientes son solo del periodo actual)
+                'expensa_pendiente' => $montoExpensa,
+                'agua_pendiente' => $montoAgua,
+                'periodo_cerrado' => false,
             ]
         );
 
         Log::info('Expensa generada', [
             'periodo' => $periodo->nombre_periodo,
             'unidad' => $unidad->nombre_completo,
-            'monto_total' => $montoTotal
+            'monto_total' => $montoTotal,
+            'saldo_a_favor_aplicado' => $saldoAFavorAplicado,
+            'deuda_historica_antes' => $this->calcularDeudaHistorica($unidad->id, $periodoId) + $saldoAFavorAplicado,
+            'deuda_historica_despues' => $this->calcularDeudaHistorica($unidad->id, $periodoId),
         ]);
 
         return $expensa;
+    }
+
+    /**
+     * Calcular deuda histórica al vuelo (sin columna estática)
+     *
+     * @param int $unidadId
+     * @param int $periodoIdActual
+     * @return float
+     */
+    protected function calcularDeudaHistorica(int $unidadId, int $periodoIdActual): float
+    {
+        $periodoActual = PeriodoExpensa::find($periodoIdActual);
+
+        // Buscar expensas de períodos ANTERIORES
+        $expensasAnteriores = Expensa::where('unidad_id', $unidadId)
+            ->whereHas('periodo', function ($query) use ($periodoActual) {
+                $query->where(function ($q) use ($periodoActual) {
+                    $q->where('año', '<', $periodoActual->año)
+                      ->orWhere(function ($q2) use ($periodoActual) {
+                          $q2->where('año', '=', $periodoActual->año)
+                             ->where('mes', '<', $periodoActual->mes);
+                      });
+                });
+            })
+            ->get();
+
+        // Sumar saldos pendientes (cálculo al vuelo)
+        $deudaTotal = $expensasAnteriores->sum('expensa_pendiente')
+                    + $expensasAnteriores->sum('agua_pendiente');
+
+        return max(0, $deudaTotal);
+    }
+
+    /**
+     * Obtener saldo a favor disponible de una unidad
+     *
+     * @param int $unidadId
+     * @return float
+     */
+    protected function obtenerSaldoAFavorDisponible(int $unidadId): float
+    {
+        return SaldoAFavor::deUnidad($unidadId)
+            ->disponibles()
+            ->sum('monto_saldo');
+    }
+
+    /**
+     * Consumir saldos a favor de una unidad (FIFO)
+     *
+     * @param int $unidadId
+     * @param float $montoAConsumir
+     * @return void
+     */
+    protected function consumirSaldosAFavor(int $unidadId, float $montoAConsumir): void
+    {
+        $saldos = SaldoAFavor::deUnidad($unidadId)
+            ->disponibles()
+            ->orderBy('created_at', 'asc') // FIFO: consumir los más antiguos primero
+            ->lockForUpdate()
+            ->get();
+
+        $montoRestante = $montoAConsumir;
+
+        foreach ($saldos as $saldo) {
+            if ($montoRestante <= 0) {
+                break;
+            }
+
+            $montoAConsumirSaldo = min($montoRestante, $saldo->monto_saldo);
+            $saldo->aplicarParcialmente($montoAConsumirSaldo);
+            $montoRestante -= $montoAConsumirSaldo;
+
+            Log::info('Saldo a favor consumido', [
+                'unidad_id' => $unidadId,
+                'saldo_id' => $saldo->id,
+                'monto_consumido' => $montoAConsumirSaldo,
+                'saldo_restante' => $saldo->monto_saldo,
+            ]);
+        }
     }
 
     /**
@@ -151,7 +246,7 @@ class ExpensaService
     protected function calcularMontoExpensa(Unidad $unidad): float
     {
         $metrosCuadrados = $unidad->metros_cuadrados;
-        $factor = $unidad->factor_prorrateo; // Obtenido desde CategoriaUnidad enum
+        $factor = $unidad->factor_prorrateo;
 
         return $metrosCuadrados * $factor;
     }
@@ -169,25 +264,19 @@ class ExpensaService
         $periodo = PeriodoExpensa::findOrFail($periodoId);
         $unidad = Unidad::findOrFail($unidadId);
 
-        // Validar que el período tenga factores calculados
         if (is_null($periodo->factor_domiciliario) || is_null($periodo->factor_comercial)) {
-            throw new \Exception("El período {$periodo->nombre_periodo} no tiene los factores de agua calculados. Debe calcular los factores antes de generar las expensas.");
+            throw new \Exception("El período {$periodo->nombre_periodo} no tiene los factores de agua calculados");
         }
 
-        // Buscar lectura de medidor de este período
         $lectura = LecturaMedidor::where('periodo_id', $periodoId)
             ->where('unidad_id', $unidadId)
             ->first();
 
         if (!$lectura) {
-            // Si no hay lectura registrada, asumir 0
             return 0;
         }
 
-        // El consumo ya está calculado en la lectura
         $consumoM3 = $lectura->consumo_m3;
-
-        // Usar el factor correspondiente según la categoría de la unidad
         $factorAgua = $unidad->categoria_unidad === \App\Enums\CategoriaUnidad::DOMICILIARIA
             ? $periodo->factor_domiciliario
             : $periodo->factor_comercial;
@@ -217,100 +306,15 @@ class ExpensaService
             ? ($totalImporte / $totalConsumo)
             : 0.0;
 
-        // Guardar el factor en el período (para auditoría)
+        // Guardar el factor en el período
         $periodo = PeriodoExpensa::find($periodoId);
-        $periodo->factor_domiciliario = $factorAgua; // Se usa el mismo para ambos
+        $periodo->factor_domiciliario = $factorAgua;
+        $periodo->factor_comercial = $factorAgua; // Mismo factor para ambos
         $periodo->factores_calculados_at = now();
         $periodo->factores_calculados_por = auth()->id();
         $periodo->save();
 
         return $factorAgua;
-    }
-
-    /**
-     * Obtener deuda anterior de períodos cerrados
-     *
-     * @param int $unidadId
-     * @param int $periodoIdActual
-     * @return float
-     */
-    protected function obtenerDeudaAnterior(int $unidadId, int $periodoIdActual): float
-    {
-        // Buscar expensas de períodos ANTERIORES al actual
-        $periodoActual = PeriodoExpensa::find($periodoIdActual);
-
-        $expensasAnteriores = Expensa::where('unidad_id', $unidadId)
-            ->whereHas('periodo', function ($query) use ($periodoActual) {
-                // Períodos anteriores (por mes/año)
-                $query->where(function ($q) use ($periodoActual) {
-                    $q->where('año', '<', $periodoActual->año)
-                      ->orWhere(function ($q2) use ($periodoActual) {
-                          $q2->where('año', '=', $periodoActual->año)
-                             ->where('mes', '<', $periodoActual->mes);
-                      });
-                });
-            })
-            ->get();
-
-        $deudaTotal = 0;
-
-        foreach ($expensasAnteriores as $expensa) {
-            // Sumar lo que deben (pendiente + parcial)
-            if ($expensa->estado === 'pendiente') {
-                $deudaTotal += $expensa->monto_total;
-            } elseif ($expensa->estado === 'parcial') {
-                $deudaTotal += $expensa->monto_pendiente;
-            }
-
-            // Restar saldos a favor de períodos anteriores
-            if ($expensa->saldo_a_favor > 0) {
-                $deudaTotal -= $expensa->saldo_a_favor;
-            }
-        }
-
-        return max(0, $deudaTotal); // No puede ser negativo
-    }
-
-    /**
-     * Obtener saldo a favor de períodos anteriores
-     * (si pagó más de lo que debía)
-     *
-     * @param int $unidadId
-     * @param int $periodoIdActual
-     * @return float
-     */
-    protected function obtenerSaldoAFavor(int $unidadId, int $periodoIdActual): float
-    {
-        // Buscar expensas de períodos ANTERIORES al actual
-        $periodoActual = PeriodoExpensa::find($periodoIdActual);
-
-        $expensasAnteriores = Expensa::where('unidad_id', $unidadId)
-            ->whereHas('periodo', function ($query) use ($periodoActual) {
-                $query->where(function ($q) use ($periodoActual) {
-                    $q->where('año', '<', $periodoActual->año)
-                      ->orWhere(function ($q2) use ($periodoActual) {
-                          $q2->where('año', '=', $periodoActual->año)
-                             ->where('mes', '<', $periodoActual->mes);
-                      });
-                });
-            })
-            ->get();
-
-        $saldoAFavor = 0;
-
-        foreach ($expensasAnteriores as $expensa) {
-            // Si pagó más de lo que debía
-            if ($expensa->monto_pagado > $expensa->monto_total) {
-                $saldoAFavor += ($expensa->monto_pagado - $expensa->monto_total);
-            }
-
-            // Si ya tenía saldo a favor registrado
-            if ($expensa->saldo_a_favor > 0) {
-                $saldoAFavor += $expensa->saldo_a_favor;
-            }
-        }
-
-        return $saldoAFavor;
     }
 
     /**
@@ -333,33 +337,185 @@ class ExpensaService
     }
 
     /**
+     * Cerrar un período (hace inmutables los montos de emisión)
+     *
+     * @param int $periodoId
+     * @return void
+     */
+    public function cerrarPeriodo(int $periodoId): void
+    {
+        DB::transaction(function () use ($periodoId) {
+            $periodo = PeriodoExpensa::findOrFail($periodoId);
+
+            if ($periodo->estado === 'cerrado') {
+                throw new \Exception("El período ya está cerrado");
+            }
+
+            // Marcar expensas como inmutables
+            Expensa::where('periodo_id', $periodoId)
+                ->update(['periodo_cerrado' => true]);
+
+            // Cerrar período
+            $periodo->update([
+                'estado' => 'cerrado',
+                'fecha_cierre' => now(),
+                'cerrado_por' => auth()->id(),
+            ]);
+
+            Log::info('Período cerrado', [
+                'periodo' => $periodo->nombre_periodo,
+                'cerrado_por' => auth()->id(),
+            ]);
+        });
+    }
+
+    /**
+     * Reabrir un período (permite modificar montos de emisión)
+     *
+     * @param int $periodoId
+     * @param string|null $motivo
+     * @return void
+     */
+    public function reabrirPeriodo(int $periodoId, ?string $motivo = null): void
+    {
+        DB::transaction(function () use ($periodoId, $motivo) {
+            $periodo = PeriodoExpensa::findOrFail($periodoId);
+
+            if ($periodo->estado === 'abierto') {
+                throw new \Exception("El período ya está abierto");
+            }
+
+            // Desmarcar expensas como inmutables
+            Expensa::where('periodo_id', $periodoId)
+                ->update(['periodo_cerrado' => false]);
+
+            // Reabrir período
+            $periodo->update([
+                'estado' => 'abierto',
+                'fecha_cierre' => null,
+                'motivo_reapertura' => $motivo,
+                'cerrado_por' => null,
+            ]);
+
+            Log::info('Período reabierto', [
+                'periodo' => $periodo->nombre_periodo,
+                'motivo' => $motivo,
+            ]);
+        });
+    }
+
+    /**
      * Recalcular todas las expensas de un período
-     * (útil si hubo cambios en lecturas o factores)
      *
      * @param int $periodoId
      * @return array
      */
     public function recalcularExpensas(int $periodoId): array
     {
+        $periodo = PeriodoExpensa::findOrFail($periodoId);
+
+        if ($periodo->estado === 'cerrado') {
+            throw new \Exception("No se puede recalcular un período cerrado. Reabra el período primero.");
+        }
+
         // Eliminar expensas existentes del período
         Expensa::where('periodo_id', $periodoId)->delete();
-
-        // Eliminar expensas totales existentes del período
-        \App\Models\ExpensaTotal::where('periodo_id', $periodoId)->delete();
 
         // Generar nuevamente
         return $this->generarExpensas($periodoId);
     }
 
     /**
+     * Obtener resumen de deuda de una unidad
+     *
+     * @param int $unidadId
+     * @return array
+     */
+    public function obtenerResumenDeudaUnidad(int $unidadId): array
+    {
+        $unidad = Unidad::findOrFail($unidadId);
+
+        // Obtener todas las expensas
+        $expensas = Expensa::where('unidad_id', $unidadId)
+            ->with('periodo')
+            ->orderBy('periodo_id', 'desc')
+            ->get();
+
+        // Calcular totales
+        $totalExpensaPendiente = $expensas->sum('expensa_pendiente');
+        $totalAguaPendiente = $expensas->sum('agua_pendiente');
+        $totalDeuda = $totalExpensaPendiente + $totalAguaPendiente;
+
+        // Obtener saldo a favor
+        $saldoAFavor = $this->obtenerSaldoAFavorDisponible($unidadId);
+
+        // Agrupar por estado
+        $pendientes = $expensas->filter(fn($e) => $e->expensa_pendiente > 0 || $e->agua_pendiente > 0);
+        $pagadas = $expensas->filter(fn($e) => $e->expensa_pendiente == 0 && $e->agua_pendiente == 0);
+
+        return [
+            'unidad' => $unidad->nombre_completo,
+            'deuda_total' => $totalDeuda,
+            'deuda_expensa' => $totalExpensaPendiente,
+            'deuda_agua' => $totalAguaPendiente,
+            'saldo_a_favor' => $saldoAFavor,
+            'neta_pagar' => max(0, $totalDeuda - $saldoAFavor),
+            'expensas_pendientes' => $pendientes->count(),
+            'expensas_pagadas' => $pagadas->count(),
+            'expensas' => $expensas,
+        ];
+    }
+
+    /**
+     * Obtener deuda total de una unidad (al vuelo)
+     *
+     * @param int $unidadId
+     * @param int|null $periodoId (si se especifica, solo calcula deuda hasta ese período)
+     * @return array{deuda_total: float, deuda_expensa: float, deuda_agua: float, detalles: array}
+     */
+    public function obtenerDeudaUnidad(int $unidadId, ?int $periodoId = null): array
+    {
+        $query = Expensa::where('unidad_id', $unidadId);
+
+        if ($periodoId) {
+            $query->where('periodo_id', '<=', $periodoId);
+        }
+
+        $expensas = $query->get();
+
+        $deudaExpensa = $expensas->sum('expensa_pendiente');
+        $deudaAgua = $expensas->sum('agua_pendiente');
+        $deudaTotal = $deudaExpensa + $deudaAgua;
+
+        // Obtener detalle por período
+        $detalles = $expensas->map(function ($expensa) {
+            return [
+                'periodo' => $expensa->periodo->nombre_periodo,
+                'expensa_pendiente' => $expensa->expensa_pendiente,
+                'agua_pendiente' => $expensa->agua_pendiente,
+                'total_pendiente' => $expensa->total_pendiente,
+                'periodo_cerrado' => $expensa->periodo_cerrado,
+            ];
+        });
+
+        return [
+            'deuda_total' => $deudaTotal,
+            'deuda_expensa' => $deudaExpensa,
+            'deuda_agua' => $deudaAgua,
+            'detalles' => $detalles,
+        ];
+    }
+
+    /**
      * Validar que el período esté completo para calcular expensas
      *
      * @param int $periodoId
-     * @return array{valido: bool, errores: array}
+     * @return array{valido: bool, errores: array, advertencias: array}
      */
     public function validarPeriodoCompleto(int $periodoId): array
     {
         $errores = [];
+        $advertencias = [];
 
         // Verificar que hay facturas de agua
         $facturas = FacturaAguaPeriodo::where('periodo_id', $periodoId)->count();
@@ -373,164 +529,19 @@ class ExpensaService
             $errores[] = "No hay unidades activas";
         }
 
-        // Advertir si faltan lecturas (no es error, porque parqueos/bauleras no tienen)
+        // Advertir si faltan lecturas (NO es bloqueante)
         $unidadesConMedidor = Unidad::activos()->conMedidor()->count();
         $lecturas = LecturaMedidor::where('periodo_id', $periodoId)->count();
 
-        if ($lecturas < $unidadesConMedidor) {
-            $errores[] = "Faltan lecturas de medidor ({$lecturas} de {$unidadesConMedidor})";
+        if ($unidadesConMedidor > 0 && $lecturas < $unidadesConMedidor) {
+            $faltantes = $unidadesConMedidor - $lecturas;
+            $advertencias[] = "Faltan lecturas de medidor ({$lecturas} de {$unidadesConMedidor}). Las unidades sin lectura tendrán consumo de agua en 0. Podrás recalcular luego.";
         }
 
         return [
             'valido' => empty($errores),
-            'errores' => $errores
+            'errores' => $errores,
+            'advertencias' => $advertencias
         ];
-    }
-
-    /**
-     * Generar expensas totales por propietario
-     *
-     * @param int $periodoId
-     * @param array $expensasGeneradas
-     * @return void
-     */
-    protected function generarExpensasTotales(int $periodoId, array $expensasGeneradas): void
-    {
-        $periodo = PeriodoExpensa::findOrFail($periodoId);
-
-        // Agrupar expensas por propietario
-        $expensasPorPropietario = [];
-        foreach ($expensasGeneradas as $expensa) {
-            $propietario = $expensa->unidad->propietarioActual;
-            if (!$propietario) {
-                continue; // Saltar unidades sin propietario
-            }
-
-            $propietarioId = $propietario->id;
-            if (!isset($expensasPorPropietario[$propietarioId])) {
-                $expensasPorPropietario[$propietarioId] = [
-                    'propietario' => $propietario,
-                    'expensas' => [],
-                    'monto_total' => 0,
-                    'monto_pagado' => 0,
-                    'monto_pendiente' => 0,
-                ];
-            }
-
-            $expensasPorPropietario[$propietarioId]['expensas'][] = $expensa;
-            $expensasPorPropietario[$propietarioId]['monto_total'] += $expensa->monto_total;
-
-            // Sumar montos de pagos de las expensas individuales
-            $expensasPorPropietario[$propietarioId]['monto_pagado'] += $expensa->monto_pagado;
-            $expensasPorPropietario[$propietarioId]['monto_pendiente'] += $expensa->monto_pendiente;
-        }
-
-        // Generar expensas totales para cada propietario
-        foreach ($expensasPorPropietario as $propietarioId => $datos) {
-            $propietario = $datos['propietario'];
-            $montoTotalBruto = $datos['monto_total'];
-            $montoPagadoTotal = $datos['monto_pagado'];
-            $montoPendienteTotal = $datos['monto_pendiente'];
-
-            // Buscar saldo a favor del período anterior
-            $saldoAFavorAnterior = $this->obtenerSaldoAFavorAnterior($propietarioId, $periodoId);
-
-            // Calcular monto total neto (aplicando saldo a favor si existe)
-            $montoTotalNeto = $montoTotalBruto - $saldoAFavorAnterior;
-
-            // Determinar estado según los montos de las expensas individuales
-            if ($montoPendienteTotal > 0 && $montoPagadoTotal > 0) {
-                // Pagó parcialmente
-                $estado = 'parcial';
-            } elseif ($montoPendienteTotal > 0 && $montoPagadoTotal === 0) {
-                // No pagó nada
-                $estado = 'pendiente';
-            } elseif ($montoPendienteTotal === 0 && $montoPagadoTotal > 0) {
-                // Pagó todo (o más, si hay saldo a favor)
-                $estado = 'pagado';
-            } else {
-                // Caso edge: pagó exacto o hay variación por redondeo
-                $estado = 'pagado';
-            }
-
-            // Recalcular montos finales considerando saldo a favor
-            $saldoAFavor = 0;
-            if ($montoTotalNeto < 0) {
-                // Saldo a favor del período actual
-                $saldoAFavor = abs($montoTotalNeto);
-                $montoTotalNeto = 0;
-                $montoPendienteTotal = 0;
-                $montoPagadoTotal += $saldoAFavor; // Considerar como pago
-                $estado = 'pagado';
-            }
-
-            // Redondear montos
-            $montoTotal = $this->redondear($montoTotalNeto);
-            $montoPagado = $this->redondear($montoPagadoTotal);
-            $montoPendiente = $this->redondear($montoPendienteTotal);
-            $saldoAFavor = $this->redondear($saldoAFavor);
-
-            // Crear o actualizar expensa total
-            $expensaTotal = \App\Models\ExpensaTotal::updateOrCreate(
-                [
-                    'periodo_id' => $periodoId,
-                    'propietario_id' => $propietarioId,
-                ],
-                [
-                    'monto_total' => $montoTotal,
-                    'monto_pagado' => $montoPagado,
-                    'monto_pendiente' => $montoPendiente,
-                    'saldo_a_favor' => $saldoAFavor,
-                    'estado' => $estado,
-                ]
-            );
-
-            Log::info('Expensa total generada', [
-                'periodo' => $periodo->nombre_periodo,
-                'propietario' => $propietario->nombre . ' ' . $propietario->apellido,
-                'monto_total_bruto' => $montoTotalBruto,
-                'monto_pagado_unidades' => $montoPagadoTotal,
-                'monto_pendiente_unidades' => $montoPendienteTotal,
-                'saldo_a_favor_anterior' => $saldoAFavorAnterior,
-                'monto_total_neto' => $montoTotal,
-                'monto_pagado_final' => $montoPagado,
-                'monto_pendiente_final' => $montoPendiente,
-                'saldo_a_favor_final' => $saldoAFavor,
-                'estado' => $estado
-            ]);
-        }
-    }
-
-    /**
-     * Obtener saldo a favor del período anterior
-     *
-     * @param int $propietarioId
-     * @param int $periodoIdActual
-     * @return float
-     */
-    protected function obtenerSaldoAFavorAnterior(int $propietarioId, int $periodoIdActual): float
-    {
-        $periodoActual = PeriodoExpensa::find($periodoIdActual);
-
-        // Buscar expensa total de períodos ANTERIORES del mismo propietario
-        $expensaTotalAnterior = \App\Models\ExpensaTotal::where('propietario_id', $propietarioId)
-            ->whereHas('periodo', function ($query) use ($periodoActual) {
-                $query->where(function ($q) use ($periodoActual) {
-                    $q->where('año', '<', $periodoActual->año)
-                      ->orWhere(function ($q2) use ($periodoActual) {
-                          $q2->where('año', '=', $periodoActual->año)
-                             ->where('mes', '<', $periodoActual->mes);
-                      });
-                });
-            })
-            ->orderBy('created_at', 'desc')
-            ->first();
-
-        // Retornar saldo a favor del período anterior si existe y está pagado
-        if ($expensaTotalAnterior && $expensaTotalAnterior->saldo_a_favor > 0) {
-            return $expensaTotalAnterior->saldo_a_favor;
-        }
-
-        return 0;
     }
 }
