@@ -48,6 +48,9 @@ class IngresoForm extends Component
     #[Validate('nullable|string')]
     public $observaciones = '';
 
+    // Unidad pre-seleccionada (cuando viene del detalle de unidad)
+    public $unidad_preseleccionada_id = null;
+
     // Para crear categoría rápida
     public $mostrarModalCategoria = false;
     public $nombre_categoria_nueva = '';
@@ -96,11 +99,17 @@ class IngresoForm extends Component
         'fecha.date' => 'La fecha debe ser válida',
     ];
 
-    public function mount($ingreso = null)
+    public function mount($ingreso = null, $unidad = null)
     {
         $this->categorias = CategoriaIngreso::activas()->orderBy('nombre')->get();
         $this->unidades = Unidad::orderBy('codigo')->get();
         $this->fecha = now()->format('Y-m-d');
+
+        // Si viene unidad (desde ruta de expensas), pre-seleccionar
+        if ($unidad && !$ingreso) {
+            $this->unidad_preseleccionada_id = $unidad;
+            $this->preseleccionarUnidad($unidad);
+        }
 
         if ($ingreso) {
             // Si viene como string (ID), buscar el modelo
@@ -398,6 +407,41 @@ class IngresoForm extends Component
 
         // Calcular totales
         $this->calcularTotales();
+    }
+
+    /**
+     * Pre-seleccionar unidad cuando viene del detalle de unidad
+     * Carga automáticamente la categoría Expensas, busca el propietario y carga todas sus deudas
+     */
+    protected function preseleccionarUnidad($unidadId)
+    {
+        try {
+            $unidad = Unidad::with('propietarioActual')->findOrFail($unidadId);
+
+            if (!$unidad->propietarioActual) {
+                // Si la unidad no tiene propietario, no se puede pre-seleccionar
+                return;
+            }
+
+            // Pre-seleccionar categoría Expensas
+            $this->categoria_ingreso_id = self::CATEGORIA_EXPENSAS_ID;
+            $this->esCategoriaExpensas = true;
+
+            // Guardar la unidad pre-seleccionada para poder resaltarla en la vista
+            $this->unidad_preseleccionada_id = $unidadId;
+
+            // Seleccionar el propietario automáticamente
+            $this->propietarioSeleccionado = $unidad->propietarioActual;
+            $this->nombre_propietario = $unidad->propietarioActual->nombre_completo;
+            $this->unidadesPropietario = $unidad->propietarioActual->unidades()->where('activo', true)->get();
+
+            // Cargar deudas de todas las unidades del propietario
+            $this->cargarDeudasPropietario();
+
+        } catch (\Exception $e) {
+            // Si hay error, loguear pero no interrumpir
+            \Log::warning('Error al pre-seleccionar unidad: ' . $e->getMessage());
+        }
     }
 
     /**

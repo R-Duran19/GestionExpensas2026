@@ -127,11 +127,11 @@ Route::middleware(['auth', 'admin'])->group(function () {
         // Detalle de expensas por propietario (todas las unidades del propietario)
         Route::get('/propietario/{periodo}/{propietario}', \App\Livewire\Expensas\ExpensaPropietarioDetalle::class)->name('propietario.detalle');
 
-        // Sistema de pagos de expensas (por unidad)
-        Route::get('/pagar/{unidad}', \App\Livewire\Expensas\PagoExpensaForm::class)->name('pagar.formulario');
+        // Sistema de pagos de expensas (por unidad) - redirige a IngresoForm con categoría Expensas
+        Route::get('/pagar/{unidad}', \App\Livewire\Caja\Ingresos\IngresoForm::class)->name('pagar.formulario');
 
-        // Formulario de pago (ruta alternativa para compatibilidad)
-        Route::get('/pago/{unidad}', \App\Livewire\Expensas\PagoExpensaForm::class)->name('pago');
+        // Formulario de pago (ruta alternativa para compatibilidad) - redirige a IngresoForm con categoría Expensas
+        Route::get('/pago/{unidad}', \App\Livewire\Caja\Ingresos\IngresoForm::class)->name('pago');
 
         // Detalle de expensa individual (mantenido para compatibilidad)
         Route::get('/{expensa}', \App\Livewire\Expensas\ExpensaDetalle::class)->name('detalle');
