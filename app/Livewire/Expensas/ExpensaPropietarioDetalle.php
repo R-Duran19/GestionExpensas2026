@@ -2,186 +2,253 @@
 
 namespace App\Livewire\Expensas;
 
-use App\Models\Expensa;
-use App\Models\LecturaMedidor;
-use App\Models\PeriodoExpensa;
 use App\Models\Propietario;
-use App\Models\Unidad;
+use App\Models\PeriodoExpensa;
+use App\Models\Expensa;
+use App\Services\ExpensaService;
 use Livewire\Component;
+use Livewire\Attributes\Computed;
 
 class ExpensaPropietarioDetalle extends Component
 {
-    public $periodoId;
     public $propietarioId;
+    public $periodoId;
+    public $propietario;
+    public $periodo;
+    public $unidadesConExpensas = [];
+
+    protected ExpensaService $expensaService;
+
+    // Para regenerar expensa individual
+    public $unidadIdGenerando = null;
+    public $generando = false;
+
+    public function boot(ExpensaService $expensaService)
+    {
+        $this->expensaService = $expensaService;
+    }
 
     public function mount($periodo, $propietario)
     {
         $this->periodoId = $periodo;
         $this->propietarioId = $propietario;
+
+        $this->cargarDatos();
+    }
+
+    public function cargarDatos()
+    {
+        $this->periodo = PeriodoExpensa::find($this->periodoId);
+        $this->propietario = Propietario::with(['unidadesActuales' => function ($q) {
+            $q->where('activo', true);
+        }])->findOrFail($this->propietarioId);
+
+        // Obtener unidades del propietario con sus expensas del período
+        $this->unidadesConExpensas = $this->propietario->unidadesActuales
+            ->filter(fn($u) => $u->activo)
+            ->map(function ($unidad) {
+                $expensa = Expensa::where('periodo_id', $this->periodoId)
+                    ->where('unidad_id', $unidad->id)
+                    ->first();
+
+                return (object) [
+                    'id' => $unidad->id,
+                    'codigo' => $unidad->codigo,
+                    'tipo_unidad' => $unidad->tipo_unidad,
+                    'piso' => $unidad->piso,
+                    'metros_cuadrados' => $unidad->metros_cuadrados,
+                    'nombre_completo' => $unidad->nombre_completo,
+                    'expensa' => $expensa,
+                    'total_emision' => $expensa ? $expensa->monto_total : 0,
+                    'total_pagado' => $expensa ? $expensa->total_pagado : 0,
+                    'total_pendiente' => $expensa ? $expensa->total_pendiente : 0,
+                    'estado' => $expensa ? ($expensa->estaPagada() ? 'pagado' : ($expensa->tieneDeuda() ? 'pendiente' : 'parcial')) : 'sin_expensa',
+                ];
+            })
+            ->sortBy('nombre_completo')
+            ->values();
     }
 
     /**
-     * Obtener el período
+     * Obtener totales consolidados del propietario
      */
-    public function getPeriodoProperty()
+    #[Computed]
+    public function totales()
     {
-        return PeriodoExpensa::find($this->periodoId);
-    }
+        $totalUnidades = $this->unidadesConExpensas->count();
+        $totalEmision = $this->unidadesConExpensas->sum('total_emision');
+        $totalPagado = $this->unidadesConExpensas->sum('total_pagado');
+        $totalPendiente = $this->unidadesConExpensas->sum('total_pendiente');
+        $unidadesPagadas = $this->unidadesConExpensas->where('estado', 'pagado')->count();
+        $unidadesConDeuda = $this->unidadesConExpensas->where('estado', 'pendiente')->count();
 
-    /**
-     * Obtener el propietario con sus unidades y expensas
-     */
-    public function getPropietarioProperty()
-    {
-        return Propietario::with([
-            'unidades' => function ($query) {
-                $query->activos()
-                      ->with(['expensas' => function ($query) {
-                          $query->where('periodo_id', $this->periodoId);
-                      }])
-                      ->with(['lecturasMedidor' => function ($query) {
-                          $query->where('periodo_id', $this->periodoId);
-                      }]);
-            }
-        ])->find($this->propietarioId);
-    }
-
-    /**
-     * Obtener todas las expensas del propietario para este período
-     */
-    public function getExpensasProperty()
-    {
-        $unidadIds = $this->propietario->unidades->pluck('id');
-
-        return Expensa::where('periodo_id', $this->periodoId)
-                      ->whereIn('unidad_id', $unidadIds)
-                      ->with(['unidad', 'periodo'])
-                      ->get();
-    }
-
-    /**
-     * Calcular totales del propietario
-     */
-    public function getTotalesProperty()
-    {
-        $expensas = $this->expensas;
-
-        return [
-            'subtotal_expensas' => $expensas->sum('monto_expensa'),
-            'subtotal_agua' => $expensas->sum('monto_agua'),
-            'deuda_anterior' => $expensas->sum('deuda_anterior'),
-            'total_a_pagar' => $expensas->sum('monto_total'),
-            'total_pagado' => $expensas->sum('monto_pagado'),
-            'total_pendiente' => $expensas->sum('monto_pendiente'),
-            'saldo_a_favor' => $expensas->sum('saldo_a_favor'),
+        return (object) [
+            'total_unidades' => $totalUnidades,
+            'total_emision' => $totalEmision,
+            'total_pagado' => $totalPagado,
+            'total_pendiente' => $totalPendiente,
+            'unidades_pagadas' => $unidadesPagadas,
+            'unidades_con_deuda' => $unidadesConDeuda,
+            'porcentaje_pagado' => $totalEmision > 0 ? ($totalPagado / $totalEmision) * 100 : 0,
         ];
     }
 
     /**
-     * Obtener estado del pago del propietario
+     * Generar expensa para una unidad específica
      */
-    public function getEstadoProperty()
-    {
-        $totales = $this->totales;
-
-        if ($totales['total_pagado'] >= $totales['total_a_pagar'] && $totales['total_a_pagar'] > 0) {
-            return 'pagado';
-        } elseif ($totales['total_pagado'] > 0) {
-            return 'parcial';
-        } elseif ($this->expensas->isEmpty()) {
-            return 'sin_calcular';
-        } else {
-            return 'pendiente';
-        }
-    }
-
-    /**
-     * Obtener lectura de agua de una unidad para este período
-     */
-    public function getLecturaAgua($unidadId)
-    {
-        return LecturaMedidor::where('periodo_id', $this->periodoId)
-                            ->where('unidad_id', $unidadId)
-                            ->first();
-    }
-
-    /**
-     * Generar expensas para todas las unidades del propietario
-     */
-    public function generarExpensas()
+    public function generarExpensaIndividual($unidadId)
     {
         try {
-            $expensaService = app(\App\Services\ExpensaService::class);
-
-            $unidades = $this->propietario->unidades()->activos()->get();
-
-            $expensasGeneradas = [];
-            foreach ($unidades as $unidad) {
-                $expensa = $expensaService->generarExpensaUnidad(
-                    $this->periodoId,
-                    $unidad->id
-                );
-                $expensasGeneradas[] = $expensa;
+            if (!$this->periodo) {
+                throw new \Exception('El período no existe');
             }
 
-            $montoTotal = collect($expensasGeneradas)->sum('monto_total');
+            if ($this->periodo->estado !== 'abierto') {
+                throw new \Exception('Solo se pueden generar expensas en períodos abiertos');
+            }
+
+            $this->unidadIdGenerando = $unidadId;
+            $this->generando = true;
+
+            $unidad = \App\Models\Unidad::findOrFail($unidadId);
+            $expensa = $this->expensaService->generarExpensaUnidad(
+                $this->periodoId,
+                $unidad
+            );
+
+            $this->cargarDatos();
 
             $this->dispatch('alerta', [
                 'tipo' => 'success',
-                'titulo' => 'Expensas generadas',
-                'mensaje' => "Se generaron {$unidades->count()} expensas para {$this->propietario->nombre} {$this->propietario->apellido}. Total: {$montoTotal} Bs",
+                'titulo' => 'Expensa generada',
+                'mensaje' => "Expensa de {$unidad->nombre_completo}: {$this->formatoMoneda($expensa->monto_total)} Bs",
             ]);
+
         } catch (\Exception $e) {
             $this->dispatch('alerta', [
                 'tipo' => 'error',
                 'titulo' => 'Error',
                 'mensaje' => $e->getMessage(),
             ]);
+        } finally {
+            $this->unidadIdGenerando = null;
+            $this->generando = false;
         }
     }
 
     /**
-     * Obtener color según estado
+     * Generar expensas para todas las unidades del propietario
      */
-    public function getEstadoColor($estado)
+    public function regenerarTodasExpensas()
     {
-        switch ($estado) {
-            case 'pendiente':
-                return 'bg-red-100 text-red-800';
-            case 'parcial':
-                return 'bg-yellow-100 text-yellow-800';
-            case 'pagado':
-                return 'bg-green-100 text-green-800';
-            default:
-                return 'bg-gray-100 text-gray-800';
+        try {
+            if (!$this->periodo) {
+                throw new \Exception('El período no existe');
+            }
+
+            if ($this->periodo->estado !== 'abierto') {
+                throw new \Exception('Solo se pueden generar expensas en períodos abiertos');
+            }
+
+            if (!confirm('¿Está seguro de regenerar todas las expensas de este propietario?')) {
+                return;
+            }
+
+            $this->generando = true;
+
+            $exitosas = 0;
+            $errores = [];
+
+            foreach ($this->unidadesConExpensas as $unidadData) {
+                try {
+                    $unidad = \App\Models\Unidad::find($unidadData->id);
+                    if ($unidad) {
+                        $expensa = $this->expensaService->generarExpensaUnidad($this->periodoId, $unidad);
+                        $exitosas++;
+                    }
+                } catch (\Exception $e) {
+                    $errores[] = [
+                        'unidad' => $unidadData->nombre_completo,
+                        'error' => $e->getMessage(),
+                    ];
+                }
+            }
+
+            $this->cargarDatos();
+
+            $mensaje = "Se generaron {$exitosas} de {$this->unidadesConExpensas->count()} expensas";
+            if (!empty($errores)) {
+                $mensaje .= ". " . count($errores) . " errores.";
+            }
+
+            $this->dispatch('alerta', [
+                'tipo' => empty($errores) ? 'success' : 'warning',
+                'titulo' => 'Expensas regeneradas',
+                'mensaje' => $mensaje,
+            ]);
+
+        } catch (\Exception $e) {
+            $this->dispatch('alerta', [
+                'tipo' => 'error',
+                'titulo' => 'Error',
+                'mensaje' => $e->getMessage(),
+            ]);
+        } finally {
+            $this->generando = false;
         }
+    }
+
+    /**
+     * Ir al formulario de pago de una unidad
+     */
+    public function pagarUnidad($unidadId)
+    {
+        return $this->redirect(route('expensas.pago', $unidadId));
+    }
+
+    /**
+     * Formatear monto a moneda
+     */
+    protected function formatoMoneda($monto): string
+    {
+        return number_format($monto, 2, ',', '.');
+    }
+
+    /**
+     * Obtener clase de color según estado
+     */
+    protected function getEstadoClase($estado): string
+    {
+        return match($estado) {
+            'pagado' => 'bg-green-100 text-green-800',
+            'pendiente' => 'bg-red-100 text-red-800',
+            'parcial' => 'bg-yellow-100 text-yellow-800',
+            'sin_expensa' => 'bg-gray-100 text-gray-800',
+            default => 'bg-gray-100 text-gray-800',
+        };
     }
 
     /**
      * Obtener texto del estado
      */
-    public function getEstadoTexto($estado)
+    protected function getEstadoTexto($estado): string
     {
-        switch ($estado) {
-            case 'pendiente':
-                return 'Pendiente';
-            case 'parcial':
-                return 'Parcial';
-            case 'pagado':
-                return 'Pagado';
-            default:
-                return 'Sin calcular';
-        }
+        return match($estado) {
+            'pagado' => 'Pagado',
+            'pendiente' => 'Pendiente',
+            'parcial' => 'Parcial',
+            'sin_expensa' => 'Sin calcular',
+            default => 'Desconocido',
+        };
     }
 
     public function render()
     {
         return view('livewire.expensas.expensa-propietario-detalle', [
-            'periodo' => $this->periodo,
             'propietario' => $this->propietario,
-            'expensas' => $this->expensas,
+            'periodo' => $this->periodo,
+            'unidadesConExpensas' => $this->unidadesConExpensas,
             'totales' => $this->totales,
-            'estado' => $this->estado,
         ])->layout('layouts.app');
     }
 }

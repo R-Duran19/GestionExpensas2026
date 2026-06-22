@@ -124,6 +124,9 @@ Route::middleware(['auth', 'admin'])->group(function () {
         // Detalle de expensa por unidad (con selector de período)
         Route::get('/unidad/{unidad}', \App\Livewire\Expensas\ExpensaUnidadDetalle::class)->name('unidad.detalle');
 
+        // Detalle de expensas por propietario (todas las unidades del propietario)
+        Route::get('/propietario/{periodo}/{propietario}', \App\Livewire\Expensas\ExpensaPropietarioDetalle::class)->name('propietario.detalle');
+
         // Sistema de pagos de expensas (por unidad)
         Route::get('/pagar/{unidad}', \App\Livewire\Expensas\PagoExpensaForm::class)->name('pagar.formulario');
 

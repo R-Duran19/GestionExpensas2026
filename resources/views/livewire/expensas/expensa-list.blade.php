@@ -24,7 +24,35 @@
             </div>
         </div>
 
+        <!-- Tabs de navegación -->
         @if($this->periodo)
+            <div class="mt-6 border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                    <button
+                        wire:click="setTab('unidades')"
+                        class="{{ $tabActivo === 'unidades' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}
+                               whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200"
+                    >
+                        <svg class="h-5 w-5 inline mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                        </svg>
+                        Por Unidades
+                    </button>
+                    <button
+                        wire:click="setTab('propietarios')"
+                        class="{{ $tabActivo === 'propietarios' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}
+                               whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200"
+                    >
+                        <svg class="h-5 w-5 inline mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                        </svg>
+                        Por Propietarios
+                    </button>
+                </nav>
+            </div>
+        @endif
+
+        @if($this->periodo && $tabActivo === 'unidades')
             <!-- Estadísticas -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
                 <div class="bg-blue-50 rounded-lg p-4">
@@ -132,7 +160,7 @@
         @endif
     </div>
 
-    @if($this->periodo)
+    @if($this->periodo && $tabActivo === 'unidades')
         <!-- Tabla de Unidades -->
         <div class="bg-white rounded-lg shadow overflow-hidden mb-6">
             <div class="px-6 py-4 border-b border-gray-200">
@@ -383,6 +411,203 @@
             <!-- Paginación -->
             <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
                 {{ $this->unidadesConExpensas->links() }}
+            </div>
+        </div>
+    @elseif($this->periodo && $tabActivo === 'propietarios')
+        <!-- Tabla de Propietarios -->
+        <div class="bg-white rounded-lg shadow overflow-hidden mb-6">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-gray-900">Propietarios</h2>
+                <p class="text-sm text-gray-500 mt-1">Período: {{ $this->periodo->nombre_periodo }}</p>
+            </div>
+
+            <!-- Buscador -->
+            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <input
+                    type="text"
+                    wire:model.live="search"
+                    placeholder="Buscar por nombre o CI del propietario..."
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                >
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Propietario
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Unidades
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Total Emisión
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Pagado
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Pendiente
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Estado
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Acciones
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        @forelse($this->propietariosConExpensas as $propietario)
+                            @php
+                                $estadoClass = 'bg-gray-100 text-gray-800';
+                                $estadoTexto = 'Sin expensas';
+
+                                if ($propietario->total_emision > 0) {
+                                    if ($propietario->esta_pagado) {
+                                        $estadoClass = 'bg-green-100 text-green-800';
+                                        $estadoTexto = 'Pagado';
+                                    } elseif ($propietario->tiene_deuda) {
+                                        if ($propietario->porcentaje_pagado > 0) {
+                                            $estadoClass = 'bg-yellow-100 text-yellow-800';
+                                            $estadoTexto = 'Parcial';
+                                        } else {
+                                            $estadoClass = 'bg-red-100 text-red-800';
+                                            $estadoTexto = 'Pendiente';
+                                        }
+                                    }
+                                }
+                            @endphp
+
+                            <tr wire:key="prop-{{ $propietario->id }}" class="hover:bg-gray-50">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-medium text-sm">
+                                            {{ substr($propietario->nombre, 0, 1) }}{{ substr($propietario->apellido ?? '', 0, 1) }}
+                                        </div>
+                                        <div class="ml-4">
+                                            <div class="text-sm font-medium text-gray-900">
+                                                {{ $propietario->nombre_completo }}
+                                            </div>
+                                            <div class="text-sm text-gray-500">
+                                                CI: {{ $propietario->ci ?: 'Sin CI' }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    <div class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                                        {{ $propietario->total_unidades }}
+                                    </div>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        {{ $propietario->unidades_pagadas }} pagadas / {{ $propietario->unidades_con_deuda }} con deuda
+                                    </div>
+                                </td>
+
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
+                                    @if($propietario->total_emision > 0)
+                                        {{ number_format($propietario->total_emision, 2, ',', '.') }} Bs
+                                    @else
+                                        -
+                                    @endif
+                                </td>
+
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                    @if($propietario->total_pagado > 0)
+                                        <span class="text-green-600 font-medium">{{ number_format($propietario->total_pagado, 2, ',', '.') }} Bs</span>
+                                    @else
+                                        <span class="text-gray-400">-</span>
+                                    @endif
+                                </td>
+
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    @if($propietario->total_pendiente > 0)
+                                        <span class="text-red-600">{{ number_format($propietario->total_pendiente, 2, ',', '.') }} Bs</span>
+                                    @else
+                                        <span class="text-green-600">-</span>
+                                    @endif
+                                </td>
+
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $estadoClass }}">
+                                        {{ $estadoTexto }}
+                                    </span>
+                                    @if($propietario->total_emision > 0 && $propietario->porcentaje_pagado > 0)
+                                        <div class="mt-1 text-xs text-gray-500">{{ number_format($propietario->porcentaje_pagado, 0) }}% pagado</div>
+                                    @endif
+                                </td>
+
+                                <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                                    <div class="flex items-center justify-center space-x-2">
+                                        <!-- Ver detalle (todas las unidades) -->
+                                        <a
+                                            href="{{ route('expensas.propietario.detalle', [$this->periodo->id, $propietario->id]) }}"
+                                            class="text-blue-600 hover:text-blue-900"
+                                            title="Ver detalle de todas las unidades"
+                                            target="_blank"
+                                        >
+                                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                            </svg>
+                                        </a>
+
+                                        <!-- Ver PDF consolidado -->
+                                        <a
+                                            href="{{ route('expensas.pdf.mostrar', [$this->periodo->id, $propietario->id]) }}"
+                                            class="text-red-600 hover:text-red-900"
+                                            title="Ver PDF de boleta consolidada"
+                                            target="_blank"
+                                        >
+                                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                            </svg>
+                                        </a>
+
+                                        <!-- Regenerar expensas (todas las unidades) -->
+                                        @if($this->periodo->estado === 'abierto')
+                                            <button
+                                                wire:click="regenerarExpensasPropietario({{ $propietario->id }})"
+                                                wire:loading.attr="disabled"
+                                                class="text-indigo-600 hover:text-indigo-900 disabled:opacity-50"
+                                                title="Regenerar expensas de todas las unidades"
+                                            >
+                                                @if($propietarioIdRegenerando == $propietario->id && $generando)
+                                                    <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                @else
+                                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                                    </svg>
+                                                @endif
+                                            </button>
+                                        @endif
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="px-6 py-12 text-center">
+                                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    </svg>
+                                    <h3 class="mt-2 text-sm font-medium text-gray-900">No se encontraron propietarios</h3>
+                                    <p class="mt-1 text-sm text-gray-500">
+                                        @if($this->search)
+                                            No hay resultados para tu búsqueda.
+                                        @else
+                                            No hay propietarios con unidades activas.
+                                        @endif
+                                    </p>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
         </div>
     @else
