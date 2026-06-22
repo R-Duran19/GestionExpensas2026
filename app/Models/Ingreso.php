@@ -6,9 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
-use App\Models\Expensa;
-use App\Models\ExpensaTotal;
 
 class Ingreso extends Model
 {
@@ -18,14 +17,14 @@ class Ingreso extends Model
         'numero_recibo',
         'fecha',
         'categoria_ingreso_id',
+        'tipo_ingreso',
         'importe',
+        'monto_total',
         'metodo_pago',
         'descripcion',
         'comprobante_foto',
         'referencia_bancaria',
         'unidad_id',
-        'expensa_total_id',
-        'propietario_id',
         'observaciones',
         'activo',
         'creado_por',
@@ -35,6 +34,7 @@ class Ingreso extends Model
     protected $casts = [
         'fecha' => 'date',
         'importe' => 'decimal:2',
+        'monto_total' => 'decimal:2',
         'activo' => 'boolean',
     ];
 
@@ -55,49 +55,25 @@ class Ingreso extends Model
     }
 
     /**
-     * Relación con expensa (para pagos de expensas)
+     * Relación con los detalles del ingreso (cabecera-detalle)
      */
-    public function expensa(): BelongsTo
+    public function detalles(): HasMany
     {
-        return $this->belongsTo(Expensa::class, 'expensa_id');
+        return $this->hasMany(IngresoDetalle::class, 'ingreso_id');
     }
 
     /**
-     * Relación con expensa total (para pagos de expensas)
+     * Relación con los saldos a favor generados
      */
-    public function expensaTotal(): BelongsTo
+    public function saldosFavor(): HasMany
     {
-        return $this->belongsTo(ExpensaTotal::class, 'expensa_total_id');
-    }
-
-    /**
-     * Relación con propietario (para pagos de expensas)
-     */
-    public function propietario(): BelongsTo
-    {
-        return $this->belongsTo(Propietario::class, 'propietario_id');
-    }
-
-    /**
-     * Scope para filtrar pagos de expensas
-     */
-    public function scopePagosExpensas($query)
-    {
-        return $query->whereNotNull('expensa_id');
-    }
-
-    /**
-     * Scope para filtrar por propietario
-     */
-    public function scopePorPropietario($query, $propietarioId)
-    {
-        return $query->where('propietario_id', $propietarioId);
+        return $this->hasMany(SaldoAFavor::class, 'ingreso_id');
     }
 
     /**
      * Relación con el usuario que creó el ingreso
      */
-    public function creadoPor()
+    public function creadoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'creado_por');
     }
@@ -105,13 +81,13 @@ class Ingreso extends Model
     /**
      * Relación con el usuario que actualizó el ingreso
      */
-    public function actualizadoPor()
+    public function actualizadoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'actualizado_por');
     }
 
     /**
-     * Scope para filtrar ingresos activos
+     * Scope para ingresos activos
      */
     public function scopeActivos($query)
     {
@@ -119,7 +95,23 @@ class Ingreso extends Model
     }
 
     /**
-     * Scope para filtrar por fecha específica
+     * Scope para pagos de expensas
+     */
+    public function scopePagosExpensas($query)
+    {
+        return $query->where('tipo_ingreso', 'expensa');
+    }
+
+    /**
+     * Scope para ingresos extraordinarios
+     */
+    public function scopeExtraordinarios($query)
+    {
+        return $query->where('tipo_ingreso', 'extraordinario');
+    }
+
+    /**
+     * Scope para filtrar por fecha
      */
     public function scopePorFecha($query, $fecha)
     {
@@ -189,5 +181,81 @@ class Ingreso extends Model
             'otro' => 'Otro',
             default => ucfirst($this->metodo_pago),
         };
+    }
+
+    /**
+     * Verificar si es pago de expensa
+     */
+    public function esPagoExpensa(): bool
+    {
+        return $this->tipo_ingreso === 'expensa';
+    }
+
+    /**
+     * Verificar si es ingreso extraordinario
+     */
+    public function esExtraordinario(): bool
+    {
+        return $this->tipo_ingreso === 'extraordinario';
+    }
+
+    /**
+     * Obtener el tipo de ingreso formateado
+     */
+    public function getTipoIngresoFormateadoAttribute(): string
+    {
+        return match($this->tipo_ingreso) {
+            'expensa' => 'Pago de Expensa',
+            'extraordinario' => 'Ingreso Extraordinario',
+            default => ucfirst($this->tipo_ingreso),
+        };
+    }
+
+    /**
+     * Obtener las unidades involucradas en los detalles (para pagos de expensa)
+     */
+    public function getUnidadesAttribute()
+    {
+        return $this->detalles->map(fn($d) => $d->expensa->unidad)->unique('id');
+    }
+
+    /**
+     * Obtener el total de detalles
+     */
+    public function getTotalDetallesAttribute(): int
+    {
+        return $this->detalles->count();
+    }
+
+    /**
+     * Obtener el monto total aplicado en detalles
+     */
+    public function getMontoTotalAplicadoAttribute(): float
+    {
+        return (float) $this->detalles->sum('monto_aplicado');
+    }
+
+    /**
+     * Verificar si el ingreso tiene detalles
+     */
+    public function tieneDetalles(): bool
+    {
+        return $this->detalles->isNotEmpty();
+    }
+
+    /**
+     * Verificar si generó saldos a favor
+     */
+    public function tieneSaldosAFavor(): bool
+    {
+        return $this->saldosFavor->isNotEmpty();
+    }
+
+    /**
+     * Obtener el total de saldos a favor generados
+     */
+    public function getTotalSaldosAFavorAttribute(): float
+    {
+        return (float) $this->saldosFavor->sum('monto_saldo');
     }
 }

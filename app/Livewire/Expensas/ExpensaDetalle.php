@@ -3,16 +3,15 @@
 namespace App\Livewire\Expensas;
 
 use App\Models\Expensa;
-use App\Models\Pago;
 use Livewire\Component;
 
 class ExpensaDetalle extends Component
 {
     public $expensaId;
 
-    public function mount($expensaId)
+    public function mount($expensa)
     {
-        $this->expensaId = $expensaId;
+        $this->expensaId = $expensa;
     }
 
     public function render()
@@ -21,7 +20,7 @@ class ExpensaDetalle extends Component
             'periodo',
             'unidad.propietarioActual',
             'unidad.medidorGrupo',
-            'pagos'
+            'detallesPago.ingreso', // Nueva arquitectura cabecera-detalle
         ])->findOrFail($this->expensaId);
 
         return view('livewire.expensas.expensa-detalle', [

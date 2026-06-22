@@ -6,6 +6,7 @@ use App\Models\Unidad;
 use App\Models\Expensa;
 use App\Models\PeriodoExpensa;
 use App\Models\LecturaMedidor;
+use App\Services\PagoExpensaService;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
 
@@ -16,6 +17,13 @@ class ExpensaUnidadDetalle extends Component
     public $unidad;
     public $expensa;
     public $periodosDisponibles = [];
+
+    protected PagoExpensaService $pagoExpensaService;
+
+    public function boot(PagoExpensaService $pagoExpensaService)
+    {
+        $this->pagoExpensaService = $pagoExpensaService;
+    }
 
     public function mount($unidad)
     {
@@ -76,7 +84,7 @@ class ExpensaUnidadDetalle extends Component
             'periodo',
             'unidad.propietarioActual',
             'unidad.medidorGrupo',
-            'ingresos',
+            'detallesPago.ingreso',
         ])
         ->where('unidad_id', $this->unidadId)
         ->where('periodo_id', $this->periodoId)
@@ -87,6 +95,121 @@ class ExpensaUnidadDetalle extends Component
     {
         $this->periodoId = $periodoId;
         $this->cargarExpensa();
+    }
+
+    /**
+     * Obtener deuda detallada de la unidad
+     */
+    #[Computed]
+    public function deudaUnidad()
+    {
+        if (!$this->unidadId) {
+            return null;
+        }
+
+        return $this->pagoExpensaService->obtenerDeudaUnidad($this->unidadId);
+    }
+
+    /**
+     * Obtener deudas anteriores detalladas
+     */
+    #[Computed]
+    public function deudasAnterioresDetalladas()
+    {
+        if (!$this->periodoId) {
+            return collect();
+        }
+
+        // Obtener expensas anteriores de la misma unidad
+        $periodoActual = PeriodoExpensa::find($this->periodoId);
+
+        if (!$periodoActual) {
+            return collect();
+        }
+
+        // Buscar expensas de períodos anteriores
+        $expensasAnteriores = Expensa::with('periodo')
+            ->where('unidad_id', $this->unidadId)
+            ->whereHas('periodo', function ($query) use ($periodoActual) {
+                // Períodos anteriores al actual
+                $query->where(function ($q) use ($periodoActual) {
+                    $q->where('año', '<', $periodoActual->año)
+                      ->orWhere(function ($q) use ($periodoActual) {
+                          $q->where('año', '=', $periodoActual->año)
+                             ->where('mes', '<', $periodoActual->mes);
+                      });
+                });
+            })
+            ->where(function ($q) {
+                // Solo expensas con deuda pendiente
+                $q->where('expensa_pendiente', '>', 0)
+                  ->orWhere('agua_pendiente', '>', 0);
+            })
+            ->get();
+
+        // Ordenar por período (más reciente primero para mostrar)
+        return $expensasAnteriores->sortByDesc(function ($expensa) {
+            return $expensa->periodo->año * 100 + $expensa->periodo->mes;
+        })->values();
+    }
+
+    /**
+     * Obtener total de deudas anteriores
+     */
+    #[Computed]
+    public function totalDeudasAnteriores()
+    {
+        return $this->deudasAnterioresDetalladas->sum(function ($expensa) {
+            return $expensa->expensa_pendiente + $expensa->agua_pendiente;
+        });
+    }
+
+    /**
+     * Obtener historial de pagos de la unidad
+     * Incluye ingresos anulados para mostrar historial completo
+     */
+    #[Computed]
+    public function historialPagos()
+    {
+        if (!$this->unidadId) {
+            return collect();
+        }
+
+        return \App\Models\Ingreso::with(['detalles.expensa.periodo'])
+            ->whereHas('detalles.expensa', function ($q) {
+                $q->where('unidad_id', $this->unidadId);
+            })
+            ->pagosExpensas()
+            ->withTrashed() // Incluir ingresos anulados
+            ->orderBy('fecha', 'desc')
+            ->get()
+            ->take(10);
+    }
+
+    /**
+     * Obtener saldos a favor disponibles
+     */
+    #[Computed]
+    public function saldosAFavor()
+    {
+        if (!$this->unidadId) {
+            return collect();
+        }
+
+        return \App\Models\SaldoAFavor::deUnidad($this->unidadId)
+            ->disponibles()
+            ->with('ingreso')
+            ->orderBy('created_at', 'asc')
+            ->get();
+    }
+
+    /**
+     * Obtener total de saldos a favor
+     */
+    #[Computed]
+    public function totalSaldoAFavor()
+    {
+        return $this->saldosAFavor->sum('monto_saldo');
     }
 
     #[Computed]
@@ -111,6 +234,9 @@ class ExpensaUnidadDetalle extends Component
             ->first();
     }
 
+    /**
+     * Obtener subtotal de expensa actual (expensa + agua)
+     */
     #[Computed]
     public function subtotalExpensaActual()
     {
@@ -118,70 +244,99 @@ class ExpensaUnidadDetalle extends Component
             return 0;
         }
 
-        // Suma de expensa + agua (sin deuda anterior)
         return $this->expensa->monto_expensa + $this->expensa->monto_agua;
     }
 
+    /**
+     * Obtener total pendiente de la expensa actual
+     */
     #[Computed]
-    public function deudasAnterioresDetalladas()
+    public function totalPendienteActual()
     {
-        if (!$this->expensa || !$this->periodoId) {
-            return collect();
+        if (!$this->expensa) {
+            return 0;
         }
 
-        // Obtener expensas anteriores pendientes o parciales de la misma unidad
-        $periodoActual = PeriodoExpensa::find($this->periodoId);
-
-        if (!$periodoActual) {
-            return collect();
-        }
-
-        // Buscar expensas de períodos anteriores
-        $expensasPendientes = Expensa::with('periodo')
-            ->where('unidad_id', $this->unidadId)
-            ->whereHas('periodo', function ($query) use ($periodoActual) {
-                // Períodos anteriores al actual
-                $query->where(function ($q) use ($periodoActual) {
-                    $q->where('año', '<', $periodoActual->año)
-                      ->orWhere(function ($q) use ($periodoActual) {
-                          $q->where('año', '=', $periodoActual->año)
-                             ->where('mes', '<', $periodoActual->mes);
-                      });
-                });
-            })
-            ->whereIn('estado', ['pendiente', 'parcial'])
-            ->get();
-
-        // Ordenar por período (más antiguo primero para calcular diferencias)
-        $expensasPendientes = $expensasPendientes->sortBy(function ($expensa) {
-            return $expensa->periodo->año * 100 + $expensa->periodo->mes;
-        })->values();
-
-        // Calcular el monto pendiente real de cada período (sin incluir deudas anteriores acumuladas)
-        $deudaAnteriorAcumulada = 0;
-        $expensasConMontosReales = $expensasPendientes->map(function ($expensa) use (&$deudaAnteriorAcumulada) {
-            // El monto pendiente real es: monto_pendiente - deuda_anterior_acumulada
-            // Pero como deuda_anterior ya incluye las deudas previas, calculamos la diferencia
-            $montoPendienteReal = $expensa->monto_pendiente - $deudaAnteriorAcumulada;
-
-            // Actualizar la deuda acumulada para el siguiente período
-            $deudaAnteriorAcumulada = $expensa->monto_pendiente;
-
-            // Crear un objeto con el monto calculado
-            $expensa->monto_pendiente_real = max(0, $montoPendienteReal);
-            return $expensa;
-        });
-
-        // Reordenar para mostrar (más reciente primero)
-        return $expensasConMontosReales->sortByDesc(function ($expensa) {
-            return $expensa->periodo->año * 100 + $expensa->periodo->mes;
-        })->values();
+        return $this->expensa->expensa_pendiente + $this->expensa->agua_pendiente;
     }
 
+    /**
+     * Obtener total pagado de la expensa actual
+     */
     #[Computed]
-    public function totalDeudasAnterioresCalculado()
+    public function totalPagadoActual()
     {
-        return $this->deudasAnterioresDetalladas->sum('monto_pendiente_real');
+        if (!$this->expensa) {
+            return 0;
+        }
+
+        return $this->expensa->monto_total - ($this->expensa->expensa_pendiente + $this->expensa->agua_pendiente);
+    }
+
+    /**
+     * Verificar si la expensa está pagada
+     */
+    #[Computed]
+    public function estaPagada()
+    {
+        if (!$this->expensa) {
+            return false;
+        }
+
+        return $this->expensa->estaPagada();
+    }
+
+    /**
+     * Obtener color según estado de deuda
+     */
+    #[Computed]
+    public function estadoColor()
+    {
+        if (!$this->expensa) {
+            return 'gray';
+        }
+
+        return $this->expensa->estado_color;
+    }
+
+    /**
+     * Obtener texto del estado
+     */
+    #[Computed]
+    public function estadoTexto()
+    {
+        if (!$this->expensa) {
+            return 'Sin calcular';
+        }
+
+        return $this->expensa->estado_label;
+    }
+
+    /**
+     * Obtener nombre del propietario
+     */
+    public function getPropietarioNombre(): string
+    {
+        if ($this->unidad->propietarioActual) {
+            return trim($this->unidad->propietarioActual->nombre . ' ' . $this->unidad->propietarioActual->apellido);
+        }
+        return 'Sin propietario';
+    }
+
+    /**
+     * Formatear monto a moneda
+     */
+    protected function formatoMoneda($monto): string
+    {
+        return number_format($monto, 2, ',', '.');
+    }
+
+    /**
+     * Ir al formulario de pago
+     */
+    public function irAPagar()
+    {
+        return $this->redirect(route('expensas.pago', $this->unidadId));
     }
 
     public function render()
@@ -192,9 +347,16 @@ class ExpensaUnidadDetalle extends Component
             'periodoActual' => $this->periodoActual,
             'periodosDisponibles' => $this->periodosDisponibles,
             'lecturaMedidor' => $this->lecturaMedidor,
-            'subtotalExpensaActual' => $this->subtotalExpensaActual,
             'deudasAnterioresDetalladas' => $this->deudasAnterioresDetalladas,
-            'totalDeudasAnterioresCalculado' => $this->totalDeudasAnterioresCalculado,
+            'totalDeudasAnteriores' => $this->totalDeudasAnteriores,
+            'historialPagos' => $this->historialPagos,
+            'saldosAFavor' => $this->saldosAFavor,
+            'totalSaldoAFavor' => $this->totalSaldoAFavor,
+            'subtotalExpensaActual' => $this->subtotalExpensaActual,
+            'totalPendienteActual' => $this->totalPendienteActual,
+            'totalPagadoActual' => $this->totalPagadoActual,
+            'estadoColor' => $this->estadoColor,
+            'estadoTexto' => $this->estadoTexto,
         ])->layout('layouts.app');
     }
 }

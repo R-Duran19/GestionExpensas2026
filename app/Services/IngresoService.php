@@ -123,8 +123,14 @@ class IngresoService
         return DB::transaction(function () use ($ingreso) {
             $fecha = $ingreso->fecha->format('Y-m-d');
 
-            // Verificar si es un pago de expensa
-            $esPagoExpensa = !is_null($ingreso->expensa_total_id);
+            // Verificar si es un pago de expensa (nueva arquitectura)
+            if ($ingreso->tipo_ingreso === 'expensa') {
+                // Revertir pagos aplicados a expensas
+                $this->revertirPagoExpensa($ingreso);
+            }
+
+            // Verificar arquitectura antigua (legacy)
+            $esPagoExpensaLegacy = !is_null($ingreso->expensa_total_id);
             $expensaTotalId = $ingreso->expensa_total_id;
 
             // Eliminar archivo de comprobante si existe
@@ -135,8 +141,8 @@ class IngresoService
             // Soft delete
             $ingreso->delete();
 
-            // Si es pago de expensa, recalcular expensa_total
-            if ($esPagoExpensa) {
+            // Si es pago de expensa (arquitectura antigua), recalcular expensa_total
+            if ($esPagoExpensaLegacy) {
                 $this->recalcularExpensaTotal($expensaTotalId);
             }
 
@@ -151,6 +157,43 @@ class IngresoService
     }
 
     /**
+     * Revertir pagos aplicados a expensas (nueva arquitectura)
+     * Restaura las deudas pendientes de las expensas cuando se anula un pago
+     */
+    protected function revertirPagoExpensa(Ingreso $ingreso): void
+    {
+        // Cargar detalles con expensas
+        $detalles = $ingreso->detalles()
+            ->with('expensa')
+            ->get();
+
+        foreach ($detalles as $detalle) {
+            if (!$detalle->expensa) continue;
+
+            // Bloquear expensa para actualizar
+            $expensa = \App\Models\Expensa::lockForUpdate()->findOrFail($detalle->expensa_id);
+
+            // Restaurar las deudas pendientes
+            $expensa->update([
+                'expensa_pendiente' => $expensa->expensa_pendiente + $detalle->monto_expensa_aplicado,
+                'agua_pendiente' => $expensa->agua_pendiente + $detalle->monto_agua_aplicado,
+            ]);
+
+            // Log para auditoría
+            \Log::info('Pago de expensa anulado - deudas restauradas', [
+                'ingreso_id' => $ingreso->id,
+                'numero_recibo' => $ingreso->numero_recibo,
+                'expensa_id' => $expensa->id,
+                'monto_expensa_devuelto' => $detalle->monto_expensa_aplicado,
+                'monto_agua_devuelto' => $detalle->monto_agua_aplicado,
+            ]);
+        }
+
+        // Eliminar los saldos a favor generados por este ingreso
+        \App\Models\SaldoAFavor::where('ingreso_id', $ingreso->id)->delete();
+    }
+
+    /**
      * Restaurar un ingreso eliminado
      */
     public function restaurar(int $id): Ingreso
@@ -158,14 +201,19 @@ class IngresoService
         return DB::transaction(function () use ($id) {
             $ingreso = Ingreso::withTrashed()->findOrFail($id);
 
-            // Verificar si es un pago de expensa
-            $esPagoExpensa = !is_null($ingreso->expensa_total_id);
+            // Si es pago de expensa (nueva arquitectura), reaplicar pagos
+            if ($ingreso->tipo_ingreso === 'expensa') {
+                $this->reaplicarPagoExpensa($ingreso);
+            }
+
+            // Verificar arquitectura antigua (legacy)
+            $esPagoExpensaLegacy = !is_null($ingreso->expensa_total_id);
             $expensaTotalId = $ingreso->expensa_total_id;
 
             $ingreso->restore();
 
-            // Si es pago de expensa, recalcular expensa_total
-            if ($esPagoExpensa) {
+            // Si es pago de expensa (arquitectura antigua), recalcular expensa_total
+            if ($esPagoExpensaLegacy) {
                 $this->recalcularExpensaTotal($expensaTotalId);
             }
 
@@ -177,6 +225,63 @@ class IngresoService
 
             return $ingreso;
         });
+    }
+
+    /**
+     * Reaplicar pagos a expensas (nueva arquitectura)
+     * Vuelve a aplicar los montos cuando se restaura un pago anulado
+     */
+    protected function reaplicarPagoExpensa(Ingreso $ingreso): void
+    {
+        // Cargar detalles con expensas
+        $detalles = $ingreso->detalles()
+            ->with('expensa')
+            ->get();
+
+        foreach ($detalles as $detalle) {
+            if (!$detalle->expensa) continue;
+
+            // Bloquear expensa para actualizar
+            $expensa = \App\Models\Expensa::lockForUpdate()->findOrFail($detalle->expensa_id);
+
+            // Verificar que haya deuda pendiente para aplicar
+            $nuevaExpensaPendiente = $expensa->expensa_pendiente - $detalle->monto_expensa_aplicado;
+            $nuevaAguaPendiente = $expensa->agua_pendiente - $detalle->monto_agua_aplicado;
+
+            // No permitir que quede negativo (indica inconsistencia)
+            if ($nuevaExpensaPendiente < 0 || $nuevaAguaPendiente < 0) {
+                \Log::warning('Inconsistencia al reaplicar pago - saldo insuficiente', [
+                    'ingreso_id' => $ingreso->id,
+                    'numero_recibo' => $ingreso->numero_recibo,
+                    'expensa_id' => $expensa->id,
+                    'expensa_pendiente_actual' => $expensa->expensa_pendiente,
+                    'monto_expensa_a_aplicar' => $detalle->monto_expensa_aplicado,
+                    'agua_pendiente_actual' => $expensa->agua_pendiente,
+                    'monto_agua_a_aplicar' => $detalle->monto_agua_aplicado,
+                ]);
+                // Aplicar hasta 0 como máximo
+                $nuevaExpensaPendiente = max(0, $nuevaExpensaPendiente);
+                $nuevaAguaPendiente = max(0, $nuevaAguaPendiente);
+            }
+
+            // Aplicar los pagos
+            $expensa->update([
+                'expensa_pendiente' => $nuevaExpensaPendiente,
+                'agua_pendiente' => $nuevaAguaPendiente,
+            ]);
+
+            // Log para auditoría
+            \Log::info('Pago de expensa restaurado - pagos reaplicados', [
+                'ingreso_id' => $ingreso->id,
+                'numero_recibo' => $ingreso->numero_recibo,
+                'expensa_id' => $expensa->id,
+                'monto_expensa_aplicado' => $detalle->monto_expensa_aplicado,
+                'monto_agua_aplicado' => $detalle->monto_agua_aplicado,
+            ]);
+        }
+
+        // Nota: No recreamos saldos a favor porque si se borraron al anular,
+        // podría haber inconsistencias. Si se necesitan, deben recrearse manualmente.
     }
 
     /**

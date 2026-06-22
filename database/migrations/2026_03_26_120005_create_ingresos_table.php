@@ -15,24 +15,46 @@ return new class extends Migration
             $table->id();
             $table->string('numero_recibo', 20)->unique();
             $table->date('fecha')->comment('Fecha del ingreso');
+
+            // Categoría y tipo
             $table->foreignId('categoria_ingreso_id')->constrained('categorias_ingresos');
-            $table->decimal('importe', 12, 2)->comment('Importe del ingreso');
+            $table->enum('tipo_ingreso', ['expensa', 'extraordinario'])
+                  ->default('expensa')
+                  ->comment('expensa: pago de expensa, extraordinario: multas/cuotas especiales');
+
+            // Montos
+            $table->decimal('importe', 12, 2)->comment('Importe del ingreso (compatibilidad)');
+            $table->decimal('monto_total', 12, 2)
+                  ->default(0)
+                  ->comment('Monto total del recibo (suma de detalles)');
+
+            // Método de pago
             $table->enum('metodo_pago', ['efectivo', 'transferencia', 'qr', 'otro'])->default('efectivo');
+
+            // Detalles adicionales
             $table->text('descripcion')->nullable();
             $table->string('comprobante_foto', 500)->nullable()->comment('Ruta al archivo WebP del comprobante');
             $table->string('referencia_bancaria', 100)->nullable()->comment('Referencia de transferencia');
+
+            // Relación opcional con unidad (obtenida de detalles en pagos de expensa)
             $table->foreignId('unidad_id')->nullable()->constrained('unidades')->onDelete('set null');
+
             $table->text('observaciones')->nullable();
             $table->boolean('activo')->default(true);
+
+            // Auditoría
             $table->foreignId('creado_por')->constrained('users');
             $table->foreignId('actualizado_por')->nullable()->constrained('users');
+
             $table->softDeletes();
             $table->timestamps();
 
+            // Índices
             $table->index('numero_recibo');
             $table->index('fecha');
             $table->index('categoria_ingreso_id');
             $table->index('metodo_pago');
+            $table->index(['tipo_ingreso', 'fecha'], 'idx_ingreso_tipo_fecha');
         });
     }
 

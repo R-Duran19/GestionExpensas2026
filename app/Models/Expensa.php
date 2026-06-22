@@ -26,12 +26,10 @@ class Expensa extends Model
         'unidad_id',
         'monto_expensa',
         'monto_agua',
-        'deuda_anterior',
+        'expensa_pendiente',
+        'agua_pendiente',
+        'periodo_cerrado',
         'monto_total',
-        'estado',
-        'monto_pagado',
-        'monto_pendiente',
-        'fecha_pago',
     ];
 
     /**
@@ -42,11 +40,10 @@ class Expensa extends Model
     protected $casts = [
         'monto_expensa' => 'decimal:2',
         'monto_agua' => 'decimal:2',
-        'deuda_anterior' => 'decimal:2',
+        'expensa_pendiente' => 'decimal:2',
+        'agua_pendiente' => 'decimal:2',
+        'periodo_cerrado' => 'boolean',
         'monto_total' => 'decimal:2',
-        'monto_pagado' => 'decimal:2',
-        'monto_pendiente' => 'decimal:2',
-        'fecha_pago' => 'date',
     ];
 
     /**
@@ -74,80 +71,139 @@ class Expensa extends Model
     }
 
     /**
-     * Get the ingresos (pagos) for this expensa.
+     * Get the detalles de pago (ingreso_detalles) for this expensa.
+     */
+    public function detallesPago(): HasMany
+    {
+        return $this->hasMany(IngresoDetalle::class, 'expensa_id');
+    }
+
+    /**
+     * Get the ingresos (pagos) for this expensa (legacy compatibility).
      */
     public function ingresos()
     {
-        return $this->hasMany(Ingreso::class, 'expensa_id');
+        return $this->detallesPago()->with('ingreso');
     }
 
     /**
-     * Scope para filtrar expensas pendientes
+     * Scope para expensas con deuda
      */
-    public function scopePendientes($query)
+    public function scopeConDeuda($query)
     {
-        return $query->where('estado', 'pendiente');
+        return $query->where(function($q) {
+            $q->where('expensa_pendiente', '>', 0)
+              ->orWhere('agua_pendiente', '>', 0);
+        });
     }
 
     /**
-     * Scope para filtrar expensas parciales
-     */
-    public function scopeParciales($query)
-    {
-        return $query->where('estado', 'parcial');
-    }
-
-    /**
-     * Scope para filtrar expensas pagadas
+     * Scope para expensas pagadas (sin deuda)
      */
     public function scopePagadas($query)
     {
-        return $query->where('estado', 'pagado');
+        return $query->where('expensa_pendiente', 0)
+                     ->where('agua_pendiente', 0);
     }
 
     /**
-     * Scope para filtrar por estado
+     * Scope para expensas con pago parcial
      */
-    public function scopePorEstado($query, string $estado)
+    public function scopeParciales($query)
     {
-        return $query->where('estado', $estado);
+        return $query->where(function($q) {
+            $q->where('expensa_pendiente', '>', 0)
+              ->orWhere('agua_pendiente', '>', 0);
+        })->where(function($q) {
+            $q->where('expensa_pendiente', '<', \DB::raw('monto_expensa'))
+              ->orWhere('agua_pendiente', '<', \DB::raw('monto_agua'));
+        });
     }
 
     /**
-     * Verificar si la expensa está pagada
+     * Scope para periodos cerrados
+     */
+    public function scopePeriodoCerrado($query)
+    {
+        return $query->where('periodo_cerrado', true);
+    }
+
+    /**
+     * Scope para periodos abiertos
+     */
+    public function scopePeriodoAbierto($query)
+    {
+        return $query->where('periodo_cerrado', false);
+    }
+
+    /**
+     * Obtener propietario actual (a través de unidad)
+     */
+    public function getPropietarioActualAttribute()
+    {
+        return $this->unidad?->propietarioActual;
+    }
+
+    /**
+     * Verificar si está totalmente pagada
      */
     public function estaPagada(): bool
     {
-        return $this->estado === 'pagado';
+        return $this->expensa_pendiente == 0 && $this->agua_pendiente == 0;
     }
 
     /**
-     * Verificar si la expensa tiene pago parcial
+     * Verificar si tiene deuda pendiente
      */
-    public function tienePagoParcial(): bool
+    public function tieneDeuda(): bool
     {
-        return $this->estado === 'parcial';
+        return $this->expensa_pendiente > 0 || $this->agua_pendiente > 0;
     }
 
     /**
-     * Verificar si la expensa está pendiente
+     * Verificar si tiene deuda de expensa
      */
-    public function estaPendiente(): bool
+    public function tieneDeudaExpensa(): bool
     {
-        return $this->estado === 'pendiente';
+        return $this->expensa_pendiente > 0;
     }
 
     /**
-     * Get estado label
+     * Verificar si tiene deuda de agua
+     */
+    public function tieneDeudaAgua(): bool
+    {
+        return $this->agua_pendiente > 0;
+    }
+
+    /**
+     * Obtener total pendiente
+     */
+    public function getTotalPendienteAttribute(): float
+    {
+        return (float) $this->expensa_pendiente + (float) $this->agua_pendiente;
+    }
+
+    /**
+     * Obtener total pagado (monto de emisión - pendiente)
+     */
+    public function getTotalPagadoAttribute(): float
+    {
+        return (float) $this->monto_total - (float) $this->total_pendiente;
+    }
+
+    /**
+     * Get estado label (basado en saldos pendientes)
      */
     public function getEstadoLabelAttribute(): string
     {
-        return match($this->estado) {
-            'pendiente' => 'Pendiente',
-            'parcial' => 'Parcial',
-            'pagado' => 'Pagado',
-            default => 'Desconocido',
-        };
+        if ($this->estaPagada()) {
+            return 'Pagado';
+        } elseif ($this->tieneDeuda()) {
+            return 'Pendiente';
+        } else {
+            return 'Parcial';
+        }
     }
 
     /**
@@ -155,53 +211,50 @@ class Expensa extends Model
      */
     public function getEstadoColorAttribute(): string
     {
-        return match($this->estado) {
-            'pendiente' => 'red',
-            'parcial' => 'yellow',
-            'pagado' => 'green',
-            default => 'gray',
-        };
+        if ($this->estaPagada()) {
+            return 'green';
+        } elseif ($this->tieneDeuda()) {
+            return 'red';
+        } else {
+            return 'yellow';
+        }
     }
 
     /**
-     * Registrar un pago a esta expensa
+     * Obtener el porcentaje pagado de expensa
      */
-    public function registrarPago(float $monto, string $numeroRecibo, string $metodoPago = 'efectivo', string $referenciaBancaria = null)
+    public function getPorcentajePagadoExpensaAttribute(): float
     {
-        // Crear el registro de ingreso
-        $ingreso = Ingreso::create([
-            'numero_recibo' => $numeroRecibo,
-            'fecha' => now(),
-            'categoria_ingreso_id' => 1, // "Expensas"
-            'importe' => $monto,
-            'metodo_pago' => $metodoPago,
-            'unidad_id' => $this->unidad_id,
-            'expensa_id' => $this->id,
-            'creado_por' => 1,
-        ]);
-
-        // Actualizar el estado de la expensa
-        $nuevoMontoPagado = $this->monto_pagado + $monto;
-        $nuevoMontoPendiente = $this->monto_total - $nuevoMontoPagado;
-
-        if ($nuevoMontoPendiente <= 0) {
-            // Pago completo
-            $this->update([
-                'estado' => 'pagado',
-                'monto_pagado' => $this->monto_total,
-                'monto_pendiente' => 0,
-                'fecha_pago' => now(),
-            ]);
-        } elseif ($nuevoMontoPagado > 0) {
-            // Pago parcial
-            $this->update([
-                'estado' => 'parcial',
-                'monto_pagado' => $nuevoMontoPagado,
-                'monto_pendiente' => $nuevoMontoPendiente,
-                'fecha_pago' => now(),
-            ]);
+        if ($this->monto_expensa == 0) {
+            return 0;
         }
 
-        return $ingreso;
+        $pagado = $this->monto_expensa - $this->expensa_pendiente;
+        return ($pagado / $this->monto_expensa) * 100;
+    }
+
+    /**
+     * Obtener el porcentaje pagado de agua
+     */
+    public function getPorcentajePagadoAguaAttribute(): float
+    {
+        if ($this->monto_agua == 0) {
+            return 100; // Si no tiene agua, se considera 100%
+        }
+
+        $pagado = $this->monto_agua - $this->agua_pendiente;
+        return ($pagado / $this->monto_agua) * 100;
+    }
+
+    /**
+     * Obtener el porcentaje total pagado
+     */
+    public function getPorcentajePagadoTotalAttribute(): float
+    {
+        if ($this->monto_total == 0) {
+            return 0;
+        }
+
+        return ($this->total_pagado / $this->monto_total) * 100;
     }
 }
