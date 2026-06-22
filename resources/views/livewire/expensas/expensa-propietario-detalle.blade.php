@@ -29,9 +29,24 @@
                 </div>
             </div>
             <div class="mt-4 md:mt-0">
-                <div class="text-sm text-gray-500">Período</div>
-                <div class="text-lg font-medium text-gray-900">{{ $periodo->nombre_periodo }}</div>
-                <div class="text-sm text-gray-500">{{ $periodo->estado_label }}</div>
+                <!-- Selector de Período -->
+                <div class="flex items-center gap-4">
+                    <div class="text-right">
+                        <div class="text-sm text-gray-500">Período</div>
+                        <select
+                            wire:model.live="periodoId"
+                            wire:change="cambiarPeriodo($event.target.value)"
+                            class="mt-1 block w-full md:w-48 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        >
+                            @foreach($periodosDisponibles as $periodoOpt)
+                                <option value="{{ $periodoOpt['id'] }}" {{ $periodoId == $periodoOpt['id'] ? 'selected' : '' }}>
+                                    {{ $periodoOpt['nombre'] }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <div class="text-xs text-gray-500 mt-1">{{ $periodo->estado_label }}</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -272,6 +287,55 @@
                                 </div>
                             </td>
                         </tr>
+
+                        <!-- Fila de detalle de agua (expandible) -->
+                        @if($unidad->detalle_agua)
+                        <tr wire:key="detalle-agua-{{ $unidad->id }}" class="bg-blue-50">
+                            <td colspan="7" class="px-6 py-4">
+                                <div class="flex items-start">
+                                    <svg class="h-5 w-5 text-blue-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    <div class="flex-1">
+                                        <div class="text-sm font-medium text-blue-900 mb-2">Detalle del cálculo de agua</div>
+                                        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                                            <div>
+                                                <div class="text-gray-500">Tipo medidor</div>
+                                                <div class="font-medium text-gray-900">{{ $unidad->detalle_agua->tipo_medidor }}</div>
+                                            </div>
+                                            <div>
+                                                <div class="text-gray-500">Lectura anterior</div>
+                                                <div class="font-medium text-gray-900">{{ number_format($unidad->detalle_agua->lectura_anterior, 2) }} m³</div>
+                                            </div>
+                                            <div>
+                                                <div class="text-gray-500">Lectura actual</div>
+                                                <div class="font-medium text-gray-900">{{ number_format($unidad->detalle_agua->lectura_actual, 2) }} m³</div>
+                                            </div>
+                                            <div>
+                                                <div class="text-gray-500">Consumo</div>
+                                                <div class="font-medium text-blue-700">{{ number_format($unidad->detalle_agua->consumo_m3, 2) }} m³</div>
+                                            </div>
+                                            <div>
+                                                <div class="text-gray-500">Factor {{ $unidad->detalle_agua->factor_nombre }}</div>
+                                                <div class="font-medium text-gray-900">{{ number_format($unidad->detalle_agua->factor_agua, 4) }} Bs/m³</div>
+                                            </div>
+                                        </div>
+                                        <div class="mt-3 pt-3 border-t border-blue-200 flex items-center justify-between">
+                                            <div class="text-sm text-gray-600">
+                                                <span class="font-medium">Cálculo:</span>
+                                                {{ number_format($unidad->detalle_agua->consumo_m3, 2) }} m³
+                                                × {{ number_format($unidad->detalle_agua->factor_agua, 4) }} Bs/m³
+                                                = <span class="font-bold text-blue-700">{{ number_format($unidad->detalle_agua->monto_calculado, 2) }} Bs</span>
+                                            </div>
+                                            <div class="text-xs text-gray-500">
+                                                {{ $unidad->detalle_agua->factor_nombre }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        @endif
                     @empty
                         <tr>
                             <td colspan="7" class="px-6 py-12 text-center">

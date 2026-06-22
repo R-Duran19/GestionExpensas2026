@@ -16,6 +16,7 @@ class ExpensaPropietarioDetalle extends Component
     public $propietario;
     public $periodo;
     public $unidadesConExpensas = [];
+    public $periodosDisponibles = [];
 
     protected ExpensaService $expensaService;
 
@@ -33,7 +34,36 @@ class ExpensaPropietarioDetalle extends Component
         $this->periodoId = $periodo;
         $this->propietarioId = $propietario;
 
+        $this->cargarPeriodosDisponibles();
         $this->cargarDatos();
+    }
+
+    public function cargarPeriodosDisponibles()
+    {
+        // Obtener todos los períodos donde este propietario tiene expensas
+        $unidadIds = Propietario::find($this->propietarioId)
+            ->unidadesActuales()
+            ->where('activo', true)
+            ->pluck('unidades.id');
+
+        $periodosConExpensas = Expensa::whereIn('unidad_id', $unidadIds)
+            ->with('periodo')
+            ->get()
+            ->pluck('periodo')
+            ->sortBy(function ($periodo) {
+                return $periodo->año * 100 + $periodo->mes;
+            })
+            ->reverse()
+            ->unique('id')
+            ->values();
+
+        $this->periodosDisponibles = $periodosConExpensas->map(function ($periodo) {
+            return [
+                'id' => $periodo->id,
+                'nombre' => $periodo->nombre_periodo,
+                'estado' => $periodo->estado,
+            ];
+        })->toArray();
     }
 
     public function cargarDatos()
@@ -51,6 +81,34 @@ class ExpensaPropietarioDetalle extends Component
                     ->where('unidad_id', $unidad->id)
                     ->first();
 
+                // Obtener lectura de medidor si tiene
+                $lecturaMedidor = null;
+                $detalleAgua = null;
+
+                if ($unidad->tiene_medidor && $expensa && $expensa->monto_agua > 0) {
+                    $lecturaMedidor = \App\Models\LecturaMedidor::where('periodo_id', $this->periodoId)
+                        ->where('unidad_id', $unidad->id)
+                        ->first();
+
+                    if ($lecturaMedidor && $this->periodo) {
+                        // Calcular el factor de agua según la categoría
+                        $factorAgua = $unidad->categoria_unidad === \App\Enums\CategoriaUnidad::DOMICILIARIA
+                            ? $this->periodo->factor_domiciliario
+                            : $this->periodo->factor_comercial;
+
+                        $detalleAgua = (object) [
+                            'tiene_medidor' => true,
+                            'lectura_anterior' => $lecturaMedidor->lectura_anterior,
+                            'lectura_actual' => $lecturaMedidor->lectura_actual,
+                            'consumo_m3' => $lecturaMedidor->consumo_m3,
+                            'factor_agua' => $factorAgua,
+                            'factor_nombre' => $unidad->categoria_unidad === \App\Enums\CategoriaUnidad::DOMICILIARIA ? 'Domiciliario' : 'Comercial',
+                            'monto_calculado' => $lecturaMedidor->consumo_m3 * $factorAgua,
+                            'tipo_medidor' => $lecturaMedidor->tipo_label,
+                        ];
+                    }
+                }
+
                 return (object) [
                     'id' => $unidad->id,
                     'codigo' => $unidad->codigo,
@@ -63,10 +121,20 @@ class ExpensaPropietarioDetalle extends Component
                     'total_pagado' => $expensa ? $expensa->total_pagado : 0,
                     'total_pendiente' => $expensa ? $expensa->total_pendiente : 0,
                     'estado' => $expensa ? ($expensa->estaPagada() ? 'pagado' : ($expensa->tieneDeuda() ? 'pendiente' : 'parcial')) : 'sin_expensa',
+                    'detalle_agua' => $detalleAgua,
                 ];
             })
             ->sortBy('nombre_completo')
             ->values();
+    }
+
+    /**
+     * Cambiar período
+     */
+    public function cambiarPeriodo($periodoId)
+    {
+        $this->periodoId = $periodoId;
+        $this->cargarDatos();
     }
 
     /**
@@ -249,6 +317,7 @@ class ExpensaPropietarioDetalle extends Component
             'periodo' => $this->periodo,
             'unidadesConExpensas' => $this->unidadesConExpensas,
             'totales' => $this->totales,
+            'periodosDisponibles' => $this->periodosDisponibles,
         ])->layout('layouts.app');
     }
 }
