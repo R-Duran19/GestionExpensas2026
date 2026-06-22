@@ -233,6 +233,7 @@ class EgresoForm extends Component
 
     public function render()
     {
-        return view('livewire.caja.egresos.egreso-form');
+        return view('livewire.caja.egresos.egreso-form')
+            ->layout('layouts.app');
     }
 }

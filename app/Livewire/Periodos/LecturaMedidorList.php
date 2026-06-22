@@ -145,6 +145,7 @@ class LecturaMedidorList extends Component
 
     public function render()
     {
-        return view('livewire.periodos.lectura-medidor-list');
+        return view('livewire.periodos.lectura-medidor-list')
+            ->layout('layouts.app');
     }
 }

@@ -207,4 +207,10 @@ class UnidadForm extends Component
     {
         return $this->modo === 'editar';
     }
+
+    public function render()
+    {
+        return view('livewire.propiedades.unidad-form')
+            ->layout('layouts.app');
+    }
 }

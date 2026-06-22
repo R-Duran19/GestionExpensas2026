@@ -6,6 +6,7 @@ $activeClasses = $active ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover
 
 <a
     href="{{ $href }}"
+    wire:navigate
     {{ $attributes->merge(['class' => 'group flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out ' . $activeClasses]) }}
 >
     @if($icon)

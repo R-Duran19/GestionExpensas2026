@@ -212,6 +212,6 @@ class CategoriaIngresoList extends Component
 
         return view('livewire.caja.categorias.categoria-ingreso-list', [
             'categorias' => $categorias,
-        ]);
+        ])->layout('layouts.app');
     }
 }

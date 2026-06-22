@@ -60,6 +60,7 @@ class CajaDashboard extends Component
 
     public function render()
     {
-        return view('livewire.caja.caja-dashboard');
+        return view('livewire.caja.caja-dashboard')
+            ->layout('layouts.app');
     }
 }

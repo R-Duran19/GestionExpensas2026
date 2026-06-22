@@ -52,7 +52,7 @@ class PropietarioList extends Component
 
         return view('livewire.propietarios.propietario-list', [
             'propietarios' => $propietarios,
-        ]);
+        ])->layout('layouts.app');
     }
 
     /**

@@ -90,7 +90,7 @@ class UnidadList extends Component
 
         return view('livewire.propiedades.unidad-list', [
             'unidades' => $unidades,
-        ]);
+        ])->layout('layouts.app');
     }
 
     #[Computed]

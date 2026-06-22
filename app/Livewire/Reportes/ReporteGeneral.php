@@ -366,6 +366,7 @@ class ReporteGeneral extends Component
 
     public function render()
     {
-        return view('livewire.reportes.general');
+        return view('livewire.reportes.general')
+            ->layout('layouts.app');
     }
 }

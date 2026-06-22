@@ -643,6 +643,7 @@ class ExpensaList extends Component
     public function render()
     {
         return view('livewire.expensas.expensa-list')
+            ->layout('layouts.app')
             ->title('Expensas - Lista');
     }
 }

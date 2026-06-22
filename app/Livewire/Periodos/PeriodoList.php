@@ -98,6 +98,7 @@ class PeriodoList extends Component
 
     public function render()
     {
-        return view('livewire.periodos.periodo-list');
+        return view('livewire.periodos.periodo-list')
+            ->layout('layouts.app');
     }
 }

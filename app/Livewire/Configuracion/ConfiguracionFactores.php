@@ -121,6 +121,7 @@ class ConfiguracionFactores extends Component
 
     public function render()
     {
-        return view('livewire.configuracion.configuracion-factores');
+        return view('livewire.configuracion.configuracion-factores')
+            ->layout('layouts.app');
     }
 }

@@ -212,6 +212,6 @@ class CategoriaEgresoList extends Component
 
         return view('livewire.caja.categorias.categoria-egreso-list', [
             'categorias' => $categorias,
-        ]);
+        ])->layout('layouts.app');
     }
 }

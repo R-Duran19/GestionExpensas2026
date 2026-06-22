@@ -53,6 +53,9 @@ class IngresoForm extends Component
     public $nombre_categoria_nueva = '';
     public $color_categoria_nueva = '#10B981';
 
+    // Para confirmación de guardado
+    public $mostrarModalConfirmacion = false;
+
     public $categorias = [];
     public $unidades = [];
 
@@ -364,19 +367,23 @@ class IngresoForm extends Component
                 $agrupadas[$periodoNombre] = [];
             }
 
+            // Determinar si la unidad tiene medidor de agua
+            $tieneMedidor = $expensa->unidad->tiene_medidor ?? false;
+
             $agrupadas[$periodoNombre][] = [
                 'expensa_id' => $expensa->id,
                 'unidad_id' => $expensa->unidad_id,
                 'unidad_codigo' => $expensa->unidad->codigo,
                 'periodo' => $periodoNombre,
                 'periodo_cerrado' => $expensa->periodo->estado === 'cerrado',
+                'tiene_medidor' => $tieneMedidor,
                 'deuda_expensa' => $expensa->expensa_pendiente,
-                'deuda_agua' => $expensa->agua_pendiente,
-                'deuda_total' => $expensa->expensa_pendiente + $expensa->agua_pendiente,
+                'deuda_agua' => $tieneMedidor ? $expensa->agua_pendiente : 0,
+                'deuda_total' => $expensa->expensa_pendiente + ($tieneMedidor ? $expensa->agua_pendiente : 0),
                 'pagar_expensa' => $expensa->expensa_pendiente > 0,
-                'pagar_agua' => $expensa->agua_pendiente > 0,
+                'pagar_agua' => $tieneMedidor && $expensa->agua_pendiente > 0,
                 'monto_expensa' => $expensa->expensa_pendiente,
-                'monto_agua' => $expensa->agua_pendiente,
+                'monto_agua' => $tieneMedidor ? $expensa->agua_pendiente : 0,
             ];
         }
 
@@ -499,7 +506,43 @@ class IngresoForm extends Component
     }
 
     /**
-     * Actualizar monto de expensa cuando cambia checkbox o input
+     * Seleccionar todas las deudas de un período específico
+     */
+    public function seleccionarPeriodo($periodoIndex)
+    {
+        if (!isset($this->deudasPendientes[$periodoIndex])) {
+            return;
+        }
+
+        foreach ($this->deudasPendientes[$periodoIndex]['expensas'] as &$expensa) {
+            $expensa['pagar_expensa'] = $expensa['deuda_expensa'] > 0;
+            $expensa['pagar_agua'] = $expensa['deuda_agua'] > 0;
+            $expensa['monto_expensa'] = $expensa['deuda_expensa'];
+            $expensa['monto_agua'] = $expensa['deuda_agua'];
+        }
+        $this->calcularTotales();
+    }
+
+    /**
+     * Deseleccionar todas las deudas de un período específico
+     */
+    public function deseleccionarPeriodo($periodoIndex)
+    {
+        if (!isset($this->deudasPendientes[$periodoIndex])) {
+            return;
+        }
+
+        foreach ($this->deudasPendientes[$periodoIndex]['expensas'] as &$expensa) {
+            $expensa['pagar_expensa'] = false;
+            $expensa['pagar_agua'] = false;
+            $expensa['monto_expensa'] = 0;
+            $expensa['monto_agua'] = 0;
+        }
+        $this->calcularTotales();
+    }
+
+    /**
+     * Actualizar monto de expensa cuando cambia checkbox
      */
     public function actualizarMontoExpensa($periodoIndex, $expensaIndex)
     {
@@ -509,22 +552,22 @@ class IngresoForm extends Component
 
         $expensa = &$this->deudasPendientes[$periodoIndex]['expensas'][$expensaIndex];
 
-        if (!$expensa['pagar_expensa']) {
-            // Si se desmarca, poner en 0
-            $expensa['monto_expensa'] = 0;
-        } else {
-            // Si se marca y el monto es 0, poner el monto de la deuda automáticamente
+        // Sincronizar: si se marca el checkbox, poner el monto de la deuda
+        // Si se desmarca, poner el monto en 0
+        if ($expensa['pagar_expensa']) {
             $monto = floatval($expensa['monto_expensa'] ?? 0);
             if ($monto == 0) {
                 $expensa['monto_expensa'] = $expensa['deuda_expensa'];
             }
+        } else {
+            $expensa['monto_expensa'] = 0;
         }
 
         $this->calcularTotales();
     }
 
     /**
-     * Actualizar monto de agua cuando cambia checkbox o input
+     * Actualizar monto de agua cuando cambia checkbox
      */
     public function actualizarMontoAgua($periodoIndex, $expensaIndex)
     {
@@ -534,15 +577,61 @@ class IngresoForm extends Component
 
         $expensa = &$this->deudasPendientes[$periodoIndex]['expensas'][$expensaIndex];
 
-        if (!$expensa['pagar_agua']) {
-            // Si se desmarca, poner en 0
-            $expensa['monto_agua'] = 0;
-        } else {
-            // Si se marca y el monto es 0, poner el monto de la deuda automáticamente
+        // Sincronizar: si se marca el checkbox, poner el monto de la deuda
+        // Si se desmarca, poner el monto en 0
+        if ($expensa['pagar_agua']) {
             $monto = floatval($expensa['monto_agua'] ?? 0);
             if ($monto == 0) {
                 $expensa['monto_agua'] = $expensa['deuda_agua'];
             }
+        } else {
+            $expensa['monto_agua'] = 0;
+        }
+
+        $this->calcularTotales();
+    }
+
+    /**
+     * Cuando el monto de expensa cambia manualmente (desde el input)
+     */
+    public function actualizarDesdeInputExpensa($periodoIndex, $expensaIndex)
+    {
+        if (!isset($this->deudasPendientes[$periodoIndex]['expensas'][$expensaIndex])) {
+            return;
+        }
+
+        $expensa = &$this->deudasPendientes[$periodoIndex]['expensas'][$expensaIndex];
+        $monto = floatval($expensa['monto_expensa'] ?? 0);
+
+        // Si el monto es 0, desmarcar el checkbox
+        if ($monto == 0) {
+            $expensa['pagar_expensa'] = false;
+        } else {
+            // Si el monto es mayor a 0, marcar el checkbox
+            $expensa['pagar_expensa'] = true;
+        }
+
+        $this->calcularTotales();
+    }
+
+    /**
+     * Cuando el monto de agua cambia manualmente (desde el input)
+     */
+    public function actualizarDesdeInputAgua($periodoIndex, $expensaIndex)
+    {
+        if (!isset($this->deudasPendientes[$periodoIndex]['expensas'][$expensaIndex])) {
+            return;
+        }
+
+        $expensa = &$this->deudasPendientes[$periodoIndex]['expensas'][$expensaIndex];
+        $monto = floatval($expensa['monto_agua'] ?? 0);
+
+        // Si el monto es 0, desmarcar el checkbox
+        if ($monto == 0) {
+            $expensa['pagar_agua'] = false;
+        } else {
+            // Si el monto es mayor a 0, marcar el checkbox
+            $expensa['pagar_agua'] = true;
         }
 
         $this->calcularTotales();
@@ -554,6 +643,25 @@ class IngresoForm extends Component
     public function updatedDeudasPendientes()
     {
         $this->calcularTotales();
+    }
+
+    /**
+     * Verificar si un período tiene items seleccionados
+     */
+    public function periodoTieneSeleccionados($periodoIndex)
+    {
+        if (!isset($this->deudasPendientes[$periodoIndex])) {
+            return false;
+        }
+
+        foreach ($this->deudasPendientes[$periodoIndex]['expensas'] as $expensa) {
+            if (($expensa['pagar_expensa'] && floatval($expensa['monto_expensa'] ?? 0) > 0) ||
+                ($expensa['pagar_agua'] && floatval($expensa['monto_agua'] ?? 0) > 0)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -603,9 +711,15 @@ class IngresoForm extends Component
         }
     }
 
-    public function guardar()
+    public function mostrarConfirmacion()
     {
-        $this->validate();
+        // Validaciones básicas primero
+        try {
+            $this->validate();
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Dejar que Livewire maneje los errores de validación
+            throw $e;
+        }
 
         // Si es categoría expensas, validar que haya deudas seleccionadas
         if ($this->esCategoriaExpensas) {
@@ -630,6 +744,20 @@ class IngresoForm extends Component
             ]);
             return;
         }
+
+        // Si todo está validado, mostrar modal de confirmación
+        $this->mostrarModalConfirmacion = true;
+    }
+
+    public function cancelarConfirmacion()
+    {
+        $this->mostrarModalConfirmacion = false;
+    }
+
+    public function confirmarGuardado()
+    {
+        // Cerrar modal y proceder con el guardado
+        $this->mostrarModalConfirmacion = false;
 
         try {
             $service = app(IngresoService::class);
@@ -789,6 +917,7 @@ class IngresoForm extends Component
 
     public function render()
     {
-        return view('livewire.caja.ingresos.ingreso-form');
+        return view('livewire.caja.ingresos.ingreso-form')
+            ->layout('layouts.app');
     }
 }

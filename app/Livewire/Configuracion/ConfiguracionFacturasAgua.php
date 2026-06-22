@@ -86,6 +86,7 @@ class ConfiguracionFacturasAgua extends Component
 
     public function render()
     {
-        return view('livewire.configuracion.configuracion-facturas-agua');
+        return view('livewire.configuracion.configuracion-facturas-agua')
+            ->layout('layouts.app');
     }
 }

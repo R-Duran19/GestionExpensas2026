@@ -171,4 +171,10 @@ class PropietarioForm extends Component
     {
         return trim($this->nombre . ' ' . $this->apellido);
     }
+
+    public function render()
+    {
+        return view('livewire.propietarios.propietario-form')
+            ->layout('layouts.app');
+    }
 }

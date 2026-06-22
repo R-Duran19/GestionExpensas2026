@@ -86,6 +86,7 @@ class MedidorGrupoList extends Component
 
     public function render()
     {
-        return view('livewire.configuracion.medidor-grupo-list');
+        return view('livewire.configuracion.medidor-grupo-list')
+            ->layout('layouts.app');
     }
 }

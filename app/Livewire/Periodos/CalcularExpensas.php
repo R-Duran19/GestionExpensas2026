@@ -99,14 +99,15 @@ class CalcularExpensas extends Component
                     throw new \Exception('Debe seleccionar una unidad para el cálculo individual');
                 }
 
+                $unidad = \App\Models\Unidad::findOrFail($this->unidadIdSeleccionada);
                 $expensa = $this->expensaService->generarExpensaUnidad(
                     $this->periodoId,
-                    $this->unidadIdSeleccionada
+                    $unidad
                 );
 
                 $this->resultados = [
                     'tipo' => 'individual',
-                    'unidad' => $expensa->unidad->nombre_completo,
+                    'unidad' => $unidad->nombre_completo,
                     'monto_total' => $expensa->monto_total,
                 ];
             }
@@ -188,6 +189,6 @@ class CalcularExpensas extends Component
 
         return view('livewire.periodos.calcular-expensas', [
             'periodo' => $periodo,
-        ]);
+        ])->layout('layouts.app');
     }
 }

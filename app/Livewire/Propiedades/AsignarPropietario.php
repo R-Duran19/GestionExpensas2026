@@ -41,7 +41,8 @@ class AsignarPropietario extends Component
 
     public function render()
     {
-        return view('livewire.propiedades.asignar-propietario');
+        return view('livewire.propiedades.asignar-propietario')
+            ->layout('layouts.app');
     }
 
     /**
