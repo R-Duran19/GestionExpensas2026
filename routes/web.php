@@ -203,6 +203,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
         Route::prefix('ingresos')->name('ingresos.')->group(function () {
             Route::get('/', \App\Livewire\Caja\Ingresos\IngresoList::class)->name('index');
             Route::get('/crear', \App\Livewire\Caja\Ingresos\IngresoForm::class)->name('create');
+            Route::get('/{ingreso}', \App\Livewire\Caja\Ingresos\IngresoShow::class)->name('show');
             Route::get('/{ingreso}/editar', \App\Livewire\Caja\Ingresos\IngresoForm::class)->name('edit');
 
             // Rutas para PDF de recibos
