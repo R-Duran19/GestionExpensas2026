@@ -176,6 +176,13 @@
                             </td>
                             <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-center text-sm">
                                 <div class="flex justify-center gap-1 sm:gap-2">
+                                    {{-- Botón de ver detalles --}}
+                                    <a href="{{ route('caja.ingresos.show', $ingreso) }}"
+                                       class="text-purple-600 hover:text-purple-900 p-1"
+                                       title="Ver detalle completo">
+                                        <i class="fas fa-eye text-sm"></i>
+                                    </a>
+
                                     @if($ingreso->comprobante_foto)
                                         <button wire:click="verComprobante({{ $ingreso->id }})"
                                                 class="text-indigo-600 hover:text-indigo-900 p-1"

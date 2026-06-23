@@ -28,8 +28,18 @@ class GenerarReciboPDFService
     public function generar(Ingreso $ingreso, string $tipo = 'stream')
     {
         try {
-            // Cargar relaciones necesarias
-            $ingreso->load(['expensaTotal.periodo', 'propietario', 'categoria', 'creadoPor']);
+            // Cargar relaciones necesarias según el tipo de ingreso
+            if ($ingreso->tipo_ingreso === 'expensa') {
+                $ingreso->load([
+                    'detalles.expensa.periodo',
+                    'detalles.expensa.unidad.propietarios',
+                    'categoria',
+                    'creadoPor',
+                    'saldosFavor',
+                ]);
+            } else {
+                $ingreso->load(['categoria', 'creadoPor']);
+            }
 
             // Preparar datos para la vista
             $datos = $this->prepararDatos($ingreso);
@@ -37,8 +47,8 @@ class GenerarReciboPDFService
             // Generar PDF
             $pdf = PDF::loadView('recibos.pdf.recibo-ticket', $datos);
 
-            // Configurar PDF
-            $pdf->setPaper([0, 0, 226.77, 850.39], 'portrait'); // 80mm ancho x ~300mm alto
+            // Configurar PDF - Tamaño carta
+            $pdf->setPaper('letter', 'portrait');
             $pdf->setOptions([
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => false,
@@ -88,11 +98,34 @@ class GenerarReciboPDFService
             ],
         ];
 
-        // Si es un pago de expensa, agregar datos específicos
-        if ($ingreso->expensa_total_id) {
-            $datos['propietario'] = $ingreso->propietario;
-            $datos['expensa_total'] = $ingreso->expensaTotal;
-            $datos['periodo'] = $ingreso->expensaTotal->periodo;
+        // Si es un pago de expensa, preparar datos específicos
+        if ($ingreso->tipo_ingreso === 'expensa' && $ingreso->detalles->isNotEmpty()) {
+            // Agrupar detalles por período
+            $detallesPorPeriodo = $ingreso->detalles
+                ->filter(fn($d) => $d->expensa && $d->expensa->periodo)
+                ->groupBy(fn($d) => $d->expensa->periodo->id);
+
+            $datos['detalles_por_periodo'] = $detallesPorPeriodo;
+            $datos['tiene_detalles'] = true;
+
+            // Obtener propietario si es único
+            $propietariosDistintos = $ingreso->detalles
+                ->filter(fn($d) => $d->expensa && $d->expensa->unidad && $d->expensa->unidad->propietarios)
+                ->map(fn($d) => $d->expensa->unidad->propietarios->firstWhere('pivot.es_propietario_actual', true)?->id)
+                ->unique()
+                ->values();
+
+            if ($propietariosDistintos->count() === 1) {
+                $primerDetalle = $ingreso->detalles->first(fn($d) => $d->expensa && $d->expensa->unidad && $d->expensa->unidad->propietarios);
+                if ($primerDetalle) {
+                    $datos['propietario'] = $primerDetalle->expensa->unidad->propietarios->firstWhere('pivot.es_propietario_actual', true);
+                }
+            }
+
+            // Obtener saldos a favor generados
+            if ($ingreso->saldosFavor && $ingreso->saldosFavor->isNotEmpty()) {
+                $datos['saldos_favor'] = $ingreso->saldosFavor;
+            }
         }
 
         return $datos;
