@@ -479,8 +479,10 @@ class PagoExpensaService
     protected function procesarImagenWebP($archivo, string $tipo, Carbon $fecha): string
     {
         try {
-            // Leer la imagen
-            $image = $this->imageManager->read($archivo);
+            // Leer la imagen (Intervention Image v4 usa read())
+            // Soporta: UploadedFile, string path, binary data, or resource
+            $path = method_exists($archivo, 'getRealPath') ? $archivo->getRealPath() : $archivo;
+            $image = $this->imageManager->read($path);
 
             // Redimensionar si es muy grande (max 1920x1080)
             $image->scaleDown(1920, 1080);

@@ -150,8 +150,10 @@ class EgresoService
     protected function procesarImagenWebP($archivo, string $tipo, $fecha): string
     {
         try {
-            // Leer la imagen (v4 usa decode() en lugar de read())
-            $image = $this->imageManager->decode($archivo);
+            // Leer la imagen (Intervention Image v4 usa read())
+            // Soporta: UploadedFile, string path, binary data, or resource
+            $path = method_exists($archivo, 'getRealPath') ? $archivo->getRealPath() : $archivo;
+            $image = $this->imageManager->read($path);
 
             // Redimensionar si es muy grande (max 1920x1080)
             $image->scaleDown(1920, 1080);
