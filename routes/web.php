@@ -133,8 +133,13 @@ Route::middleware(['auth', 'admin'])->group(function () {
         // Formulario de pago (ruta alternativa para compatibilidad) - redirige a IngresoForm con categoría Expensas
         Route::get('/pago/{unidad}', \App\Livewire\Caja\Ingresos\IngresoForm::class)->name('pago');
 
-        // Detalle de expensa individual (mantenido para compatibilidad)
-        Route::get('/{expensa}', \App\Livewire\Expensas\ExpensaDetalle::class)->name('detalle');
+        // Detalle de expensa individual (redirige a la vista por unidad)
+        Route::get('/{expensa}', function($expensa) {
+            $expensa = \App\Models\Expensa::findOrFail($expensa);
+            return redirect()->route('expensas.unidad.detalle', [
+                'unidad' => $expensa->unidad_id
+            ]);
+        })->name('detalle');
 
         // PDF de boleta de expensa (por período y propietario)
         Route::get('/pdf/{periodo}/{propietario}', [BoletaExpensaPDFController::class, 'mostrar'])->name('pdf.mostrar');

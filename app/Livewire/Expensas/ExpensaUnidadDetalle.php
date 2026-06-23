@@ -25,25 +25,30 @@ class ExpensaUnidadDetalle extends Component
         $this->pagoExpensaService = $pagoExpensaService;
     }
 
-    public function mount($unidad)
+    public function mount($unidad, $periodoId = null)
     {
         $this->unidadId = $unidad;
         $this->unidad = Unidad::with(['propietarioActual', 'medidorGrupo'])->findOrFail($this->unidadId);
 
-        // Obtener el período actual (abierto más reciente)
-        $periodoActual = PeriodoExpensa::abiertos()
-            ->orderBy('año', 'desc')
-            ->orderBy('mes', 'desc')
-            ->first();
-
-        if (!$periodoActual) {
-            // Si no hay período abierto, usar el más reciente
-            $periodoActual = PeriodoExpensa::orderBy('año', 'desc')
+        // Si se especifica un período por parámetro, usarlo
+        if ($periodoId) {
+            $this->periodoId = $periodoId;
+        } else {
+            // Obtener el período actual (abierto más reciente)
+            $periodoActual = PeriodoExpensa::abiertos()
+                ->orderBy('año', 'desc')
                 ->orderBy('mes', 'desc')
                 ->first();
-        }
 
-        $this->periodoId = $periodoActual ? $periodoActual->id : null;
+            if (!$periodoActual) {
+                // Si no hay período abierto, usar el más reciente
+                $periodoActual = PeriodoExpensa::orderBy('año', 'desc')
+                    ->orderBy('mes', 'desc')
+                    ->first();
+            }
+
+            $this->periodoId = $periodoActual ? $periodoActual->id : null;
+        }
 
         // Cargar períodos disponibles donde la unidad tiene expensa
         $this->cargarPeriodosDisponibles();

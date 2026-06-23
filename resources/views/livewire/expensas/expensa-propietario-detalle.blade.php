@@ -239,7 +239,7 @@
                                     <!-- Ver detalle individual -->
                                     @if($expensa)
                                         <a
-                                            href="{{ route('expensas.detalle', $expensa->id) }}"
+                                            href="{{ route('expensas.unidad.detalle', ['unidad' => $unidad->id]) }}"
                                             class="text-blue-600 hover:text-blue-900"
                                             title="Ver detalle de expensa"
                                             target="_blank"
