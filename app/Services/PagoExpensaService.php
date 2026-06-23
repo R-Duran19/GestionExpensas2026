@@ -51,12 +51,19 @@ class PagoExpensaService
             // 3. Obtener o crear categoría "Expensas"
             $categoriaExpensas = $this->obtenerOCrearCategoriaExpensas();
 
-            // 4. Generar número de recibo
+            // 4. Generar número de recibo automático o usar manual si se proporciona
             $fecha = Carbon::parse($datosPago['fecha_pago'] ?? now());
-            $numeroRecibo = SecuenciaCaja::generarNumeroRecibo(
-                $fecha->year,
-                $fecha->month
-            );
+
+            if (isset($datosPago['numero_recibo']) && !empty($datosPago['numero_recibo'])) {
+                // Usar número manual proporcionado
+                $numeroRecibo = $datosPago['numero_recibo'];
+            } else {
+                // Generar número de recibo automático
+                $numeroRecibo = SecuenciaCaja::generarNumeroRecibo(
+                    $fecha->year,
+                    $fecha->month
+                );
+            }
 
             // 5. Procesar comprobante si se proporciona
             $rutaComprobante = null;

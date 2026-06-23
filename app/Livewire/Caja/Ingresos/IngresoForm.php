@@ -21,6 +21,7 @@ class IngresoForm extends Component
 
     public $ingreso_id = null;
     public $numero_recibo = '';
+    public $numero_manual = false;
 
     #[Validate('required|date')]
     public $fecha = '';
@@ -760,6 +761,16 @@ class IngresoForm extends Component
         // Validaciones básicas primero
         try {
             $this->validate();
+
+            // Validación adicional: si numero_manual está activo, numero_recibo es requerido
+            if ($this->numero_manual && empty($this->numero_recibo)) {
+                $this->dispatch('alerta', [
+                    'tipo' => 'warning',
+                    'titulo' => 'Atención',
+                    'mensaje' => 'Debe ingresar el número de recibo manual',
+                ]);
+                return;
+            }
         } catch (\Illuminate\Validation\ValidationException $e) {
             // Dejar que Livewire maneje los errores de validación
             throw $e;
@@ -817,6 +828,11 @@ class IngresoForm extends Component
                 'observaciones' => $this->observaciones,
             ];
 
+            // Agregar número manual si está activo
+            if ($this->numero_manual && !empty($this->numero_recibo)) {
+                $datos['numero_recibo'] = $this->numero_recibo;
+            }
+
             if ($this->esCategoriaExpensas) {
                 // Preparar datos para el servicio de pago de expensas
                 $datosPago = [
@@ -827,6 +843,11 @@ class IngresoForm extends Component
                     'referencia_bancaria' => $this->referencia_bancaria,
                     'observaciones' => $this->observaciones,
                 ];
+
+                // Agregar número manual si está activo
+                if ($this->numero_manual && !empty($this->numero_recibo)) {
+                    $datosPago['numero_recibo'] = $this->numero_recibo;
+                }
 
                 // Usar el servicio de pago de expensas
                 $pagoService = app(PagoExpensaService::class);
@@ -946,6 +967,7 @@ class IngresoForm extends Component
     {
         $this->ingreso_id = null;
         $this->numero_recibo = '';
+        $this->numero_manual = false;
         $this->fecha = now()->format('Y-m-d');
         $this->categoria_ingreso_id = '';
         $this->importe = 0;

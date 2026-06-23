@@ -27,12 +27,19 @@ class IngresoService
     public function crear(array $datos, $archivoComprobante = null): Ingreso
     {
         return DB::transaction(function () use ($datos, $archivoComprobante) {
-            // Generar número de recibo
+            // Generar número de recibo automático o usar manual si se proporciona
             $fecha = \Carbon\Carbon::parse($datos['fecha']);
-            $numeroRecibo = SecuenciaCaja::generarNumeroRecibo(
-                $fecha->year,
-                $fecha->month
-            );
+
+            if (isset($datos['numero_recibo']) && !empty($datos['numero_recibo'])) {
+                // Usar número manual proporcionado
+                $numeroRecibo = $datos['numero_recibo'];
+            } else {
+                // Generar número de recibo automático
+                $numeroRecibo = SecuenciaCaja::generarNumeroRecibo(
+                    $fecha->year,
+                    $fecha->month
+                );
+            }
 
             // Procesar comprobante si se proporciona
             $rutaComprobante = null;
