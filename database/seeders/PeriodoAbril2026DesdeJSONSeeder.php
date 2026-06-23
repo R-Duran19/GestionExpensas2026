@@ -8,7 +8,6 @@ use App\Models\FacturaAguaPeriodo;
 use App\Models\LecturaMedidor;
 use App\Models\Unidad;
 use App\Models\Expensa;
-use App\Models\Ingreso;
 use App\Models\User;
 use App\Services\ExpensaService;
 use Illuminate\Database\Seeder;
@@ -16,11 +15,16 @@ use Illuminate\Support\Facades\DB;
 
 class PeriodoAbril2026DesdeJSONSeeder extends Seeder
 {
+    /**
+     * Run the database seeds.
+     * SOLO GENERA EXPENSAS - SIN PAGOS
+     */
     public function run(): void
     {
         $this->command->info('====================================================');
-        $this->command->info('🚀 INICIANDO IMPORTACIÓN COMPLETA - ABRIL 2026');
-        $this->command->info('   (Leyendo datos desde JSON)');
+        $this->command->info('🚀 GENERANDO EXPENSAS - ABRIL 2026');
+        $this->command->info('   (Arquitectura Descentralizada v2.0)');
+        $this->command->info('   ⚠️  SOLO EXPENSAS - Pagos en seeder separado');
         $this->command->info('====================================================');
 
         DB::beginTransaction();
@@ -29,13 +33,7 @@ class PeriodoAbril2026DesdeJSONSeeder extends Seeder
             $adminUserId = User::where('email', 'admin@admin.com')->first()?->id ?? 1;
 
             // 1. 📊 VERIFICAR FACTORES (mantienen los de marzo: 2.4/4.2)
-            $this->command->info('📊 Verificando factores de prorrateo...');
-            $factores = \App\Models\FactorProrrateo::where('vigencia_desde', '2026-03-01')->where('activo', true)->count();
-            if ($factores >= 2) {
-                $this->command->info('  ✓ Factores vigentes: Domiciliario 2.4, Comercial 4.2');
-            } else {
-                throw new \Exception("No se encuentran los factores vigentes. Ejecute primero PeriodoMarzo2026DesdeJSONSeeder");
-            }
+            $this->verificarFactores();
 
             // 2. 🏢 CREAR PERÍODO
             $periodo = $this->crearPeriodo($adminUserId);
@@ -49,31 +47,34 @@ class PeriodoAbril2026DesdeJSONSeeder extends Seeder
             // 5. 💰 GENERAR EXPENSAS
             $this->generarExpensasCompletas($periodo);
 
-            // 6. 🔒 CERRAR PERÍODO
-            $periodo->update(['estado' => 'cerrado']);
+            // 6. 🔄 SOBRESCRIBIR MONTOS DE EMISIÓN DESDE JSON
+            $this->sobrescribirMontosEmisionDesdeJSON($periodo);
 
-            // 7. 🔄 SOBRESCRIBIR EXPENSAS DESDE JSON
-            $this->sobrescribirExpensasDesdeJSON($periodo);
-
-            // 7.5. ✅ VALIDAR DEUDAS ARRASTRADAS VS JSON
-            $this->validarDeudasArrastradas($periodo);
-
-            // 8. 💳 IMPORTAR PAGOS DESDE JSON
-            $this->importarPagosDesdeJSON($periodo, $adminUserId);
-
-            // 9. 🔧 RECALCULAR CAMPOS DERIVADOS Y TOTALES
-            $this->recalcularDatosFinales($periodo);
+            // 7. 🔒 CERRAR PERÍODO
+            $this->cerrarPeriodo($periodo);
 
             DB::commit();
 
             $this->command->info('====================================================');
-            $this->command->info('✅ IMPORTACIÓN DE ABRIL 2026 FINALIZADA');
+            $this->command->info('✅ EXPENSAS DE ABRIL 2026 GENERADAS CON ÉXITO');
+            $this->command->info('ℹ️  Para importar pagos, ejecuta: PagosExpensasSeeder');
             $this->command->info('====================================================');
 
         } catch (\Exception $e) {
             DB::rollBack();
             $this->command->error("✗ ERROR: " . $e->getMessage());
             throw $e;
+        }
+    }
+
+    private function verificarFactores()
+    {
+        $this->command->info('📊 Verificando factores de prorrateo...');
+        $factores = \App\Models\FactorProrrateo::where('vigencia_desde', '2026-03-01')->where('activo', true)->count();
+        if ($factores >= 2) {
+            $this->command->info('  ✓ Factores vigentes: Domiciliario 2.4, Comercial 4.2');
+        } else {
+            throw new \Exception("No se encuentran los factores vigentes. Ejecute primero PeriodoMarzo2026DesdeJSONSeeder");
         }
     }
 
@@ -99,25 +100,25 @@ class PeriodoAbril2026DesdeJSONSeeder extends Seeder
     private function registrarFacturasAgua($periodo, $adminUserId)
     {
         $this->command->info('💧 Registrando facturas EPSAS...');
-        $configDom1 = \App\Models\FacturaAguaConfig::where('tipo', 'domiciliaria_1')->first();
-        $configDom2 = \App\Models\FacturaAguaConfig::where('tipo', 'domiciliaria_2')->first();
-        $configCom = \App\Models\FacturaAguaConfig::where('tipo', 'comercial')->first();
+        $configDom1 = FacturaAguaConfig::where('tipo', 'domiciliaria_1')->first();
+        $configDom2 = FacturaAguaConfig::where('tipo', 'domiciliaria_2')->first();
+        $configCom = FacturaAguaConfig::where('tipo', 'comercial')->first();
 
         if (!$configDom1 || !$configDom2 || !$configCom) {
             throw new \Exception("No se encontraron configuraciones de facturas EPSAS");
         }
 
-        \App\Models\FacturaAguaPeriodo::updateOrCreate(
+        FacturaAguaPeriodo::updateOrCreate(
             ['periodo_id' => $periodo->id, 'factura_agua_config_id' => $configDom1->id],
             ['numero_factura' => '0B22TS000518', 'categoria' => 'domiciliaria', 'importe' => 2055.10, 'consumo_m3' => 458.00, 'fecha_factura' => '2026-05-01', 'registrado_por' => $adminUserId]
         );
 
-        \App\Models\FacturaAguaPeriodo::updateOrCreate(
+        FacturaAguaPeriodo::updateOrCreate(
             ['periodo_id' => $periodo->id, 'factura_agua_config_id' => $configDom2->id],
             ['numero_factura' => '16498', 'categoria' => 'domiciliaria', 'importe' => 12.20, 'consumo_m3' => 3.00, 'fecha_factura' => '2026-05-01', 'registrado_por' => $adminUserId]
         );
 
-        \App\Models\FacturaAguaPeriodo::updateOrCreate(
+        FacturaAguaPeriodo::updateOrCreate(
             ['periodo_id' => $periodo->id, 'factura_agua_config_id' => $configCom->id],
             ['numero_factura' => '00B16S002189', 'categoria' => 'comercial', 'importe' => 826.30, 'consumo_m3' => 32.00, 'fecha_factura' => '2026-05-01', 'registrado_por' => $adminUserId]
         );
@@ -136,11 +137,11 @@ class PeriodoAbril2026DesdeJSONSeeder extends Seeder
         }
 
         $jsonData = json_decode(file_get_contents($jsonPath), true);
+        $lecturas = $jsonData['lecturas'];
         $totalImportadas = 0;
 
-        foreach ($jsonData['lecturas'] as $item) {
-            $codigoUnidad = $item['codigo_unidad'];
-            $codigoUnidad = $this->mapearCodigoUnidad($codigoUnidad);
+        foreach ($lecturas as $item) {
+            $codigoUnidad = $this->mapearCodigoUnidad($item['codigo_unidad']);
 
             if ($codigoUnidad === null) continue;
 
@@ -165,117 +166,78 @@ class PeriodoAbril2026DesdeJSONSeeder extends Seeder
 
     private function generarExpensasCompletas($periodo)
     {
-        $this->command->info('💰 Generando expensas...');
+        $this->command->info('💰 Generando expensas para TODAS las unidades...');
         $expensaService = app(ExpensaService::class);
         $resultados = $expensaService->generarExpensas($periodo->id);
         $this->command->info("  ✓ Expensas generadas: {$resultados['exitosas']} unidades");
     }
 
-    private function sobrescribirExpensasDesdeJSON($periodo)
+    /**
+     * 6. Sobrescribir montos de emisión desde JSON
+     * NOTA: Solo actualiza montos de emisión, NO saldos pendientes
+     */
+    private function sobrescribirMontosEmisionDesdeJSON($periodo)
     {
-        $this->command->info('🔄 Sobrescribiendo expensas desde JSON...');
+        $this->command->info('🔄 Sobrescribiendo montos de emisión desde JSON...');
         $jsonPath = base_path('EXCELS/INGRESOS/INGRESOS-ABRIL.json');
 
         if (!file_exists($jsonPath)) {
-            $this->command->error("  ✗ No se encontró: {$jsonPath}");
+            $this->command->warn("  ⚠️ No se encontró archivo: {$jsonPath}");
             return;
         }
 
         $jsonData = json_decode(file_get_contents($jsonPath), true);
-        $totalSobrescritas = 0;
+        $expensasHistoricas = $jsonData['expensas'];
 
-        foreach ($jsonData['expensas'] as $expensaData) {
-            $codigoUnidad = $expensaData['codigo_unidad'];
-            $codigoUnidad = $this->mapearCodigoUnidad($codigoUnidad);
+        $this->command->info("  ✓ Montos a procesar: " . count($expensasHistoricas) . " unidades");
+
+        $totalSobrescritas = 0;
+        $unidadesNoEncontradas = [];
+
+        foreach ($expensasHistoricas as $expensaData) {
+            $codigoUnidad = $this->mapearCodigoUnidad($expensaData['codigo_unidad']);
 
             if ($codigoUnidad === null) continue;
 
             $unidad = Unidad::where('codigo', $codigoUnidad)->first();
-            if ($unidad && $unidad->tiene_medidor) {
-                // Calcular deuda_anterior basándonos en el JSON
-                $deudaAcumuladaJson = $expensaData['deuda_acumulada'];
+
+            if ($unidad) {
+                // Actualizar montos de emisión para TODAS las unidades (con o sin medidor)
                 $montoExpensaJson = $expensaData['monto_expensa'];
                 $montoAguaJson = $expensaData['monto_agua'] ?? 0;
-                $deudaAnteriorJson = $deudaAcumuladaJson - $montoExpensaJson - $montoAguaJson;
+                $montoTotalJson = $montoExpensaJson + $montoAguaJson;
 
-                Expensa::where('periodo_id', $periodo->id)->where('unidad_id', $unidad->id)->update([
-                    'monto_expensa' => $montoExpensaJson,
-                    'monto_agua' => $montoAguaJson,
-                    'monto_total' => $deudaAcumuladaJson,
-                    'deuda_anterior' => $deudaAnteriorJson,
-                ]);
-                $totalSobrescritas++;
+                $actualizado = Expensa::where('periodo_id', $periodo->id)
+                              ->where('unidad_id', $unidad->id)
+                              ->update([
+                                  'monto_expensa' => $montoExpensaJson,
+                                  'monto_agua' => $montoAguaJson,
+                                  'monto_total' => $montoTotalJson,
+                                  'expensa_pendiente' => $montoExpensaJson,
+                                  'agua_pendiente' => $montoAguaJson,
+                              ]);
+
+                if ($actualizado > 0) {
+                    $totalSobrescritas++;
+                }
+            } else {
+                $unidadesNoEncontradas[] = $codigoUnidad;
             }
         }
 
-        $this->command->info("  ✓ Expensas sobrescritas: {$totalSobrescritas} unidades");
+        if (!empty($unidadesNoEncontradas)) {
+            $this->command->warn("  ⚠️ Unidades no encontradas: " . implode(', ', array_unique($unidadesNoEncontradas)));
+        }
+
+        $this->command->info("  ✓ Montos de emisión sobrescritos: {$totalSobrescritas} unidades");
     }
 
-    private function importarPagosDesdeJSON($periodo, $adminUserId)
+    private function cerrarPeriodo($periodo)
     {
-        $this->command->info('💳 Importando pagos desde JSON...');
-        $jsonPath = base_path('EXCELS/INGRESOS/INGRESOS-ABRIL.json');
-
-        if (!file_exists($jsonPath)) {
-            $this->command->error("  ✗ No se encontró: {$jsonPath}");
-            return;
-        }
-
-        $jsonData = json_decode(file_get_contents($jsonPath), true);
-        $totalImportados = 0;
-        $categoriaExpensas = \DB::table('categorias_ingresos')->where('nombre', 'Expensas')->first();
-
-        foreach ($jsonData['expensas'] as $expensaData) {
-            $codigoUnidad = $expensaData['codigo_unidad'];
-            $codigoUnidad = $this->mapearCodigoUnidad($codigoUnidad);
-
-            if ($codigoUnidad === null) continue;
-
-            $unidad = Unidad::where('codigo', $codigoUnidad)->first();
-            if ($unidad) {
-                $expensa = Expensa::where('periodo_id', $periodo->id)->where('unidad_id', $unidad->id)->first();
-                if ($expensa && $expensaData['estado_pago'] === 'pagado') {
-                    // Generar número de recibo único
-                    $numeroRecibo = $expensaData['recibo'] ?? 'N/A';
-                    if ($numeroRecibo === 'N/A' || $numeroRecibo === null) {
-                        $numeroRecibo = 'N/A-' . $unidad->codigo . '-' . $periodo->mes . '-' . $periodo->año;
-                    }
-
-                    // Verificar si ya existe un ingreso con este número de recibo (en toda la BD)
-                    $ingresoExistente = Ingreso::where('numero_recibo', $numeroRecibo)->first();
-
-                    if (!$ingresoExistente) {
-                        Ingreso::create([
-                            'numero_recibo' => $numeroRecibo,
-                            'fecha' => '2026-04-15',
-                            'categoria_ingreso_id' => $categoriaExpensas->id,
-                            'importe' => $expensaData['monto_pagado'],
-                            'metodo_pago' => 'efectivo',
-                            'descripcion' => 'Pago expensa ' . $periodo->mes . '-' . $periodo->año . ' - ' . $unidad->codigo,
-                            'unidad_id' => $unidad->id,
-                            'expensa_id' => $expensa->id,
-                            'referencia_bancaria' => $expensaData['recibo'] ?? 'N/A',
-                            'activo' => true,
-                            'creado_por' => $adminUserId,
-                        ]);
-
-                        $totalImportados++;
-                    }
-
-                    // Solo actualizar expensa si no está pagada
-                    if ($expensa->estado !== 'pagado') {
-                        $expensa->update([
-                            'estado' => 'pagado',
-                            'monto_pagado' => $expensaData['monto_pagado'],
-                            'monto_pendiente' => 0,
-                            'fecha_pago' => '2026-04-15',
-                        ]);
-                    }
-                }
-            }
-        }
-
-        $this->command->info("  ✓ Pagos importados: {$totalImportados} registros");
+        $this->command->info('🔒 Cerrando período...');
+        Expensa::where('periodo_id', $periodo->id)->update(['periodo_cerrado' => true]);
+        $periodo->update(['estado' => 'cerrado']);
+        $this->command->info("  ✓ Período cerrado correctamente");
     }
 
     private function mapearCodigoUnidad($codigoJson)
@@ -291,84 +253,6 @@ class PeriodoAbril2026DesdeJSONSeeder extends Seeder
             return $mapeosEspeciales[$codigoJson];
         }
 
-        if (in_array($codigoJson, ['PARQ-128', 'PARQUEO-128'])) {
-            return null;
-        }
-
         return $codigoJson;
-    }
-
-    private function validarDeudasArrastradas($periodo)
-    {
-        $this->command->info('✅ Validando deudas arrastradas vs datos del JSON...');
-
-        $jsonPath = base_path('EXCELS/INGRESOS/INGRESOS-ABRIL.json');
-
-        if (!file_exists($jsonPath)) {
-            $this->command->warn("  ⚠️ No se encontró JSON para validar deudas");
-            return;
-        }
-
-        $jsonData = json_decode(file_get_contents($jsonPath), true);
-        $expensasJson = $jsonData['expensas'];
-
-        $validaciones = [];
-
-        foreach ($expensasJson as $expensaData) {
-            $codigoUnidad = $expensaData['codigo_unidad'];
-            $codigoUnidad = $this->mapearCodigoUnidad($codigoUnidad);
-
-            if ($codigoUnidad === null) continue;
-
-            $unidad = Unidad::where('codigo', $codigoUnidad)->first();
-            if (!$unidad) continue;
-
-            $expensa = Expensa::where('periodo_id', $periodo->id)
-                              ->where('unidad_id', $unidad->id)
-                              ->first();
-
-            if ($expensa) {
-                // Comparar deuda_anterior (sistema) vs deuda_anterior calculada del JSON
-                $deudaAnteriorSistema = floatval($expensa->deuda_anterior);
-                $deudaAcumuladaJson = floatval($expensaData['deuda_acumulada'] ?? 0);
-                $montoExpensaJson = floatval($expensaData['monto_expensa']);
-                $montoAguaJson = floatval($expensaData['monto_agua'] ?? 0);
-                $deudaAnteriorJson = $deudaAcumuladaJson - $montoExpensaJson - $montoAguaJson;
-
-                $diferencia = abs($deudaAnteriorSistema - $deudaAnteriorJson);
-
-                if ($diferencia > 1.0) {
-                    $validaciones[] = [
-                        'unidad' => $codigoUnidad,
-                        'sistema' => $deudaAnteriorSistema,
-                        'json' => $deudaAnteriorJson,
-                        'diferencia' => $diferencia,
-                    ];
-                }
-            }
-        }
-
-        if (!empty($validaciones)) {
-            $this->command->warn("  ⚠️ Se encontraron " . count($validaciones) . " unidades con diferencias de deuda:");
-            foreach ($validaciones as $val) {
-                $this->command->warn("    - {$val['unidad']}: Sistema {$val['sistema']} vs JSON {$val['json']} (diff: {$val['diferencia']} Bs)");
-            }
-        } else {
-            $this->command->info("  ✓ Todas las deudas coinciden correctamente");
-        }
-    }
-
-    /**
-     * 9. Recalcular campos derivados y totales
-     */
-    private function recalcularDatosFinales($periodo)
-    {
-        $this->command->info('🔧 Recalculando campos derivados y totales...');
-
-        $recalculoService = new \App\Services\ExpensaRecalculoService();
-        $resultados = $recalculoService->recalcularPeriodo($periodo->id);
-
-        $this->command->info("  ✓ Expensas individuales recalculadas: {$resultados['expensas_recalculadas']}");
-        $this->command->info("  ✓ Expensas totales por propietario: {$resultados['totales_recalculados']}");
     }
 }
