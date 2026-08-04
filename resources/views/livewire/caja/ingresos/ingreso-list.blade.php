@@ -305,7 +305,6 @@
                 </div>
                 <div class="p-4 border-t bg-gray-50 rounded-b-lg flex justify-end gap-3">
                     <a href="{{ $comprobanteUrl }}"
-                       target="_blank"
                        download="comprobante"
                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2">
                         <i class="fas fa-download"></i>
