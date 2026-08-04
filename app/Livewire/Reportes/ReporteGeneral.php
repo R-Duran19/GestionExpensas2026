@@ -19,6 +19,10 @@ class ReporteGeneral extends Component
     public $vista = 'resumida';         // 'resumida' o 'detallada'
     public $agrupacion = 'periodo';     // 'periodo' o 'acumulado'
 
+    // Filtro de concepto (presentación, no requiere regenerar query).
+    // 'ambos' = expensa + agua (total), 'expensa' = solo expensa, 'agua' = solo agua
+    public $concepto = 'ambos';
+
     // Datos cargados
     public $datosReporte = null;
     public $cargando = false;
@@ -79,24 +83,33 @@ class ReporteGeneral extends Component
     }
 
     /**
-     * Manejar actualizaciones de filtros - solo actualizar si ya hay datos cargados
+     * Manejar actualizaciones de filtros.
+     *
+     * IMPORTANTE: NO se regenera el reporte automáticamente.
+     * El usuario debe pulsar "Generar Reporte" para evitar múltiples
+     * queries en cascada al cambiar varios filtros seguidos.
      */
     public function updated($property)
     {
-        // Solo regenerar si ya hay datos cargados y cambió un filtro relevante
-        if ($this->datosCargados && in_array($property, [
+        // Al cambiar el año, los períodos del año anterior ya no aplican
+        if ($property === 'filtroAño') {
+            $this->filtroPeriodo = 'todos';
+        }
+
+        // Marcar que los datos en pantalla ya no corresponden a los filtros actuales
+        if (in_array($property, [
             'filtroTipoUnidad',
             'filtroPeriodo',
             'filtroUnidad',
             'filtroAño',
-            'agrupacion',
         ])) {
-            $this->generarReporte();
+            $this->datosCargados = false;
         }
     }
 
     /**
-     * Transformar datos actuales a formato horizontal
+     * Transformar datos actuales a formato horizontal.
+     * Aplica el filtro de concepto (ambos/expresa/agua) sobre los valores.
      */
     protected function transformarDatosAHorizontal(): void
     {
@@ -107,6 +120,21 @@ class ReporteGeneral extends Component
 
         $vista = $this->vista === 'resumida' ? 'resumido' : 'detallado';
         $datos = $this->datosReporte[$vista] ?? [];
+
+        // Aplicar filtro de concepto: sobreescribir generado/cobrado/deuda
+        // con los valores del concepto seleccionado.
+        // - ambos: usar los totales (que ya están en generado/cobrado/deuda)
+        // - expensa: usar generado_expensa, cobrado_expensa, deuda_expensa
+        // - agua: usar generado_agua, cobrado_agua, deuda_agua (null si sin medidor)
+        if ($this->concepto !== 'ambos') {
+            $datos = array_map(function ($row) {
+                $sufijo = $this->concepto; // 'expensa' o 'agua'
+                $row['generado'] = $row["generado_{$sufijo}"] ?? null;
+                $row['cobrado']  = $row["cobrado_{$sufijo}"] ?? null;
+                $row['deuda']    = $row["deuda_{$sufijo}"] ?? null;
+                return $row;
+            }, $datos);
+        }
 
         if ($vista === 'resumido') {
             $this->datosHorizontales = $this->reporteService->transformarResumidoAHorizontal(
@@ -169,6 +197,7 @@ class ReporteGeneral extends Component
         $this->filtroUnidad = 'todas';
         $this->filtroAño = null; // Reiniciar filtro de año
         $this->agrupacion = 'periodo';
+        $this->concepto = 'ambos';
         $this->datosCargados = false; // Reiniciar estado
         $this->datosReporte = null;
         $this->datosHorizontales = null; // Limpiar datos horizontales
@@ -189,12 +218,46 @@ class ReporteGeneral extends Component
     }
 
     /**
+     * Cambiar concepto a mostrar (ambos / expensa / agua).
+     * Solo presentación: NO requiere regenerar la query.
+     */
+    public function setConcepto($concepto)
+    {
+        if (in_array($concepto, ['ambos', 'expensa', 'agua'])) {
+            $this->concepto = $concepto;
+            // Recalcular la transformación con el nuevo concepto
+            if ($this->datosCargados) {
+                $this->transformarDatosAHorizontal();
+            }
+        }
+    }
+
+    /**
+     * Helper para la vista: formatear monto o devolver "-" si es null
+     * (caso de unidades sin medidor cuando se muestra la columna de agua).
+     */
+    public function formatMonto($valor): string
+    {
+        if ($valor === null) {
+            return '-';
+        }
+        return 'Bs. ' . number_format((float) $valor, 2);
+    }
+
+    /**
      * Cambiar agrupación (periodo/acumulado)
+     * No regenera automáticamente: el cambio de GROUP BY requiere nueva query,
+     * el usuario debe pulsar "Generar Reporte".
      */
     public function setAgrupacion($agrupacion)
     {
+        if ($this->agrupacion === $agrupacion) {
+            return;
+        }
         $this->agrupacion = $agrupacion;
-        $this->generarReporte(); // Regenerar con nueva agrupación
+        $this->datosCargados = false;
+        $this->datosReporte = null;
+        $this->datosHorizontales = null;
     }
 
     /**
@@ -355,13 +418,18 @@ class ReporteGeneral extends Component
     }
 
     /**
-     * Obtener períodos disponibles filtrados por año seleccionado
+     * Obtener períodos disponibles filtrados por año seleccionado.
+     * Cacheado por año para no consultar BD en cada render del componente.
      */
     #[Computed]
     public function periodosFiltrados()
     {
         $año = $this->filtroAño;
-        return $this->reporteService->obtenerPeriodosDisponibles($año);
+        $cacheKey = 'reportes.periodos.' . ($año ?? 'all');
+
+        return Cache::remember($cacheKey, 7200, function () use ($año) {
+            return $this->reporteService->obtenerPeriodosDisponibles($año);
+        });
     }
 
     public function render()

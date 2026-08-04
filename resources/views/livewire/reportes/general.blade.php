@@ -210,6 +210,17 @@
                     </div>
                 </div>
 
+                <!-- Filtro de Concepto (afeta los valores mostrados en la tabla) -->
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-gray-700">Concepto:</span>
+                    <select wire:model.live="concepto"
+                            class="rounded-md border-gray-300 text-sm focus:ring-2 focus:ring-purple-500">
+                        <option value="ambos">Ambos</option>
+                        <option value="expensa">Solo Expensa</option>
+                        <option value="agua">Solo Agua</option>
+                    </select>
+                </div>
+
                 <!-- Botones de acción -->
                 <div class="flex gap-2">
                     <button wire:click="generarReporte"
@@ -271,7 +282,16 @@
             </div>
         @else
             @if($datosHorizontales && !empty($datosHorizontales['filas']))
-                {{-- Tabla Horizontal con Scroll --}}
+
+                @php
+                    // Sufijo para headers según concepto activo
+                    $sufijo = match($concepto) {
+                        'expensa' => ' EXPENSA',
+                        'agua'    => ' AGUA',
+                        default   => '',
+                    };
+                @endphp
+
                 <div class="overflow-x-auto">
                     @if($vista === 'resumida')
                         {{-- Vista Resumida Horizontal --}}
@@ -287,13 +307,13 @@
                                         </th>
                                     @endforeach
                                     <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-900 uppercase tracking-wider whitespace-nowrap bg-indigo-50">
-                                        TOTAL GENERADO
+                                        TOTAL GENERADO{{ $sufijo }}
                                     </th>
                                     <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-green-700 uppercase tracking-wider whitespace-nowrap bg-green-50">
-                                        TOTAL PAGADO
+                                        TOTAL PAGADO{{ $sufijo }}
                                     </th>
                                     <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-red-700 uppercase tracking-wider whitespace-nowrap bg-red-50">
-                                        TOTAL DEUDA
+                                        TOTAL DEUDA{{ $sufijo }}
                                     </th>
                                 </tr>
                             </thead>
@@ -363,13 +383,13 @@
                                         </th>
                                     @endforeach
                                     <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-900 uppercase tracking-wider whitespace-nowrap bg-indigo-50">
-                                        TOTAL GENERADO
+                                        TOTAL GENERADO{{ $sufijo }}
                                     </th>
                                     <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-green-700 uppercase tracking-wider whitespace-nowrap bg-green-50">
-                                        TOTAL PAGADO
+                                        TOTAL PAGADO{{ $sufijo }}
                                     </th>
                                     <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-red-700 uppercase tracking-wider whitespace-nowrap bg-red-50">
-                                        TOTAL DEUDA
+                                        TOTAL DEUDA{{ $sufijo }}
                                     </th>
                                     <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-900 uppercase tracking-wider whitespace-nowrap">
                                         % COBRANZA

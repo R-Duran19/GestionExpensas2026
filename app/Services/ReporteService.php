@@ -107,10 +107,19 @@ class ReporteService
             ->select([
                 'u.tipo_unidad',
                 DB::raw('COUNT(DISTINCT u.id) as cantidad_unidades'),
-                DB::raw('SUM(e.monto_expensa + e.monto_agua) as total_generado'),
-                DB::raw('SUM(e.monto_pagado) as total_cobrado'),
-                DB::raw('SUM(e.monto_pendiente) as total_deuda'),
-                DB::raw('AVG(e.monto_expensa + e.monto_agua) as promedio_generado'),
+                // Generado por concepto
+                DB::raw('SUM(e.monto_expensa) as generado_expensa'),
+                DB::raw('SUM(e.monto_agua) as generado_agua'),
+                DB::raw('SUM(e.monto_total) as generado_total'),
+                // Deuda por concepto (cálculo al vuelo, ADR "deuda al vuelo")
+                DB::raw('SUM(e.expensa_pendiente) as deuda_expensa'),
+                DB::raw('SUM(e.agua_pendiente) as deuda_agua'),
+                DB::raw('SUM(e.expensa_pendiente + e.agua_pendiente) as deuda_total'),
+                // Cobrado por concepto = generado - deuda
+                DB::raw('SUM(e.monto_expensa - e.expensa_pendiente) as cobrado_expensa'),
+                DB::raw('SUM(e.monto_agua - e.agua_pendiente) as cobrado_agua'),
+                DB::raw('SUM(e.monto_total - (e.expensa_pendiente + e.agua_pendiente)) as cobrado_total'),
+                DB::raw('AVG(e.monto_total) as promedio_generado'),
             ]);
 
         // Agrupación
@@ -140,8 +149,9 @@ class ReporteService
 
         // Calcular porcentaje de cobranza y formatear resultados
         return $results->map(function ($row) {
-            $generado = (float) $row->total_generado;
-            $cobrado = (float) $row->total_cobrado;
+            $generado = (float) $row->generado_total;
+            $cobrado = (float) $row->cobrado_total;
+            $deuda = (float) $row->deuda_total;
 
             return [
                 'tipo_unidad' => $this->formatearTipoUnidad($row->tipo_unidad),
@@ -150,11 +160,28 @@ class ReporteService
                 'mes' => $row->mes ?? null,
                 'año' => $row->año ?? null,
                 'unidades' => $row->cantidad_unidades,
+                // Totales (compat con vista horizontal)
                 'generado' => $generado,
                 'cobrado' => $cobrado,
-                'deuda' => (float) $row->total_deuda,
+                'deuda' => $deuda,
                 'promedio' => (float) ($row->promedio_generado ?? 0),
                 'porcentaje_cobranza' => $this->calcularPorcentajeCobranza($cobrado, $generado),
+                // Desglose por concepto (para vista vertical con separarConceptos)
+                'generado_expensa' => (float) $row->generado_expensa,
+                'generado_agua' => (float) $row->generado_agua,
+                'generado_total' => $generado,
+                'cobrado_expensa' => (float) $row->cobrado_expensa,
+                'cobrado_agua' => (float) $row->cobrado_agua,
+                'cobrado_total' => $cobrado,
+                'deuda_expensa' => (float) $row->deuda_expensa,
+                'deuda_agua' => (float) $row->deuda_agua,
+                'deuda_total' => $deuda,
+                'porcentaje_cobranza_expensa' => $this->calcularPorcentajeCobranza(
+                    (float) $row->cobrado_expensa, (float) $row->generado_expensa
+                ),
+                'porcentaje_cobranza_agua' => $this->calcularPorcentajeCobranza(
+                    (float) $row->cobrado_agua, (float) $row->generado_agua
+                ),
             ];
         })->toArray();
     }
@@ -171,28 +198,36 @@ class ReporteService
         $query = DB::table('expensas as e')
             ->join('unidades as u', 'e.unidad_id', '=', 'u.id')
             ->join('periodos_expensa as p', 'e.periodo_id', '=', 'p.id')
+            // LEFT JOIN para propietario actual: mucho más eficiente que subquery por fila (N+1)
+            ->leftJoin('propietario_unidad as pu', function ($join) {
+                $join->on('pu.unidad_id', '=', 'u.id')
+                     ->where('pu.es_propietario_actual', true);
+            })
+            ->leftJoin('propietarios as prop', 'prop.id', '=', 'pu.propietario_id')
             ->select([
                 'u.id as unidad_id',
                 'u.codigo',
                 'u.tipo_unidad',
                 'u.piso',
+                'u.tiene_medidor',
                 'p.id as periodo_id',
                 'p.mes',
                 'p.año',
                 DB::raw("CONCAT(p.mes, '-', p.año) as periodo_nombre"),
-                DB::raw('(e.monto_expensa + e.monto_agua) as total_generado'),
-                'e.monto_pagado as total_cobrado',
-                'e.monto_pendiente as total_deuda',
-                'e.estado',
-                // Subquery optimizada para propietario
-                DB::raw('(SELECT CONCAT(prop.nombre, " ", prop.apellido)
-                         FROM propietario_unidad pu
-                         JOIN propietarios prop ON pu.propietario_id = prop.id
-                         WHERE pu.unidad_id = u.id
-                         AND pu.es_propietario_actual = true
-                         AND (pu.fecha_fin IS NULL OR pu.fecha_fin > CURDATE())
-                         LIMIT 1
-                        ) as propietario_nombre')
+                // Generado por concepto
+                'e.monto_expensa as generado_expensa',
+                'e.monto_agua as generado_agua',
+                'e.monto_total as generado_total',
+                // Deuda por concepto (cálculo al vuelo, no almacenado)
+                'e.expensa_pendiente as deuda_expensa',
+                'e.agua_pendiente as deuda_agua',
+                DB::raw('(e.expensa_pendiente + e.agua_pendiente) as deuda_total'),
+                // Cobrado por concepto = generado - deuda
+                DB::raw('(e.monto_expensa - e.expensa_pendiente) as cobrado_expensa'),
+                DB::raw('(e.monto_agua - e.agua_pendiente) as cobrado_agua'),
+                DB::raw('(e.monto_total - (e.expensa_pendiente + e.agua_pendiente)) as cobrado_total'),
+                // Propietario actual vía JOIN (no subquery por fila)
+                DB::raw('CONCAT(prop.nombre, " ", prop.apellido) as propietario_nombre'),
             ]);
 
         // Aplicar filtros
@@ -208,26 +243,53 @@ class ReporteService
 
         // Calcular porcentaje de cobranza y formatear resultados
         return $results->map(function ($row) {
-            $generado = (float) $row->total_generado;
-            $cobrado = (float) $row->total_cobrado;
+            $generado = (float) $row->generado_total;
+            $cobrado = (float) $row->cobrado_total;
+            $deuda = (float) $row->deuda_total;
+            $tieneMedidor = (bool) $row->tiene_medidor;
 
             $propietario = $row->propietario_nombre ?? 'Sin asignar';
+
+            // Calcular estado al vuelo (no se almacena, ADR "deuda al vuelo")
+            $estado = match(true) {
+                $deuda <= 0.01             => 'pagado',
+                $deuda >= $generado - 0.01 => 'pendiente',
+                default                    => 'parcial',
+            };
 
             return [
                 'unidad_id' => $row->unidad_id,
                 'unidad' => $row->codigo,
                 'tipo' => $this->formatearTipoUnidad($row->tipo_unidad),
                 'piso' => $row->piso ?? 'N/A',
+                'tiene_medidor' => $tieneMedidor,
                 'propietario' => $propietario,
                 'periodo_id' => $row->periodo_id,
                 'periodo' => $row->periodo_nombre,
                 'mes' => $row->mes,
                 'año' => $row->año,
+                // Totales (compat con vista horizontal)
                 'generado' => $generado,
                 'cobrado' => $cobrado,
-                'deuda' => (float) $row->total_deuda,
-                'estado' => $this->formatearEstado($row->estado),
+                'deuda' => $deuda,
+                'estado' => $this->formatearEstado($estado),
                 'porcentaje_cobranza' => $this->calcularPorcentajeCobranza($cobrado, $generado),
+                // Desglose por concepto
+                'generado_expensa' => (float) $row->generado_expensa,
+                'generado_agua' => $tieneMedidor ? (float) $row->generado_agua : null,
+                'generado_total' => $generado,
+                'cobrado_expensa' => (float) $row->cobrado_expensa,
+                'cobrado_agua' => $tieneMedidor ? (float) $row->cobrado_agua : null,
+                'cobrado_total' => $cobrado,
+                'deuda_expensa' => (float) $row->deuda_expensa,
+                'deuda_agua' => $tieneMedidor ? (float) $row->deuda_agua : null,
+                'deuda_total' => $deuda,
+                'porcentaje_cobranza_expensa' => $this->calcularPorcentajeCobranza(
+                    (float) $row->cobrado_expensa, (float) $row->generado_expensa
+                ),
+                'porcentaje_cobranza_agua' => $tieneMedidor
+                    ? $this->calcularPorcentajeCobranza((float) $row->cobrado_agua, (float) $row->generado_agua)
+                    : null,
             ];
         })->toArray();
     }
