@@ -37,6 +37,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             FactorProrrateoSeeder::class,
             FacturaAguaSeeder::class,
+            \Database\Seeders\MedidorGrupoLocalesSeeder::class,
         ]);
 
         // FASE 1.6: Categorías de Caja

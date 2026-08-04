@@ -47,8 +47,8 @@ class PeriodoAbril2026DesdeJSONSeeder extends Seeder
             // 5. 💰 GENERAR EXPENSAS
             $this->generarExpensasCompletas($periodo);
 
-            // 6. 🔄 SOBRESCRIBIR MONTOS DE EMISIÓN DESDE JSON
-            $this->sobrescribirMontosEmisionDesdeJSON($periodo);
+            // 6. 💧 SOBRESCRIBIR SOLO MONTOS DE AGUA DESDE JSON (NO toca monto_expensa del sistema)
+            $this->sobrescribirMontosAguaDesdeJSON($periodo);
 
             // 7. 🔒 CERRAR PERÍODO
             $this->cerrarPeriodo($periodo);
@@ -173,12 +173,12 @@ class PeriodoAbril2026DesdeJSONSeeder extends Seeder
     }
 
     /**
-     * 6. Sobrescribir montos de emisión desde JSON
-     * NOTA: Solo actualiza montos de emisión, NO saldos pendientes
+     * 6. Sobrescribir SOLO montos de AGUA desde JSON
+     * NOTA: NO modifica monto_expensa ni expensa_pendiente (los deja como los calculó el sistema)
      */
-    private function sobrescribirMontosEmisionDesdeJSON($periodo)
+    private function sobrescribirMontosAguaDesdeJSON($periodo)
     {
-        $this->command->info('🔄 Sobrescribiendo montos de emisión desde JSON...');
+        $this->command->info('💧 Sobrescribiendo SOLO montos de AGUA desde JSON...');
         $jsonPath = base_path('EXCELS/INGRESOS/INGRESOS-ABRIL.json');
 
         if (!file_exists($jsonPath)) {
@@ -202,22 +202,24 @@ class PeriodoAbril2026DesdeJSONSeeder extends Seeder
             $unidad = Unidad::where('codigo', $codigoUnidad)->first();
 
             if ($unidad) {
-                // Actualizar montos de emisión para TODAS las unidades (con o sin medidor)
-                $montoExpensaJson = $expensaData['monto_expensa'];
+                // SOLO sobrescribir montos de AGUA desde JSON
+                // NO tocar monto_expensa ni expensa_pendiente (quedan como los calculó el sistema)
                 $montoAguaJson = $expensaData['monto_agua'] ?? 0;
-                $montoTotalJson = $montoExpensaJson + $montoAguaJson;
 
-                $actualizado = Expensa::where('periodo_id', $periodo->id)
-                              ->where('unidad_id', $unidad->id)
-                              ->update([
-                                  'monto_expensa' => $montoExpensaJson,
-                                  'monto_agua' => $montoAguaJson,
-                                  'monto_total' => $montoTotalJson,
-                                  'expensa_pendiente' => $montoExpensaJson,
-                                  'agua_pendiente' => $montoAguaJson,
-                              ]);
+                $expensa = Expensa::where('periodo_id', $periodo->id)
+                          ->where('unidad_id', $unidad->id)
+                          ->first();
 
-                if ($actualizado > 0) {
+                if ($expensa) {
+                    // Recalcular monto_total conservando el monto_expensa calculado por el sistema
+                    $montoTotal = $expensa->monto_expensa + $montoAguaJson;
+
+                    $expensa->update([
+                        'monto_agua' => $montoAguaJson,
+                        'monto_total' => $montoTotal,
+                        'agua_pendiente' => $montoAguaJson,
+                    ]);
+
                     $totalSobrescritas++;
                 }
             } else {
