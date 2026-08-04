@@ -105,6 +105,7 @@ class MedidorService
      * @param int $grupoId ID del grupo de medidores
      * @param float $lecturaActual Lectura actual del medidor compartido
      * @param string|null $observaciones Observaciones opcionales
+     * @param array $distribucionManual [unidad_id => consumo]. Si está vacío, se distribuye equitativamente.
      * @return array Array de lecturas creadas
      * @throws \Exception
      */
@@ -112,9 +113,10 @@ class MedidorService
         int $periodoId,
         int $grupoId,
         float $lecturaActual,
-        ?string $observaciones = null
+        ?string $observaciones = null,
+        array $distribucionManual = []
     ): array {
-        return DB::transaction(function () use ($periodoId, $grupoId, $lecturaActual, $observaciones) {
+        return DB::transaction(function () use ($periodoId, $grupoId, $lecturaActual, $observaciones, $distribucionManual) {
             // Verificar que el período exista y esté abierto
             $periodo = PeriodoExpensa::findOrFail($periodoId);
             if ($periodo->estado !== 'abierto') {
@@ -131,7 +133,9 @@ class MedidorService
             }
 
             // Obtener grupo y sus unidades activas
-            $grupo = MedidorGrupo::with('unidades')->findOrFail($grupoId);
+            $grupo = MedidorGrupo::with(['unidades' => function ($q) {
+                $q->where('activo', true);
+            }])->findOrFail($grupoId);
 
             if (!$grupo->activo) {
                 throw new \Exception("El grupo de medidores '{$grupo->nombre}' no está activo.");
@@ -153,9 +157,25 @@ class MedidorService
             // Calcular consumo total
             $consumoTotalM3 = $lecturaActual - $valorLecturaAnterior;
 
-            // Distribuir equitativamente
-            $cantidadUnidades = $unidades->count();
-            $consumoPorUnidadM3 = $consumoTotalM3 / $cantidadUnidades;
+            // Determinar distribución: manual o equitativa
+            if (!empty($distribucionManual)) {
+                $distribucionFinal = $this->normalizarDistribucion(
+                    $distribucionManual,
+                    $unidades,
+                    $consumoTotalM3
+                );
+                $cantidadUnidades = $unidades->count();
+                $consumoPorUnidadM3 = $cantidadUnidades > 0
+                    ? ($consumoTotalM3 / $cantidadUnidades)
+                    : 0.0;
+            } else {
+                $cantidadUnidades = $unidades->count();
+                $consumoPorUnidadM3 = $consumoTotalM3 / $cantidadUnidades;
+                $distribucionFinal = [];
+                foreach ($unidades as $unidad) {
+                    $distribucionFinal[$unidad->id] = round($consumoPorUnidadM3, 2);
+                }
+            }
 
             // Crear registro en lectura_grupos_periodos
             $lecturaGrupo = LecturaGrupoPeriodo::create([
@@ -177,7 +197,7 @@ class MedidorService
                     'medidor_grupo_id' => $grupoId,
                     'lectura_anterior' => null,
                     'lectura_actual' => null,
-                    'consumo_m3' => round($consumoPorUnidadM3, 2),
+                    'consumo_m3' => $distribucionFinal[$unidad->id] ?? round($consumoPorUnidadM3, 2),
                     'observaciones' => $observaciones,
                     'registrado_por' => auth()->id(),
                 ]);
@@ -197,6 +217,8 @@ class MedidorService
                     'lectura_actual' => $lecturaActual,
                     'consumo_total_m3' => $consumoTotalM3,
                     'consumo_por_unidad_m3' => round($consumoPorUnidadM3, 2),
+                    'distribucion_manual' => !empty($distribucionManual),
+                    'distribucion' => $distribucionFinal,
                 ]
             );
 
@@ -206,11 +228,248 @@ class MedidorService
                 'periodo_id' => $periodoId,
                 'consumo_total_m3' => $consumoTotalM3,
                 'cantidad_unidades' => $cantidadUnidades,
+                'distribucion_manual' => !empty($distribucionManual),
                 'usuario' => auth()->user()?->id,
             ]);
 
             return $lecturasCreadas;
         });
+    }
+
+    /**
+     * Actualizar una lectura individual existente
+     *
+     * @param int $lecturaId ID de la lectura a actualizar
+     * @param float $lecturaActual Nueva lectura actual
+     * @param string|null $observaciones Observaciones opcionales
+     * @return LecturaMedidor
+     * @throws \Exception
+     */
+    public function actualizarLecturaIndividual(
+        int $lecturaId,
+        float $lecturaActual,
+        ?string $observaciones = null
+    ): LecturaMedidor {
+        return DB::transaction(function () use ($lecturaId, $lecturaActual, $observaciones) {
+            $lectura = LecturaMedidor::with('periodo', 'unidad')->findOrFail($lecturaId);
+
+            if ($lectura->periodo->estado !== 'abierto') {
+                throw new \Exception("El período {$lectura->periodo->nombre_periodo} está cerrado. No se pueden editar lecturas.");
+            }
+
+            $valorLecturaAnterior = (float) $lectura->lectura_anterior;
+            $this->validarLecturaActualMayorAnterior($lecturaActual, $valorLecturaAnterior);
+
+            $consumoM3 = $lecturaActual - $valorLecturaAnterior;
+
+            $valoresAnteriores = [
+                'lectura_actual' => $lectura->lectura_actual,
+                'consumo_m3' => $lectura->consumo_m3,
+            ];
+
+            $lectura->update([
+                'lectura_actual' => $lecturaActual,
+                'consumo_m3' => $consumoM3,
+                'observaciones' => $observaciones,
+            ]);
+
+            $this->registrarActivityLog(
+                'lectura.actualizada',
+                "Lectura individual actualizada: {$lectura->unidad->nombre_completo} - Consumo: {$consumoM3} M³",
+                $lectura,
+                [
+                    'unidad' => $lectura->unidad->nombre_completo,
+                    'valores_anteriores' => $valoresAnteriores,
+                    'lectura_actual' => $lecturaActual,
+                    'consumo_m3' => $consumoM3,
+                ]
+            );
+
+            Log::info('Lectura individual actualizada', [
+                'lectura_id' => $lectura->id,
+                'periodo_id' => $lectura->periodo_id,
+                'consumo_m3' => $consumoM3,
+                'usuario' => auth()->user()?->id,
+            ]);
+
+            return $lectura->fresh();
+        });
+    }
+
+    /**
+     * Actualizar una lectura compartida (grupo) existente
+     *
+     * Permite editar la lectura del grupo y la distribución de consumo entre unidades.
+     *
+     * @param int $lecturaGrupoId ID del registro en lectura_grupos_periodos
+     * @param float $lecturaActual Nueva lectura actual del medidor compartido
+     * @param array $distribucionManual Array asociativo [unidad_id => consumo_asignado]
+     * @param string|null $observaciones Observaciones opcionales
+     * @return LecturaGrupoPeriodo
+     * @throws \Exception
+     */
+    public function actualizarLecturaCompartida(
+        int $lecturaGrupoId,
+        float $lecturaActual,
+        array $distribucionManual,
+        ?string $observaciones = null
+    ): LecturaGrupoPeriodo {
+        return DB::transaction(function () use ($lecturaGrupoId, $lecturaActual, $distribucionManual, $observaciones) {
+            $lecturaGrupo = LecturaGrupoPeriodo::with(['periodo', 'medidorGrupo.unidades'])
+                ->findOrFail($lecturaGrupoId);
+
+            if ($lecturaGrupo->periodo->estado !== 'abierto') {
+                throw new \Exception("El período {$lecturaGrupo->periodo->nombre_periodo} está cerrado. No se pueden editar lecturas.");
+            }
+
+            $valorLecturaAnterior = (float) $lecturaGrupo->lectura_anterior;
+            $this->validarLecturaActualMayorAnterior($lecturaActual, $valorLecturaAnterior);
+
+            $consumoTotalCalculado = $lecturaActual - $valorLecturaAnterior;
+
+            // Validar y normalizar la distribución manual
+            $unidades = $lecturaGrupo->medidorGrupo->unidades->where('activo', true);
+            $distribucionValidada = $this->normalizarDistribucion(
+                $distribucionManual,
+                $unidades,
+                $consumoTotalCalculado
+            );
+
+            // Actualizar registro del grupo
+            $lecturaGrupo->update([
+                'lectura_actual' => $lecturaActual,
+                'consumo_total' => $consumoTotalCalculado,
+                'observaciones' => $observaciones,
+            ]);
+
+            // Actualizar lecturas distribuidas de cada unidad
+            foreach ($distribucionValidada as $unidadId => $consumoAsignado) {
+                LecturaMedidor::where('periodo_id', $lecturaGrupo->periodo_id)
+                    ->where('medidor_grupo_id', $lecturaGrupo->medidor_grupo_id)
+                    ->where('unidad_id', $unidadId)
+                    ->update([
+                        'consumo_m3' => $consumoAsignado,
+                        'observaciones' => $observaciones,
+                    ]);
+            }
+
+            $this->registrarActivityLog(
+                'lectura.compartida_actualizada',
+                "Lectura compartida actualizada: Grupo '{$lecturaGrupo->medidorGrupo->nombre}' - Consumo total: {$consumoTotalCalculado} M³",
+                $lecturaGrupo,
+                [
+                    'grupo' => $lecturaGrupo->medidorGrupo->nombre,
+                    'grupo_id' => $lecturaGrupo->medidor_grupo_id,
+                    'lectura_actual' => $lecturaActual,
+                    'consumo_total_m3' => $consumoTotalCalculado,
+                    'distribucion' => $distribucionValidada,
+                ]
+            );
+
+            Log::info('Lectura compartida actualizada', [
+                'lectura_grupo_id' => $lecturaGrupo->id,
+                'grupo_id' => $lecturaGrupo->medidor_grupo_id,
+                'periodo_id' => $lecturaGrupo->periodo_id,
+                'consumo_total_m3' => $consumoTotalCalculado,
+                'usuario' => auth()->user()?->id,
+            ]);
+
+            return $lecturaGrupo->fresh();
+        });
+    }
+
+    /**
+     * Normalizar y validar la distribución manual de consumo entre unidades
+     *
+     * Reglas:
+     * - Toda unidad del grupo debe estar presente.
+     * - Valores no negativos.
+     * - Si la suma coincide con el consumo total (diferencia < 0.01), se respeta.
+     * - Si la diferencia es pequeña (hasta 0.10 M³), se absorbe en la ÚLTIMA unidad.
+     *   (coincide con lo que muestra el botón "Repartir equitativamente" del JS).
+     * - Si la diferencia es grande, se ajusta proporcionalmente y el residuo final
+     *   se echa a la última unidad.
+     *
+     * @param array $distribucionManual [unidad_id => consumo]
+     * @param \Illuminate\Support\Collection $unidades
+     * @param float $consumoTotal
+     * @return array [unidad_id => consumo_normalizado]
+     * @throws \Exception
+     */
+    private function normalizarDistribucion(array $distribucionManual, $unidades, float $consumoTotal): array
+    {
+        if ($unidades->isEmpty()) {
+            throw new \Exception("El grupo no tiene unidades activas.");
+        }
+
+        $resultado = [];
+        $suma = 0.0;
+        $idsOrdenados = [];
+
+        foreach ($unidades as $unidad) {
+            $valor = isset($distribucionManual[$unidad->id])
+                ? (float) str_replace(',', '.', $distribucionManual[$unidad->id])
+                : 0.0;
+
+            if ($valor < 0) {
+                throw new \Exception("El consumo asignado a {$unidad->nombre_completo} no puede ser negativo.");
+            }
+
+            $resultado[$unidad->id] = round($valor, 2);
+            $suma += $resultado[$unidad->id];
+            $idsOrdenados[] = $unidad->id;
+        }
+
+        $diferencia = round($consumoTotal - $suma, 2);
+
+        // Si la diferencia es nula (dentro de tolerancia), respetar como está
+        if (abs($diferencia) <= 0.009) {
+            return $resultado;
+        }
+
+        // Diferencia pequeña (hasta 0.10 M³): absorber directamente en la última unidad
+        if (abs($diferencia) <= 0.10) {
+            $ultimaUnidadId = end($idsOrdenados);
+            $resultado[$ultimaUnidadId] = round($resultado[$ultimaUnidadId] + $diferencia, 2);
+
+            // Si queda negativo por la corrección, evitarlo (repartir el ajuste)
+            if ($resultado[$ultimaUnidadId] < 0) {
+                $resultado[$ultimaUnidadId] = round($resultado[$ultimaUnidadId] - $diferencia, 2);
+                // Ajuste proporcional como fallback
+                return $this->ajusteProporcional($resultado, $idsOrdenados, $consumoTotal);
+            }
+
+            return $resultado;
+        }
+
+        // Diferencia grande: ajuste proporcional
+        return $this->ajusteProporcional($resultado, $idsOrdenados, $consumoTotal);
+    }
+
+    /**
+     * Ajuste proporcional de la distribución + residuo en la última unidad.
+     */
+    private function ajusteProporcional(array $resultado, array $idsOrdenados, float $consumoTotal): array
+    {
+        $suma = array_sum($resultado);
+        $factor = $suma > 0 ? ($consumoTotal / $suma) : 1.0;
+
+        $ajustado = [];
+        $nuevaSuma = 0.0;
+        foreach ($idsOrdenados as $id) {
+            $nuevoValor = round($resultado[$id] * $factor, 2);
+            $ajustado[$id] = $nuevoValor;
+            $nuevaSuma += $nuevoValor;
+        }
+
+        // Echar el residuo final a la última unidad
+        $residuo = round($consumoTotal - $nuevaSuma, 2);
+        if (abs($residuo) > 0.009) {
+            $ultimaUnidadId = end($idsOrdenados);
+            $ajustado[$ultimaUnidadId] = round($ajustado[$ultimaUnidadId] + $residuo, 2);
+        }
+
+        return $ajustado;
     }
 
     /**
