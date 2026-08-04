@@ -3,6 +3,7 @@
 namespace App\Livewire\Expensas;
 
 use App\Models\Propietario;
+use App\Models\Inquilino;
 use App\Models\PeriodoExpensa;
 use App\Models\Expensa;
 use App\Services\ExpensaService;
@@ -13,7 +14,8 @@ class ExpensaPropietarioDetalle extends Component
 {
     public $propietarioId;
     public $periodoId;
-    public $propietario;
+    public $tipo = 'propietario'; // 'propietario' o 'inquilino'
+    public $propietario; // Puede ser Propietario o Inquilino
     public $periodo;
     public $unidadesConExpensas = [];
     public $periodosDisponibles = [];
@@ -34,17 +36,30 @@ class ExpensaPropietarioDetalle extends Component
         $this->periodoId = $periodo;
         $this->propietarioId = $propietario;
 
+        // Intentar detectar el tipo buscando primero en inquilinos
+        $inquilino = Inquilino::find($propietario);
+        if ($inquilino && $inquilino->unidadesActuales()->count() > 0) {
+            $this->tipo = 'inquilino';
+        }
+
         $this->cargarPeriodosDisponibles();
         $this->cargarDatos();
     }
 
     public function cargarPeriodosDisponibles()
     {
-        // Obtener todos los períodos donde este propietario tiene expensas
-        $unidadIds = Propietario::find($this->propietarioId)
-            ->unidadesActuales()
-            ->where('activo', true)
-            ->pluck('unidades.id');
+        // Obtener todos los períodos donde este responsable (propietario o inquilino) tiene expensas
+        if ($this->tipo === 'inquilino') {
+            $responsable = Inquilino::find($this->propietarioId);
+            $unidadIds = $responsable->unidadesActuales()
+                ->where('activo', true)
+                ->pluck('unidades.id');
+        } else {
+            $responsable = Propietario::find($this->propietarioId);
+            $unidadIds = $responsable->unidadesActuales()
+                ->where('activo', true)
+                ->pluck('unidades.id');
+        }
 
         $periodosConExpensas = Expensa::whereIn('unidad_id', $unidadIds)
             ->with('periodo')
@@ -69,9 +84,17 @@ class ExpensaPropietarioDetalle extends Component
     public function cargarDatos()
     {
         $this->periodo = PeriodoExpensa::find($this->periodoId);
-        $this->propietario = Propietario::with(['unidadesActuales' => function ($q) {
-            $q->where('activo', true);
-        }])->findOrFail($this->propietarioId);
+
+        // Cargar según tipo
+        if ($this->tipo === 'inquilino') {
+            $this->propietario = Inquilino::with(['unidadesActuales' => function ($q) {
+                $q->where('activo', true);
+            }])->findOrFail($this->propietarioId);
+        } else {
+            $this->propietario = Propietario::with(['unidadesActuales' => function ($q) {
+                $q->where('activo', true);
+            }])->findOrFail($this->propietarioId);
+        }
 
         // Obtener unidades del propietario con sus expensas del período
         $this->unidadesConExpensas = $this->propietario->unidadesActuales
@@ -280,6 +303,24 @@ class ExpensaPropietarioDetalle extends Component
     protected function formatoMoneda($monto): string
     {
         return number_format($monto, 2, ',', '.');
+    }
+
+    /**
+     * Obtener el tipo de responsable para mostrar en vista
+     */
+    public function getTipoResponsableProperty(): string
+    {
+        return $this->tipo === 'inquilino' ? 'Inquilino' : 'Propietario';
+    }
+
+    /**
+     * Obtener clase de color según tipo
+     */
+    public function getTipoClaseProperty(): string
+    {
+        return $this->tipo === 'inquilino'
+            ? 'bg-purple-100 text-purple-800'
+            : 'bg-gray-100 text-gray-800';
     }
 
     /**

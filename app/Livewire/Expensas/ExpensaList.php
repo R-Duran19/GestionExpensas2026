@@ -453,7 +453,9 @@ class ExpensaList extends Component
             return collect();
         }
 
-        // Obtener todos los propietarios que tienen unidades activas
+        $responsables = collect();
+
+        // 1. Obtener PROPIETARIOS con unidades activas (solo unidades SIN inquilino actual)
         $propietarios = \App\Models\Propietario::whereHas('unidadesActuales', function ($q) {
             $q->where('activo', true);
         })
@@ -462,8 +464,13 @@ class ExpensaList extends Component
         }])
         ->get()
         ->map(function ($propietario) {
-            // Obtener todas las unidades activas del propietario
-            $unidades = $propietario->unidadesActuales->filter(fn($u) => $u->activo);
+            // Solo unidades que NO tienen inquilino actual
+            $unidades = $propietario->unidadesActuales
+                ->filter(fn($u) => $u->activo && !$u->tieneInquilinoActual());
+
+            if ($unidades->isEmpty()) {
+                return null;
+            }
 
             // Cargar expensas del período para estas unidades
             $unidadIds = $unidades->pluck('id');
@@ -500,6 +507,7 @@ class ExpensaList extends Component
 
             return (object) [
                 'id' => $propietario->id,
+                'tipo' => 'propietario',
                 'nombre' => $propietario->nombre,
                 'apellido' => $propietario->apellido,
                 'nombre_completo' => $propietario->nombre_completo,
@@ -523,18 +531,97 @@ class ExpensaList extends Component
                     : 0,
             ];
         })
-        ->filter(fn($p) => $p->total_unidades > 0); // Solo propietarios con unidades activas
+        ->filter(fn($p) => $p !== null);
 
-        // Aplicar búsqueda si existe
+        // 2. Obtener INQUILINOS con unidades activas
+        $inquilinos = \App\Models\Inquilino::whereHas('unidadesActuales', function ($q) {
+            $q->where('activo', true);
+        })
+        ->with(['unidadesActuales' => function ($q) {
+            $q->where('activo', true);
+        }])
+        ->get()
+        ->map(function ($inquilino) {
+            $unidades = $inquilino->unidadesActuales;
+
+            if ($unidades->isEmpty()) {
+                return null;
+            }
+
+            // Cargar expensas del período para estas unidades
+            $unidadIds = $unidades->pluck('id');
+            $expensas = Expensa::where('periodo_id', $this->periodoId)
+                ->whereIn('unidad_id', $unidadIds)
+                ->get()
+                ->keyBy('unidad_id');
+
+            // Calcular totales
+            $totalUnidades = $unidades->count();
+            $totalExpensas = 0;
+            $totalAgua = 0;
+            $totalPagado = 0;
+            $totalPendiente = 0;
+            $unidadesConDeuda = 0;
+            $unidadesPagadas = 0;
+
+            foreach ($unidades as $unidad) {
+                $expensa = $expensas->get($unidad->id);
+                if ($expensa) {
+                    $totalExpensas += $expensa->monto_expensa;
+                    $totalAgua += $expensa->monto_agua;
+                    $totalPagado += $expensa->total_pagado;
+                    $totalPendiente += $expensa->total_pendiente;
+
+                    if ($expensa->tieneDeuda()) {
+                        $unidadesConDeuda++;
+                    }
+                    if ($expensa->estaPagada()) {
+                        $unidadesPagadas++;
+                    }
+                }
+            }
+
+            return (object) [
+                'id' => $inquilino->id,
+                'tipo' => 'inquilino',
+                'nombre' => $inquilino->nombre,
+                'apellido' => $inquilino->apellido,
+                'nombre_completo' => $inquilino->nombre_completo,
+                'ci' => $inquilino->ci,
+                'telefono' => $inquilino->telefono,
+                'email' => $inquilino->email,
+                'unidades' => $unidades,
+                'expensas' => $expensas,
+                'total_unidades' => $totalUnidades,
+                'total_expensas' => $totalExpensas,
+                'total_agua' => $totalAgua,
+                'total_emision' => $totalExpensas + $totalAgua,
+                'total_pagado' => $totalPagado,
+                'total_pendiente' => $totalPendiente,
+                'unidades_con_deuda' => $unidadesConDeuda,
+                'unidades_pagadas' => $unidadesPagadas,
+                'tiene_deuda' => $totalPendiente > 0.01,
+                'esta_pagado' => $totalPendiente <= 0.01 && ($totalExpensas + $totalAgua) > 0,
+                'porcentaje_pagado' => ($totalExpensas + $totalAgua) > 0
+                    ? ($totalPagado / ($totalExpensas + $totalAgua)) * 100
+                    : 0,
+            ];
+        })
+        ->filter(fn($p) => $p !== null);
+
+        // 3. Fusionar propietarios e inquilinos
+        $responsables = $propietarios->concat($inquilinos);
+
+        // 4. Aplicar búsqueda si existe
         if ($this->search) {
             $termino = trim($this->search);
             if (!empty($termino)) {
                 $palabras = preg_split('/\s+/', $termino, -1, PREG_SPLIT_NO_EMPTY);
                 $palabras = array_filter($palabras, fn($p) => !empty(trim($p)));
 
-                $propietarios = $propietarios->filter(function ($propietario) use ($palabras) {
-                    $nombreCompleto = strtolower($propietario->nombre_completo);
-                    $ci = strtolower($propietario->ci ?? '');
+                $responsables = $responsables->filter(function ($responsable) use ($palabras) {
+                    $nombreCompleto = strtolower($responsable->nombre_completo);
+                    $ci = strtolower($responsable->ci ?? '');
 
                     foreach ($palabras as $palabra) {
                         $palabra = strtolower($palabra);
@@ -547,14 +634,14 @@ class ExpensaList extends Component
             }
         }
 
-        // Ordenar alfabéticamente por nombre
-        return $propietarios->sortBy('nombre_completo');
+        // 5. Ordenar alfabéticamente por nombre
+        return $responsables->sortBy('nombre_completo');
     }
 
     /**
-     * Generar expensas para todas las unidades de un propietario
+     * Generar expensas para todas las unidades de un propietario o inquilino
      */
-    public function regenerarExpensasPropietario($propietarioId)
+    public function regenerarExpensasPropietario($propietarioId, $tipo = 'propietario')
     {
         try {
             if (!$this->periodoId) {
@@ -565,11 +652,18 @@ class ExpensaList extends Component
                 throw new \Exception('Solo se pueden generar expensas en períodos abiertos');
             }
 
-            $propietario = \App\Models\Propietario::with('unidadesActuales')->findOrFail($propietarioId);
-            $unidades = $propietario->unidadesActuales->filter(fn($u) => $u->activo);
+            // Cargar según tipo
+            if ($tipo === 'inquilino') {
+                $responsable = \App\Models\Inquilino::with('unidadesActuales')->findOrFail($propietarioId);
+            } else {
+                $responsable = \App\Models\Propietario::with('unidadesActuales')->findOrFail($propietarioId);
+            }
+
+            $unidades = $responsable->unidadesActuales->filter(fn($u) => $u->activo);
 
             if ($unidades->isEmpty()) {
-                throw new \Exception('El propietario no tiene unidades activas');
+                $tipoLabel = $tipo === 'inquilino' ? 'El inquilino' : 'El propietario';
+                throw new \Exception("{$tipoLabel} no tiene unidades activas");
             }
 
             $this->propietarioIdRegenerando = $propietarioId;
@@ -590,7 +684,7 @@ class ExpensaList extends Component
                 }
             }
 
-            $mensaje = "Se generaron {$exitosas} de {$unidades->count()} expensas para {$propietario->nombre_completo}";
+            $mensaje = "Se generaron {$exitosas} de {$unidades->count()} expensas para {$responsable->nombre_completo}";
             if (!empty($errores)) {
                 $mensaje .= ". " . count($errores) . " errores.";
             }

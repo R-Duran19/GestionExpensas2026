@@ -16,7 +16,12 @@
                     {{ substr($propietario->nombre, 0, 1) }}{{ substr($propietario->apellido ?? '', 0, 1) }}
                 </div>
                 <div class="ml-4">
-                    <h1 class="text-2xl font-bold text-gray-900">{{ $propietario->nombre_completo }}</h1>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-2xl font-bold text-gray-900">{{ $propietario->nombre_completo }}</h1>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded text-sm font-medium {{ $this->tipoClase }}">
+                            {{ $this->tipoResponsable }}
+                        </span>
+                    </div>
                     <p class="text-sm text-gray-600 mt-1">
                         CI: {{ $propietario->ci ?: 'Sin CI' }}
                         @if($propietario->telefono)
@@ -242,7 +247,6 @@
                                             href="{{ route('expensas.unidad.detalle', ['unidad' => $unidad->id]) }}"
                                             class="text-blue-600 hover:text-blue-900"
                                             title="Ver detalle de expensa"
-                                            target="_blank"
                                         >
                                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>

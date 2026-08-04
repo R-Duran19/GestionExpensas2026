@@ -130,6 +130,17 @@
                             </svg>
                             Recalcular
                         </button>
+
+                        <!-- Boleta Manual -->
+                        <a
+                            href="{{ route('expensas.boleta.manual') }}"
+                            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                        >
+                            <svg class="-ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                            </svg>
+                            Boleta Manual
+                        </a>
                     @endif
                 </div>
 
@@ -328,7 +339,6 @@
                                                 href="{{ route('expensas.unidad.detalle', ['unidad' => $unidad->id]) }}"
                                                 class="text-blue-600 hover:text-blue-900"
                                                 title="Ver detalle de expensa"
-                                                target="_blank"
                                             >
                                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -487,8 +497,19 @@
                                             {{ substr($propietario->nombre, 0, 1) }}{{ substr($propietario->apellido ?? '', 0, 1) }}
                                         </div>
                                         <div class="ml-4">
-                                            <div class="text-sm font-medium text-gray-900">
-                                                {{ $propietario->nombre_completo }}
+                                            <div class="flex items-center gap-2">
+                                                <div class="text-sm font-medium text-gray-900">
+                                                    {{ $propietario->nombre_completo }}
+                                                </div>
+                                                @if($propietario->tipo === 'inquilino')
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                                        Inquilino
+                                                    </span>
+                                                @else
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                                                        Propietario
+                                                    </span>
+                                                @endif
                                             </div>
                                             <div class="text-sm text-gray-500">
                                                 CI: {{ $propietario->ci ?: 'Sin CI' }}
@@ -546,7 +567,6 @@
                                             href="{{ route('expensas.propietario.detalle', [$this->periodo->id, $propietario->id]) }}"
                                             class="text-blue-600 hover:text-blue-900"
                                             title="Ver detalle de todas las unidades"
-                                            target="_blank"
                                         >
                                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -569,7 +589,7 @@
                                         <!-- Regenerar expensas (todas las unidades) -->
                                         @if($this->periodo->estado === 'abierto')
                                             <button
-                                                wire:click="regenerarExpensasPropietario({{ $propietario->id }})"
+                                                wire:click="regenerarExpensasPropietario({{ $propietario->id }}, '{{ $propietario->tipo ?? 'propietario' }}')"
                                                 wire:loading.attr="disabled"
                                                 class="text-indigo-600 hover:text-indigo-900 disabled:opacity-50"
                                                 title="Regenerar expensas de todas las unidades"
