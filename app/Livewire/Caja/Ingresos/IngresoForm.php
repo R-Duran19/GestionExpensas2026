@@ -6,6 +6,7 @@ use App\Models\Ingreso;
 use App\Models\CategoriaIngreso;
 use App\Models\Unidad;
 use App\Models\Propietario;
+use App\Models\Inquilino;
 use App\Models\Expensa;
 use App\Models\SaldoAFavor;
 use App\Services\IngresoService;
@@ -153,7 +154,7 @@ class IngresoForm extends Component
 
                 $this->propietarioSeleccionado = $propietario;
                 $this->nombre_propietario = $propietario->nombre_completo;
-                $this->unidadesPropietario = $propietario->unidades()->where('activo', true)->get();
+                $this->unidadesPropietario = $propietario->unidadesActuales()->where('activo', true)->get();
 
                 // Cargar deudas del propietario
                 $this->cargarDeudasPropietario();
@@ -252,7 +253,7 @@ class IngresoForm extends Component
     }
 
     /**
-     * Realizar búsqueda híbrida (propietario o unidad)
+     * Realizar búsqueda híbrida (propietario, inquilino o unidad)
      * Usa los scopes optimizados de los modelos para búsquedas precisas
      */
     public function buscarDeudas()
@@ -262,17 +263,19 @@ class IngresoForm extends Component
         $termino = trim($this->busqueda);
         $this->resultadosBusqueda = [];
 
-        // Usar el scope buscar() optimizado del modelo Propietario
+        // 1. Buscar PROPIETARIOS
         $propietarios = Propietario::buscar($termino)
-            ->with(['unidades' => function($query) {
+            ->with(['unidadesActuales' => function($query) {
                 $query->where('activo', true);
             }])
             ->limit(10)
             ->get();
 
         foreach ($propietarios as $propietario) {
-            // Obtener unidades activas del propietario
-            $unidadesActivas = $propietario->unidades()->where('activo', true)->get();
+            // Obtener unidades ACTUALES del propietario (es_propietario_actual = true)
+            // Excluir las que tienen inquilino actual (esas aparecen vía el inquilino)
+            $unidadesActivas = $propietario->unidadesActuales()->where('activo', true)->get()
+                ->filter(fn($u) => !$u->tieneInquilinoActual());
 
             if ($unidadesActivas->count() > 0) {
                 $this->resultadosBusqueda[] = [
@@ -289,34 +292,92 @@ class IngresoForm extends Component
             }
         }
 
-        // Usar el scope buscar() optimizado del modelo Unidad
+        // 2. Buscar INQUILINOS
+        $inquilinos = Inquilino::buscar($termino)
+            ->with(['unidadesActuales' => function($query) {
+                $query->where('activo', true);
+            }])
+            ->limit(10)
+            ->get();
+
+        foreach ($inquilinos as $inquilino) {
+            // Obtener unidades ACTUALES del inquilino (es_inquilino_actual = true)
+            $unidadesActivas = $inquilino->unidadesActuales()->where('activo', true)->get();
+
+            if ($unidadesActivas->count() > 0) {
+                $this->resultadosBusqueda[] = [
+                    'tipo' => 'inquilino',
+                    'id' => $inquilino->id,
+                    'nombre' => $inquilino->nombre_completo,
+                    'ci' => $inquilino->ci,
+                    'unidades' => $unidadesActivas->map(fn($u) => [
+                        'id' => $u->id,
+                        'codigo' => $u->codigo,
+                        'tipo' => $u->tipo_unidad->getLabel(),
+                        'es_inquilino' => true,
+                    ])->toArray(),
+                ];
+            }
+        }
+
+        // 3. Buscar por UNIDAD (ya actualizado para buscar inquilino también)
         $unidades = Unidad::buscar($termino)
             ->where('activo', true)
-            ->with(['propietarioActual'])
+            ->with(['propietarioActual', 'inquilinoActual'])
             ->limit(10)
             ->get();
 
         foreach ($unidades as $unidad) {
-            $propietarioActual = $unidad->propietarioActual;
+            // Si la unidad tiene inquilino actual, mostrarlo
+            if ($unidad->tieneInquilinoActual()) {
+                $inquilinoActual = $unidad->inquilinoActual;
 
-            if ($propietarioActual && !$this->resultadoYaExiste($propietarioActual->id)) {
-                // Obtener todas las unidades del mismo propietario
-                $unidadesDelPropietario = $propietarioActual->unidades()
+                if ($inquilinoActual && !$this->resultadoYaExiste($inquilinoActual->id, 'inquilino')) {
+                    // Obtener unidades ACTUALES del inquilino (es_inquilino_actual = true)
+                    $unidadesDelInquilino = $inquilinoActual->unidadesActuales()
+                        ->where('activo', true)
+                        ->get();
+
+                    $this->resultadosBusqueda[] = [
+                        'tipo' => 'inquilino',
+                        'id' => $inquilinoActual->id,
+                        'nombre' => $inquilinoActual->nombre_completo,
+                        'ci' => $inquilinoActual->ci,
+                        'unidades_buscadas' => [$unidad->codigo],
+                        'unidades' => $unidadesDelInquilino->map(fn($u) => [
+                            'id' => $u->id,
+                            'codigo' => $u->codigo,
+                            'tipo' => $u->tipo_unidad->getLabel(),
+                            'es_inquilino' => true,
+                        ])->toArray(),
+                    ];
+                }
+            }
+
+            // Mostrar SIEMPRE el propietario actual de la unidad (incluso si tiene inquilino)
+            // así el usuario puede cobrarle a cualquiera de los dos
+            $propietarioActual = $unidad->propietarioActual;
+            if ($propietarioActual && !$this->resultadoYaExiste($propietarioActual->id, 'propietario')) {
+                // Obtener unidades ACTUALES del propietario (es_propietario_actual = true)
+                // Si la unidad tiene inquilino, igual incluirla para que el propietario pueda pagar
+                $unidadesDelPropietario = $propietarioActual->unidadesActuales()
                     ->where('activo', true)
                     ->get();
 
-                $this->resultadosBusqueda[] = [
-                    'tipo' => 'unidad',
-                    'id' => $propietarioActual->id,
-                    'nombre' => $propietarioActual->nombre_completo,
-                    'ci' => $propietarioActual->ci,
-                    'unidades_buscadas' => [$unidad->codigo], // Unidades que coincidieron con la búsqueda
-                    'unidades' => $unidadesDelPropietario->map(fn($u) => [
-                        'id' => $u->id,
-                        'codigo' => $u->codigo,
-                        'tipo' => $u->tipo_unidad->getLabel(),
-                    ])->toArray(),
-                ];
+                if ($unidadesDelPropietario->count() > 0) {
+                    $this->resultadosBusqueda[] = [
+                        'tipo' => 'propietario',
+                        'id' => $propietarioActual->id,
+                        'nombre' => $propietarioActual->nombre_completo,
+                        'ci' => $propietarioActual->ci,
+                        'unidades_buscadas' => [$unidad->codigo],
+                        'unidades' => $unidadesDelPropietario->map(fn($u) => [
+                            'id' => $u->id,
+                            'codigo' => $u->codigo,
+                            'tipo' => $u->tipo_unidad->getLabel(),
+                        ])->toArray(),
+                    ];
+                }
             }
         }
     }
@@ -324,23 +385,40 @@ class IngresoForm extends Component
     /**
      * Verificar si un resultado ya existe en la lista
      */
-    private function resultadoYaExiste($propietarioId)
+    private function resultadoYaExiste($id, $tipo = null)
     {
-        return collect($this->resultadosBusqueda)->contains('id', $propietarioId);
+        return collect($this->resultadosBusqueda)->contains(function ($resultado) use ($id, $tipo) {
+            if ($tipo && $resultado['tipo'] !== $tipo) {
+                return false;
+            }
+            return $resultado['id'] === $id;
+        });
     }
 
     /**
-     * Seleccionar propietario y cargar sus deudas
+     * Seleccionar propietario o inquilino y cargar sus deudas
      */
-    public function seleccionarPropietario($propietarioId)
+    public function seleccionarPropietario($propietarioId, $tipo = 'propietario')
     {
-        $propietario = Propietario::with(['unidades' => function($query) {
-            $query->where('activo', true);
-        }])->findOrFail($propietarioId);
+        if ($tipo === 'inquilino') {
+            // Cargar inquilino con sus unidades ACTUALES
+            $inquilino = Inquilino::with(['unidadesActuales' => function($query) {
+                $query->where('activo', true);
+            }])->findOrFail($propietarioId);
 
-        $this->propietarioSeleccionado = $propietario;
-        $this->nombre_propietario = $propietario->nombre_completo;
-        $this->unidadesPropietario = $propietario->unidades->where('activo', true);
+            $this->propietarioSeleccionado = $inquilino;
+            $this->nombre_propietario = $inquilino->nombre_completo;
+            $this->unidadesPropietario = $inquilino->unidadesActuales;
+        } else {
+            // Cargar propietario con sus unidades ACTUALES
+            $propietario = Propietario::with(['unidadesActuales' => function($query) {
+                $query->where('activo', true);
+            }])->findOrFail($propietarioId);
+
+            $this->propietarioSeleccionado = $propietario;
+            $this->nombre_propietario = $propietario->nombre_completo;
+            $this->unidadesPropietario = $propietario->unidadesActuales;
+        }
 
         // Cargar deudas de todas las unidades
         $this->cargarDeudasPropietario();
@@ -417,10 +495,13 @@ class IngresoForm extends Component
     protected function preseleccionarUnidad($unidadId)
     {
         try {
-            $unidad = Unidad::with('propietarioActual')->findOrFail($unidadId);
+            $unidad = Unidad::with(['propietarioActual', 'inquilinoActual'])->findOrFail($unidadId);
 
-            if (!$unidad->propietarioActual) {
-                // Si la unidad no tiene propietario, no se puede pre-seleccionar
+            // Determinar si es inquilino o propietario
+            $esInquilino = $unidad->tieneInquilinoActual();
+
+            if (!$esInquilino && !$unidad->propietarioActual) {
+                // Si la unidad no tiene propietario ni inquilino, no se puede pre-seleccionar
                 return;
             }
 
@@ -431,12 +512,19 @@ class IngresoForm extends Component
             // Guardar la unidad pre-seleccionada para poder resaltarla en la vista
             $this->unidad_preseleccionada_id = $unidadId;
 
-            // Seleccionar el propietario automáticamente
-            $this->propietarioSeleccionado = $unidad->propietarioActual;
-            $this->nombre_propietario = $unidad->propietarioActual->nombre_completo;
-            $this->unidadesPropietario = $unidad->propietarioActual->unidades()->where('activo', true)->get();
+            if ($esInquilino) {
+                // Seleccionar el inquilino automáticamente
+                $this->propietarioSeleccionado = $unidad->inquilinoActual;
+                $this->nombre_propietario = $unidad->inquilinoActual->nombre_completo;
+                $this->unidadesPropietario = $unidad->inquilinoActual->unidadesActuales()->where('activo', true)->get();
+            } else {
+                // Seleccionar el propietario automáticamente
+                $this->propietarioSeleccionado = $unidad->propietarioActual;
+                $this->nombre_propietario = $unidad->propietarioActual->nombre_completo;
+                $this->unidadesPropietario = $unidad->propietarioActual->unidadesActuales()->where('activo', true)->get();
+            }
 
-            // Cargar deudas de todas las unidades del propietario
+            // Cargar deudas de todas las unidades
             $this->cargarDeudasPropietario();
 
         } catch (\Exception $e) {
@@ -843,6 +931,15 @@ class IngresoForm extends Component
                     'referencia_bancaria' => $this->referencia_bancaria,
                     'observaciones' => $this->observaciones,
                 ];
+
+                // Registrar quién pagó (propietario o inquilino)
+                // El tipo se detecta con instanceof sobre el modelo ya seleccionado por el usuario
+                if ($this->propietarioSeleccionado) {
+                    $datosPago['pagador_tipo'] = $this->propietarioSeleccionado instanceof Inquilino
+                        ? 'inquilino'
+                        : 'propietario';
+                    $datosPago['pagador_id'] = $this->propietarioSeleccionado->id;
+                }
 
                 // Agregar número manual si está activo
                 if ($this->numero_manual && !empty($this->numero_recibo)) {

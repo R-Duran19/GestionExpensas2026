@@ -175,7 +175,7 @@
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-72 overflow-y-auto">
                                             @foreach($resultadosBusqueda as $resultado)
                                                 <div class="border rounded-lg p-3 hover:bg-indigo-50 cursor-pointer transition @if($propietarioSeleccionado && $propietarioSeleccionado->id == $resultado['id']) bg-indigo-100 border-indigo-400 @endif"
-                                                     wire:click="seleccionarPropietario({{ $resultado['id'] }})">
+                                                     wire:click="seleccionarPropietario({{ $resultado['id'] }}, '{{ $resultado['tipo'] ?? 'propietario' }}')">
                                                     <div class="flex items-start justify-between">
                                                         <div class="flex-1">
                                                             <p class="font-medium text-gray-900">{{ $resultado['nombre'] }}</p>

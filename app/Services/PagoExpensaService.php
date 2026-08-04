@@ -84,6 +84,8 @@ class PagoExpensaService
                 'comprobante_foto' => $rutaComprobante,
                 'referencia_bancaria' => $datosPago['referencia_bancaria'] ?? null,
                 'unidad_id' => null, // Se obtiene de los detalles
+                'pagador_tipo' => $datosPago['pagador_tipo'] ?? null,
+                'pagador_id' => $datosPago['pagador_id'] ?? null,
                 'observaciones' => $datosPago['observaciones'] ?? null,
                 'activo' => true,
                 'creado_por' => Auth::id(),
@@ -180,6 +182,8 @@ class PagoExpensaService
                 'descripcion' => $datosPago['descripcion'] ?? $ingreso->descripcion,
                 'comprobante_foto' => $rutaComprobante,
                 'referencia_bancaria' => $datosPago['referencia_bancaria'] ?? $ingreso->referencia_bancaria,
+                'pagador_tipo' => $datosPago['pagador_tipo'] ?? $ingreso->pagador_tipo,
+                'pagador_id' => $datosPago['pagador_id'] ?? $ingreso->pagador_id,
                 'observaciones' => $datosPago['observaciones'] ?? $ingreso->observaciones,
                 'actualizado_por' => Auth::id(),
             ]);

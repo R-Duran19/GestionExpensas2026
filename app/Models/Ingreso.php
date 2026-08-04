@@ -25,6 +25,8 @@ class Ingreso extends Model
         'comprobante_foto',
         'referencia_bancaria',
         'unidad_id',
+        'pagador_tipo',
+        'pagador_id',
         'observaciones',
         'activo',
         'creado_por',
@@ -208,6 +210,35 @@ class Ingreso extends Model
             'expensa' => 'Pago de Expensa',
             'extraordinario' => 'Ingreso Extraordinario',
             default => ucfirst($this->tipo_ingreso),
+        };
+    }
+
+    /**
+     * Obtener el modelo del pagador (Propietario o Inquilino)
+     * Devuelve null si no está registrado (ingresos viejos)
+     */
+    public function getPagadorAttribute(): ?Model
+    {
+        if (!$this->pagador_tipo || !$this->pagador_id) {
+            return null;
+        }
+
+        return match($this->pagador_tipo) {
+            'propietario' => Propietario::find($this->pagador_id),
+            'inquilino'   => Inquilino::find($this->pagador_id),
+            default       => null,
+        };
+    }
+
+    /**
+     * Label legible del tipo de pagador
+     */
+    public function getPagadorTipoFormateadoAttribute(): string
+    {
+        return match($this->pagador_tipo) {
+            'propietario' => 'Propietario',
+            'inquilino'   => 'Inquilino',
+            default       => '-',
         };
     }
 

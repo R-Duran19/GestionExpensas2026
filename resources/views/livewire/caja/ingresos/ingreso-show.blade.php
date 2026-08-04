@@ -102,21 +102,10 @@
 
     {{-- Detalles de expensas (si aplica) --}}
     @if($ingreso->tipo_ingreso === 'expensa' && $detallesExpensas->isNotEmpty())
-        {{-- Obtener propietario único si todos los detalles son del mismo propietario --}}
         @php
-            $propietarioUnico = null;
-            $propietariosDistintos = $detallesExpensas
-                ->filter(fn($d) => $d->expensa && $d->expensa->unidad && $d->expensa->unidad->propietarios)
-                ->map(fn($d) => $d->expensa->unidad->propietarios->firstWhere('pivot.es_propietario_actual', true)?->id)
-                ->unique()
-                ->values();
-
-            if ($propietariosDistintos->count() === 1) {
-                $primerDetalle = $detallesExpensas->first(fn($d) => $d->expensa && $d->expensa->unidad && $d->expensa->unidad->propietarios);
-                if ($primerDetalle) {
-                    $propietarioUnico = $primerDetalle->expensa->unidad->propietarios->firstWhere('pivot.es_propietario_actual', true);
-                }
-            }
+            // El pagador se obtiene directamente del ingreso (campo estructurado pagador_tipo/pagador_id).
+            // Si no está cargado (ingresos viejos), no se muestra el bloque "Pagado por".
+            $pagador = $ingreso->pagador;
 
             // Agrupar detalles por período
             $detallesPorPeriodo = $detallesExpensas
@@ -135,8 +124,8 @@
                 </p>
             </div>
 
-            {{-- Mostrar propietario si es único --}}
-            @if($propietarioUnico)
+            {{-- Mostrar quién pagó (propietario o inquilino) --}}
+            @if($pagador)
                 <div class="bg-purple-50 border-l-4 border-purple-500 px-6 py-4">
                     <div class="flex items-center gap-3">
                         <div class="bg-purple-100 rounded-full p-2">
@@ -144,7 +133,14 @@
                         </div>
                         <div>
                             <span class="text-xs text-gray-500 uppercase">Pagado por</span>
-                            <p class="font-semibold text-gray-900">{{ $propietarioUnico->nombre_completo }}</p>
+                            <p class="font-semibold text-gray-900">
+                                {{ $pagador->nombre_completo }}
+                                <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                                    @if($ingreso->pagador_tipo === 'inquilino') bg-blue-100 text-blue-800
+                                    @else bg-green-100 text-green-800 @endif">
+                                    {{ $ingreso->pagador_tipo_formateado }}
+                                </span>
+                            </p>
                         </div>
                     </div>
                 </div>

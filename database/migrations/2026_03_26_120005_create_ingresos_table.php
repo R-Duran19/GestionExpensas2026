@@ -39,6 +39,13 @@ return new class extends Migration
             // Relación opcional con unidad (obtenida de detalles en pagos de expensa)
             $table->foreignId('unidad_id')->nullable()->constrained('unidades')->onDelete('set null');
 
+            // Pagador: registra quién hizo el pago (propietario o inquilino)
+            // pagador_tipo es el tipo de modelo y pagador_id el ID en su tabla
+            $table->enum('pagador_tipo', ['propietario', 'inquilino'])->nullable()
+                  ->comment('Tipo de persona que pagó: propietario o inquilino');
+            $table->unsignedBigInteger('pagador_id')->nullable()
+                  ->comment('ID del pagador en su tabla (propietarios o inquilinos)');
+
             $table->text('observaciones')->nullable();
             $table->boolean('activo')->default(true);
 
@@ -55,6 +62,7 @@ return new class extends Migration
             $table->index('categoria_ingreso_id');
             $table->index('metodo_pago');
             $table->index(['tipo_ingreso', 'fecha'], 'idx_ingreso_tipo_fecha');
+            $table->index(['pagador_tipo', 'pagador_id'], 'idx_ingreso_pagador');
         });
     }
 
