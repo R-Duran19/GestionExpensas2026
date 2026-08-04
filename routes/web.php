@@ -7,6 +7,7 @@ use App\Http\Controllers\EgresoPDFController;
 use App\Http\Controllers\BoletaExpensaPDFController;
 use App\Http\Controllers\ExpensaUnidadPDFController;
 use App\Http\Controllers\ReporteExcelController;
+use App\Http\Controllers\UnidadExportController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -69,6 +70,8 @@ Route::middleware(['auth', 'admin'])->group(function () {
         Route::get('/', \App\Livewire\Propiedades\UnidadList::class)->name('index');
         Route::get('/crear', \App\Livewire\Propiedades\UnidadForm::class)->name('create');
         Route::get('/{unidad}/editar', \App\Livewire\Propiedades\UnidadEditConPropietario::class)->name('edit');
+        Route::get('/exportar/prorrateo-excel', [UnidadExportController::class, 'prorrateo'])
+            ->name('exportar.prorrateo');
     });
 
     // Rutas de Propietarios
@@ -79,8 +82,18 @@ Route::middleware(['auth', 'admin'])->group(function () {
         Route::get('/{propietario}/editar', \App\Livewire\Propietarios\PropietarioEditConUnidades::class)->name('edit');
     });
 
+    // Rutas de Inquilinos
+    Route::prefix('inquilinos')->name('inquilinos.')->group(function () {
+        Route::get('/', \App\Livewire\Inquilinos\InquilinoList::class)->name('index');
+        Route::get('/crear', \App\Livewire\Inquilinos\InquilinoForm::class)->name('create');
+        Route::get('/{inquilino}', \App\Livewire\Inquilinos\InquilinoShow::class)->name('show');
+        Route::get('/{inquilino}/editar', \App\Livewire\Inquilinos\InquilinoForm::class)->name('edit');
+        Route::get('/{inquilino}/asignar-unidades', \App\Livewire\Inquilinos\AsignarInquilino::class)->name('asignar-unidades');
+    });
+
     // Rutas de Asignación
     Route::get('/asignar-propietario', \App\Livewire\Propiedades\AsignarPropietario::class)->name('asignar-propietario');
+    Route::get('/asignar-inquilino', \App\Livewire\Inquilinos\AsignarInquilino::class)->name('asignar-inquilino');
 
     /*
     |--------------------------------------------------------------------------
@@ -120,6 +133,9 @@ Route::middleware(['auth', 'admin'])->group(function () {
         // Listado principal de expensas (por unidades)
         Route::get('/', \App\Livewire\Expensas\ExpensaList::class)->name('index');
         Route::get('/list', \App\Livewire\Expensas\ExpensaList::class)->name('list'); // Alias para redirecciones
+
+        // Boleta Manual - Generación manual de PDFs
+        Route::get('/boleta-manual', \App\Livewire\Expensas\BoletaManual::class)->name('boleta.manual');
 
         // Detalle de expensa por unidad (con selector de período)
         Route::get('/unidad/{unidad}', \App\Livewire\Expensas\ExpensaUnidadDetalle::class)->name('unidad.detalle');
@@ -187,6 +203,12 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
         // Registrar lectura compartida
         Route::get('/compartida/{periodo}', \App\Livewire\Periodos\RegistrarLecturaCompartida::class)->name('compartida');
+
+        // Editar lectura individual
+        Route::get('/individual/{lectura}/editar', \App\Livewire\Periodos\EditarLecturaIndividual::class)->name('individual.edit');
+
+        // Editar lectura compartida (grupo)
+        Route::get('/compartida/{lecturaGrupo}/editar', \App\Livewire\Periodos\EditarLecturaCompartida::class)->name('compartida.edit');
     });
 
     /*
