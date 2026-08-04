@@ -8,6 +8,29 @@
         </a>
     </div>
 
+    <!-- Banner de éxito tras edición -->
+    @if($bannerExito)
+        <div x-data="{ show: true }"
+             x-show="show"
+             x-init="setTimeout(() => show = false, 5000)"
+             x-transition
+             class="mb-4 p-4 rounded-lg border border-green-300 bg-green-50 flex items-start justify-between gap-3">
+            <div class="flex items-start gap-2">
+                <svg class="w-5 h-5 text-green-600 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                <div>
+                    <p class="text-sm font-medium text-green-900">{{ $bannerExito }}</p>
+                </div>
+            </div>
+            <button type="button" @click="show = false" wire:click="limpiarBanner" class="text-green-600 hover:text-green-800">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    @endif
+
     <!-- Encabezado con Progreso -->
     <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
@@ -70,15 +93,41 @@
             @endif
         </div>
 
-        <!-- Filtros -->
-        <div class="flex space-x-4">
+        <!-- Filtros + Buscador -->
+        <div class="flex flex-col sm:flex-row gap-3">
             <select wire:model.live="filtroTipo"
-                    class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm">
+                    class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:w-auto">
                 <option value="">Todos los tipos</option>
                 <option value="individual">Individuales</option>
                 <option value="compartido">Compartidos</option>
             </select>
+
+            <div class="relative flex-1">
+                <input type="text"
+                       wire:model.live.debounce.300ms="search"
+                       placeholder="Buscar por unidad, código o propietario..."
+                       class="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm">
+                <svg class="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                @if($search)
+                    <button type="button"
+                            wire:click="limpiarBusqueda"
+                            class="absolute right-2 top-1.5 text-gray-400 hover:text-gray-600 p-1"
+                            aria-label="Limpiar búsqueda">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                @endif
+            </div>
         </div>
+
+        @if($search && $this->lecturas->count() === 0)
+            <p class="mt-3 text-sm text-gray-500">
+                No se encontraron lecturas que coincidan con "<strong>{{ $search }}</strong>".
+            </p>
+        @endif
     </div>
 
     <!-- Lista de Lecturas -->
@@ -86,106 +135,152 @@
         <div class="space-y-4">
             @foreach($this->lecturas as $lectura)
                 @if(isset($lectura['tipo']) && $lectura['tipo'] === 'compartido' && isset($lectura['unidades']))
-                    <!-- Lectura Compartida Agrupada -->
-                    <div class="bg-white rounded-lg shadow-sm border border-purple-200 overflow-hidden">
-                        <!-- Header del Grupo -->
-                        <div class="bg-purple-50 px-6 py-4 border-b border-purple-200">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center space-x-3">
-                                    <div class="h-10 w-10 rounded-lg flex items-center justify-center bg-purple-600">
+                    <!-- Lectura Compartida Agrupada (Acordeón) -->
+                    <div
+                        x-data="{ open: false }"
+                        class="bg-white rounded-lg shadow-sm border border-purple-200 overflow-hidden">
+                        <!-- Header del Grupo (clickeable) -->
+                        <button type="button"
+                                x-on:click="open = !open"
+                                class="w-full bg-purple-50 hover:bg-purple-100 transition-colors px-4 sm:px-6 py-4 border-b border-purple-200 text-left">
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="flex items-center space-x-3 min-w-0">
+                                    <div class="h-10 w-10 flex-shrink-0 rounded-lg flex items-center justify-center bg-purple-600">
                                         <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                                         </svg>
                                     </div>
-                                    <div>
-                                        <h3 class="text-lg font-bold text-purple-900">{{ $lectura['grupo_nombre'] }}</h3>
-                                        <p class="text-sm text-purple-700">{{ count($lectura['unidades']) }} unidades con medidor compartido</p>
+                                    <div class="min-w-0">
+                                        <h3 class="text-base sm:text-lg font-bold text-purple-900 truncate">{{ $lectura['grupo_nombre'] }}</h3>
+                                        <p class="text-xs sm:text-sm text-purple-700">{{ count($lectura['unidades']) }} unidades con medidor compartido</p>
                                     </div>
                                 </div>
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-600 text-white">
-                                    Compartido
-                                </span>
-                            </div>
-                        </div>
 
-                        <!-- Detalles del Grupo -->
-                        <div class="p-6">
-                            <!-- Resumen de Consumo del Grupo -->
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                                <div class="bg-gray-50 rounded-lg p-4">
-                                    <p class="text-sm text-gray-600 mb-1">Lectura Anterior</p>
-                                    <p class="text-2xl font-bold text-gray-900">
-                                        {{ number_format($lectura['lectura_anterior'], 2) }} M³
-                                    </p>
+                                <!-- Resumen compacto: anterior / actual / consumo -->
+                                <div class="hidden sm:flex items-center gap-4 sm:gap-6">
+                                    <div class="text-center">
+                                        <p class="text-[10px] uppercase tracking-wide text-gray-500">Anterior</p>
+                                        <p class="text-sm font-bold text-gray-900">{{ number_format($lectura['lectura_anterior'], 2) }} M³</p>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-[10px] uppercase tracking-wide text-gray-500">Actual</p>
+                                        <p class="text-sm font-bold text-blue-600">{{ number_format($lectura['lectura_actual'], 2) }} M³</p>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-[10px] uppercase tracking-wide text-blue-700">Consumo</p>
+                                        <p class="text-sm font-bold text-blue-600">{{ number_format($lectura['consumo_total'], 2) }} M³</p>
+                                    </div>
                                 </div>
-                                <div class="bg-gray-50 rounded-lg p-4">
-                                    <p class="text-sm text-gray-600 mb-1">Lectura Actual</p>
-                                    <p class="text-2xl font-bold text-blue-600">
-                                        {{ number_format($lectura['lectura_actual'], 2) }} M³
-                                    </p>
-                                </div>
-                                <div class="bg-blue-50 rounded-lg p-4">
-                                    <p class="text-sm text-blue-700 mb-1">Consumo Total</p>
-                                    <p class="text-2xl font-bold text-blue-600">
-                                        {{ number_format($lectura['consumo_total'], 2) }} M³
-                                    </p>
-                                </div>
-                            </div>
 
-                            <!-- Distribución por Unidad -->
-                            <div>
-                                <h4 class="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                                    <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                <div class="flex items-center gap-2 flex-shrink-0">
+                                    <span class="hidden md:inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-600 text-white">
+                                        Compartido
+                                    </span>
+                                    @if(!empty($lectura['lectura_grupo_id']))
+                                        <a href="{{ route('lecturas.compartida.edit', $lectura['lectura_grupo_id']) }}"
+                                           @click.stop
+                                           class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-white text-amber-700 border border-amber-300 hover:bg-amber-50"
+                                           title="Editar lectura">
+                                            <svg class="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                            </svg>
+                                            Editar
+                                        </a>
+                                    @endif
+                                    <svg class="w-5 h-5 text-purple-600 transition-transform duration-200"
+                                         :class="{ 'rotate-180': open }"
+                                         fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                                     </svg>
-                                    Distribución del consumo entre unidades
-                                </h4>
-                                <div class="bg-gray-50 rounded-lg overflow-hidden">
-                                    <table class="min-w-full divide-y divide-gray-200">
-                                        <thead class="bg-gray-100">
-                                            <tr>
-                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unidad</th>
-                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Propietario</th>
-                                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Consumo Asignado</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="bg-white divide-y divide-gray-200">
-                                            @foreach($lectura['unidades'] as $unidad)
-                                                <tr class="hover:bg-gray-50">
-                                                    <td class="px-4 py-3">
-                                                        <div class="text-sm font-medium text-gray-900">{{ $unidad['nombre_unidad'] }}</div>
-                                                        <div class="text-xs text-gray-500">{{ $unidad['codigo'] }}</div>
+                                </div>
+                            </div>
+
+                            <!-- Resumen compacto en móvil (debajo del título) -->
+                            <div class="sm:hidden mt-3 grid grid-cols-3 gap-2">
+                                <div class="bg-white rounded-md p-2 text-center border border-purple-100">
+                                    <p class="text-[10px] uppercase tracking-wide text-gray-500">Anterior</p>
+                                    <p class="text-xs font-bold text-gray-900">{{ number_format($lectura['lectura_anterior'], 2) }}</p>
+                                </div>
+                                <div class="bg-white rounded-md p-2 text-center border border-purple-100">
+                                    <p class="text-[10px] uppercase tracking-wide text-gray-500">Actual</p>
+                                    <p class="text-xs font-bold text-blue-600">{{ number_format($lectura['lectura_actual'], 2) }}</p>
+                                </div>
+                                <div class="bg-white rounded-md p-2 text-center border border-purple-100">
+                                    <p class="text-[10px] uppercase tracking-wide text-blue-700">Consumo</p>
+                                    <p class="text-xs font-bold text-blue-600">{{ number_format($lectura['consumo_total'], 2) }}</p>
+                                </div>
+                            </div>
+                        </button>
+
+                        <!-- Detalles del Grupo (desplegable) -->
+                        <div x-show="open" x-collapse>
+                            <div class="p-4 sm:p-6">
+                                <!-- Distribución por Unidad -->
+                                <div>
+                                    <div class="flex items-center justify-between mb-3">
+                                        <h4 class="text-sm font-semibold text-gray-900 flex items-center">
+                                            <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                            </svg>
+                                            Distribución del consumo entre unidades
+                                        </h4>
+                                        @if(!empty($lectura['lectura_grupo_id']))
+                                            <a href="{{ route('lecturas.compartida.edit', $lectura['lectura_grupo_id']) }}"
+                                               class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium text-amber-700 bg-amber-50 border border-amber-300 hover:bg-amber-100 transition-colors">
+                                                <svg class="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                                </svg>
+                                                Editar lectura y distribución
+                                            </a>
+                                        @endif
+                                    </div>
+                                    <div class="bg-gray-50 rounded-lg overflow-hidden">
+                                        <table class="min-w-full divide-y divide-gray-200">
+                                            <thead class="bg-gray-100">
+                                                <tr>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unidad</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Propietario</th>
+                                                    <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Consumo Asignado</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="bg-white divide-y divide-gray-200">
+                                                @foreach($lectura['unidades'] as $unidad)
+                                                    <tr class="hover:bg-gray-50">
+                                                        <td class="px-4 py-3">
+                                                            <div class="text-sm font-medium text-gray-900">{{ $unidad['nombre_unidad'] }}</div>
+                                                            <div class="text-xs text-gray-500">{{ $unidad['codigo'] }}</div>
+                                                        </td>
+                                                        <td class="px-4 py-3 text-sm text-gray-600">
+                                                            {{ $unidad['propietario'] ?: '-' }}
+                                                        </td>
+                                                        <td class="px-4 py-3 text-sm font-semibold text-blue-600 text-right">
+                                                            {{ number_format($unidad['consumo_asignado'], 2) }} M³
+                                                        </td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                            <tfoot class="bg-purple-50">
+                                                <tr>
+                                                    <td class="px-4 py-2 text-sm font-medium text-purple-900" colspan="2">
+                                                        Total del Grupo
                                                     </td>
-                                                    <td class="px-4 py-3 text-sm text-gray-600">
-                                                        {{ $unidad['propietario'] ?: '-' }}
-                                                    </td>
-                                                    <td class="px-4 py-3 text-sm font-semibold text-blue-600 text-right">
-                                                        {{ number_format($unidad['consumo_asignado'], 2) }} M³
+                                                    <td class="px-4 py-2 text-sm font-bold text-purple-600 text-right">
+                                                        {{ number_format($lectura['consumo_total'], 2) }} M³
                                                     </td>
                                                 </tr>
-                                            @endforeach
-                                        </tbody>
-                                        <tfoot class="bg-purple-50">
-                                            <tr>
-                                                <td class="px-4 py-2 text-sm font-medium text-purple-900" colspan="2">
-                                                    Total del Grupo
-                                                </td>
-                                                <td class="px-4 py-2 text-sm font-bold text-purple-600 text-right">
-                                                    {{ number_format($lectura['consumo_total'], 2) }} M³
-                                                </td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
+                                            </tfoot>
+                                        </table>
+                                    </div>
                                 </div>
-                            </div>
 
-                            @if($lectura['observaciones'])
-                                <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                    <p class="text-sm text-yellow-800">
-                                        <span class="font-medium">Observaciones:</span> {{ $lectura['observaciones'] }}
-                                    </p>
-                                </div>
-                            @endif
+                                @if($lectura['observaciones'])
+                                    <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                        <p class="text-sm text-yellow-800">
+                                            <span class="font-medium">Observaciones:</span> {{ $lectura['observaciones'] }}
+                                        </p>
+                                    </div>
+                                @endif
+                            </div>
                         </div>
                     </div>
                 @else
@@ -203,9 +298,18 @@
                                     <p class="text-sm text-gray-500">{{ $lectura['codigo'] }}</p>
                                 </div>
                             </div>
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                                Individual
-                            </span>
+                            <div class="flex items-center gap-2">
+                                <span class="hidden sm:inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                                    Individual
+                                </span>
+                                <a href="{{ route('lecturas.individual.edit', $lectura['id']) }}"
+                                   class="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-amber-700 bg-amber-50 border border-amber-300 hover:bg-amber-100 transition-colors">
+                                    <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                    </svg>
+                                    Editar
+                                </a>
+                            </div>
                         </div>
 
                         <div class="mt-4 grid grid-cols-3 gap-4">
