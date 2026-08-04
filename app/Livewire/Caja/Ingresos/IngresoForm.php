@@ -468,10 +468,10 @@ class IngresoForm extends Component
                 'deuda_expensa' => $expensa->expensa_pendiente,
                 'deuda_agua' => $tieneMedidor ? $expensa->agua_pendiente : 0,
                 'deuda_total' => $expensa->expensa_pendiente + ($tieneMedidor ? $expensa->agua_pendiente : 0),
-                'pagar_expensa' => $expensa->expensa_pendiente > 0,
-                'pagar_agua' => $tieneMedidor && $expensa->agua_pendiente > 0,
-                'monto_expensa' => $expensa->expensa_pendiente,
-                'monto_agua' => $tieneMedidor ? $expensa->agua_pendiente : 0,
+                'pagar_expensa' => false,
+                'pagar_agua' => false,
+                'monto_expensa' => 0,
+                'monto_agua' => 0,
             ];
         }
 
