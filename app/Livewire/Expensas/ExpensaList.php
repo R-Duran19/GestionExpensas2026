@@ -39,14 +39,18 @@ class ExpensaList extends Component
 
     public function mount()
     {
-        // Por defecto, cargar el período abierto más reciente
-        $periodoAbierto = PeriodoExpensa::abiertos()
-            ->orderBy('año', 'desc')
-            ->orderBy('mes', 'desc')
-            ->first();
+        // Solo asignar período por defecto si NO viene en la URL (queryString).
+        // Livewire inicializa $this->periodoId desde la URL antes de mount(),
+        // así que si ya tiene valor, lo respetamos para permitir recargas y links compartibles.
+        if (!$this->periodoId) {
+            $periodoAbierto = PeriodoExpensa::abiertos()
+                ->orderBy('año', 'desc')
+                ->orderBy('mes', 'desc')
+                ->first();
 
-        if ($periodoAbierto) {
-            $this->periodoId = $periodoAbierto->id;
+            if ($periodoAbierto) {
+                $this->periodoId = $periodoAbierto->id;
+            }
         }
     }
 
@@ -140,8 +144,9 @@ class ExpensaList extends Component
             $query->where('unidades.tipo_unidad', $this->filtroTipo);
         }
 
-        // Ordenar natural por código (ej: D-1, D-2, D-10)
-        $query->orderBy('unidades.tipo_unidad')
+        // Ordenar por tipo de unidad (departamento, oficina, local, parqueo, baulera)
+        // y luego orden natural por código (ej: D-1, D-2, D-10)
+        $query->orderByRaw("FIELD(unidades.tipo_unidad, 'departamento', 'oficina', 'local', 'parqueo', 'baulera')")
               ->orderByRaw("CAST(SUBSTRING_INDEX(unidades.codigo, '-', -1) AS UNSIGNED)");
 
         // Paginar
@@ -412,7 +417,10 @@ class ExpensaList extends Component
      */
     public function verDetalleUnidad($unidadId)
     {
-        return $this->redirect(route('expensas.unidad.detalle', [$this->periodoId, $unidadId]));
+        return $this->redirect(route('expensas.unidad.detalle', [
+            'unidad' => $unidadId,
+            'periodoId' => $this->periodoId,
+        ]));
     }
 
     /**

@@ -137,7 +137,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
         // Boleta Manual - Generación manual de PDFs
         Route::get('/boleta-manual', \App\Livewire\Expensas\BoletaManual::class)->name('boleta.manual');
 
-        // Detalle de expensa por unidad (con selector de período)
+        // Detalle de expensa por unidad (período vía query string ?periodoId=)
         Route::get('/unidad/{unidad}', \App\Livewire\Expensas\ExpensaUnidadDetalle::class)->name('unidad.detalle');
 
         // Detalle de expensas por propietario (todas las unidades del propietario)
@@ -153,7 +153,8 @@ Route::middleware(['auth', 'admin'])->group(function () {
         Route::get('/{expensa}', function($expensa) {
             $expensa = \App\Models\Expensa::findOrFail($expensa);
             return redirect()->route('expensas.unidad.detalle', [
-                'unidad' => $expensa->unidad_id
+                'unidad' => $expensa->unidad_id,
+                'periodoId' => $expensa->periodo_id,
             ]);
         })->name('detalle');
 

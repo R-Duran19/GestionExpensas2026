@@ -231,7 +231,7 @@
                             </th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tbody class="divide-y divide-gray-200">
                         @forelse($this->unidadesConExpensas as $unidad)
                             @php
                                 // Obtener expensa de esta unidad para el período actual
@@ -263,7 +263,7 @@
                                 }
                             @endphp
 
-                            <tr wire:key="unidad-{{ $unidad->id }}" class="hover:bg-gray-50">
+                            <tr wire:key="unidad-{{ $unidad->id }}" class="{{ $loop->even ? 'bg-gray-50' : 'bg-white' }} hover:bg-gray-100">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
                                         <div class="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-medium">
@@ -336,7 +336,7 @@
                                         <!-- Ver detalle -->
                                         @if($expensa)
                                             <a
-                                                href="{{ route('expensas.unidad.detalle', ['unidad' => $unidad->id]) }}"
+                                                href="{{ route('expensas.unidad.detalle', ['unidad' => $unidad->id, 'periodoId' => $this->periodoId]) }}"
                                                 class="text-blue-600 hover:text-blue-900"
                                                 title="Ver detalle de expensa"
                                             >
@@ -468,7 +468,7 @@
                             </th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tbody class="divide-y divide-gray-200">
                         @forelse($this->propietariosConExpensas as $propietario)
                             @php
                                 $estadoClass = 'bg-gray-100 text-gray-800';
@@ -490,7 +490,7 @@
                                 }
                             @endphp
 
-                            <tr wire:key="prop-{{ $propietario->id }}" class="hover:bg-gray-50">
+                            <tr wire:key="prop-{{ $propietario->id }}" class="{{ $loop->even ? 'bg-gray-50' : 'bg-white' }} hover:bg-gray-100">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
                                         <div class="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-medium text-sm">

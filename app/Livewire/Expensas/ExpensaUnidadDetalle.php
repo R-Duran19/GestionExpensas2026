@@ -18,6 +18,10 @@ class ExpensaUnidadDetalle extends Component
     public $expensa;
     public $periodosDisponibles = [];
 
+    // Sincroniza el período con la URL (?periodoId=) igual que en ExpensaList,
+    // permitiendo recargas, bookmarks y navegación hacia/desde el listado consistente.
+    protected $queryString = ['periodoId'];
+
     protected PagoExpensaService $pagoExpensaService;
 
     public function boot(PagoExpensaService $pagoExpensaService)
@@ -25,15 +29,14 @@ class ExpensaUnidadDetalle extends Component
         $this->pagoExpensaService = $pagoExpensaService;
     }
 
-    public function mount($unidad, $periodoId = null)
+    public function mount($unidad)
     {
         $this->unidadId = $unidad;
         $this->unidad = Unidad::with(['propietarioActual', 'medidorGrupo'])->findOrFail($this->unidadId);
 
-        // Si se especifica un período por parámetro, usarlo
-        if ($periodoId) {
-            $this->periodoId = $periodoId;
-        } else {
+        // Livewire ya inicializó $this->periodoId desde la URL (queryString) antes del mount.
+        // Solo asignamos valor por defecto si no viene ninguno.
+        if (!$this->periodoId) {
             // Obtener el período actual (abierto más reciente)
             $periodoActual = PeriodoExpensa::abiertos()
                 ->orderBy('año', 'desc')
