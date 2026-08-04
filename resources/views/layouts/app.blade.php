@@ -16,6 +16,9 @@
               integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
               crossorigin="anonymous" referrerpolicy="no-referrer">
 
+        <!-- Alpine cloak (evita parpadeo de elementos x-show/x-collapse) -->
+        <style>[x-cloak]{display:none !important;}</style>
+
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>

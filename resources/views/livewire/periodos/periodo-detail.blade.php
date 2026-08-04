@@ -162,56 +162,168 @@
     @if($periodo->lecturasMedidor->count() > 0)
         <div class="bg-white rounded-lg shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-bold text-gray-900">Lecturas de Medidor</h3>
-                <p class="text-sm text-gray-500 mt-1">Registro de lecturas del período</p>
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900">Lecturas de Medidor</h3>
+                        <p class="text-sm text-gray-500 mt-1">Registro de lecturas del período (solo unidades con medidor)</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <!-- Filtro por tipo de unidad -->
+                        <select wire:model.live="filtroTipo"
+                                class="block w-full sm:w-auto rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
+                            @foreach($tipoOpciones as $value => $label)
+                                <option value="{{ $value }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+
+                        <!-- Buscador -->
+                        <div class="relative">
+                            <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                            <input type="text"
+                                   wire:model.live.debounce.300ms="search"
+                                   placeholder="Buscar por código o propietario..."
+                                   class="block w-full sm:w-72 rounded-md border-gray-300 pl-9 text-sm focus:border-blue-500 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
             </div>
+
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unidad</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Lectura Actual</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Lectura Anterior</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Consumo m³</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unidad</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Lectura Anterior</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Lectura Actual</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Consumo m³</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        @foreach($periodo->lecturasMedidor as $lectura)
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm font-medium text-gray-900">
-                                        {{ $lectura->unidad->nombre }}
-                                    </div>
-                                    @if($lectura->unidad->propietario)
-                                        <div class="text-xs text-gray-500">
-                                            {{ $lectura->unidad->propietario->nombre }}
+
+                    @forelse($lecturas as $row)
+                        @if($row['tipo'] === 'individual')
+                            <tbody class="bg-white">
+                                <tr class="hover:bg-gray-50" wire:key="{{ $row['id'] }}">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900">{{ $row['codigo'] }}</div>
+                                        @if($row['propietario'])
+                                            <div class="text-xs text-gray-500">{{ $row['propietario'] }}</div>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            {{ $row['tipo_unidad_label'] }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                                        {{ number_format($row['lectura_anterior'], 0) }} m³
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
+                                        {{ number_format($row['lectura_actual'], 0) }} m³
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
+                                        {{ number_format($row['consumo_m3'], 1) }} m³
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {{ $row['fecha']?->format('d/m/Y') }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        @else
+                            <!-- Fila de grupo medidor (acordeón) -->
+                            <tbody x-data="{ open: false }" wire:key="{{ $row['id'] }}" class="bg-white">
+                                <tr class="cursor-pointer hover:bg-purple-50 border-l-4 border-purple-400"
+                                    @click="open = !open">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <svg class="w-4 h-4 mr-2 text-purple-500 transition-transform duration-200"
+                                                 :class="{ 'rotate-90': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                            </svg>
+                                            <div>
+                                                <div class="text-sm font-semibold text-purple-900">{{ $row['grupo_nombre'] }}</div>
+                                                <div class="text-xs text-gray-500">{{ count($row['unidades']) }} unidad(es)</div>
+                                            </div>
                                         </div>
-                                    @endif
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                        {{ $lectura->tipo === 'individual' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800' }}">
-                                        {{ $lectura->tipo === 'individual' ? 'Individual' : 'Compartido' }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
-                                    {{ number_format($lectura->lectura_actual, 0) }} m³
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                                    {{ number_format($lectura->lectura_anterior, 0) }} m³
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
-                                    {{ number_format($lectura->consumo_m3, 1) }} m³
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {{ $lectura->created_at->format('d/m/Y') }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                            Compartido
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                                        {{ number_format($row['lectura_anterior'], 0) }} m³
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
+                                        {{ number_format($row['lectura_actual'], 0) }} m³
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-purple-700 text-right font-bold">
+                                        {{ number_format($row['consumo_total'], 1) }} m³
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {{ $row['fecha']?->format('d/m/Y') }}
+                                    </td>
+                                </tr>
+                                <!-- Contenido expandido: unidades del grupo -->
+                                <tr x-show="open" x-collapse x-cloak>
+                                    <td colspan="6" class="px-6 py-4 bg-purple-50/50">
+                                        <div class="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-2">Unidades del grupo (consumo distribuido)</div>
+                                        @if(count($row['unidades']) > 0)
+                                            <div class="overflow-hidden rounded-md border border-purple-200">
+                                                <table class="min-w-full divide-y divide-purple-200">
+                                                    <thead class="bg-purple-100">
+                                                        <tr>
+                                                            <th class="px-4 py-2 text-left text-xs font-semibold text-purple-800 uppercase">Unidad</th>
+                                                            <th class="px-4 py-2 text-left text-xs font-semibold text-purple-800 uppercase">Propietario</th>
+                                                            <th class="px-4 py-2 text-right text-xs font-semibold text-purple-800 uppercase">Consumo asignado</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody class="bg-white divide-y divide-purple-100">
+                                                        @foreach($row['unidades'] as $unidad)
+                                                            <tr wire:key="{{ $row['id'] . '_' . $unidad['codigo'] }}">
+                                                                <td class="px-4 py-2 whitespace-nowrap">
+                                                                    <div class="text-sm font-medium text-gray-900">{{ $unidad['codigo'] }}</div>
+                                                                    <div class="text-xs text-gray-500">{{ $unidad['tipo_unidad_label'] }}</div>
+                                                                </td>
+                                                                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+                                                                    {{ $unidad['propietario'] ?: '-' }}
+                                                                </td>
+                                                                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
+                                                                    {{ number_format($unidad['consumo_m3'], 1) }} m³
+                                                                </td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        @else
+                                            <p class="text-sm text-gray-400 italic">No hay unidades asignadas a este grupo.</p>
+                                        @endif
+                                    </td>
+                                </tr>
+                            </tbody>
+                        @endif
+                    @empty
+                        <tbody>
+                            <tr>
+                                <td colspan="6" class="px-6 py-10 text-center text-sm text-gray-400">
+                                    No se encontraron lecturas con los filtros actuales.
                                 </td>
                             </tr>
-                        @endforeach
-                    </tbody>
+                        </tbody>
+                    @endforelse
                 </table>
+            </div>
+
+            <!-- Resumen y paginación -->
+            <div class="px-6 py-4 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3">
+                <p class="text-xs text-gray-500">
+                    Mostrando {{ $lecturas->firstItem() ?? 0 }}-{{ $lecturas->lastItem() ?? 0 }} de {{ $lecturas->total() }} resultado(s)
+                </p>
+                {{ $lecturas->links() }}
             </div>
         </div>
     @endif
