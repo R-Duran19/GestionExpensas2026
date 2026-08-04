@@ -75,6 +75,14 @@ class Unidad extends Model
     }
 
     /**
+     * Obtener el inquilino actual como un modelo individual
+     */
+    public function getInquilinoActualAttribute()
+    {
+        return $this->inquilinos()->wherePivot('es_inquilino_actual', true)->first();
+    }
+
+    /**
      * Obtener el color para UI según tipo
      */
     public function getColorAttribute(): string
@@ -151,6 +159,10 @@ class Unidad extends Model
                   ->orWhereHas('propietarioActual', function ($propQ) use ($termino) {
                       $propQ->where('nombre', 'like', "%{$termino}%")
                             ->orWhere('apellido', 'like', "%{$termino}%");
+                  })
+                  ->orWhereHas('inquilinoActual', function ($inqQ) use ($termino) {
+                      $inqQ->where('nombre', 'like', "%{$termino}%")
+                            ->orWhere('apellido', 'like', "%{$termino}%");
                   });
             });
         }
@@ -164,6 +176,10 @@ class Unidad extends Model
                           ->orWhere('piso', 'like', "%{$palabra}%")
                           ->orWhereHas('propietarioActual', function ($propQ) use ($palabra) {
                               $propQ->where('nombre', 'like', "%{$palabra}%")
+                                    ->orWhere('apellido', 'like', "%{$palabra}%");
+                          })
+                          ->orWhereHas('inquilinoActual', function ($inqQ) use ($palabra) {
+                              $inqQ->where('nombre', 'like', "%{$palabra}%")
                                     ->orWhere('apellido', 'like', "%{$palabra}%");
                           });
                 });
@@ -202,6 +218,54 @@ class Unidad extends Model
     public function tienePropietarioActual(): bool
     {
         return $this->propietarioActual()->exists();
+    }
+
+    /**
+     * Todos los inquilinos de esta unidad (histórico)
+     */
+    public function inquilinos()
+    {
+        return $this->belongsToMany(Inquilino::class, 'inquilino_unidad')
+                    ->withPivot('fecha_inicio', 'fecha_fin', 'es_inquilino_actual', 'monto_alquiler', 'observaciones')
+                    ->withTimestamps()
+                    ->orderBy('pivot_fecha_inicio', 'desc');
+    }
+
+    /**
+     * Obtener el inquilino actual de esta unidad
+     */
+    public function inquilinoActual()
+    {
+        return $this->belongsToMany(Inquilino::class, 'inquilino_unidad')
+                    ->wherePivot('es_inquilino_actual', true)
+                    ->withPivot('fecha_inicio', 'fecha_fin', 'monto_alquiler', 'observaciones');
+    }
+
+    /**
+     * Verificar si tiene inquilino actual
+     */
+    public function tieneInquilinoActual(): bool
+    {
+        return $this->inquilinoActual()->exists();
+    }
+
+    /**
+     * Obtener responsable de pago (inquilino si existe, sino propietario)
+     * Retorna array con tipo ('inquilino' o 'propietario') y entidad
+     */
+    public function getResponsablePagoAttribute()
+    {
+        if ($this->tieneInquilinoActual()) {
+            return [
+                'tipo' => 'inquilino',
+                'entidad' => $this->inquilinoActual,
+            ];
+        }
+
+        return [
+            'tipo' => 'propietario',
+            'entidad' => $this->propietarioActual,
+        ];
     }
 
     /**
