@@ -1,0 +1,979 @@
+{
+  "mes": "Julio",
+  "gestion": 2026,
+  "lecturas": [
+    {
+      "codigo_unidad": "LOC-1",
+      "lectura_anterior": 1.84,
+      "lectura_actual": 1.84,
+      "consumo_m3": 0.0,
+      "monto_agua_bs": 10
+    },
+    {
+      "codigo_unidad": "LOC-5",
+      "lectura_anterior": 0.92,
+      "lectura_actual": 0.92,
+      "consumo_m3": 0.0,
+      "monto_agua_bs": 13
+    },
+    {
+      "codigo_unidad": "LOC-9",
+      "lectura_anterior": 0.8,
+      "lectura_actual": 0.8,
+      "consumo_m3": 0.0,
+      "monto_agua_bs": 13
+    },
+    {
+      "codigo_unidad": "LOC-10",
+      "lectura_anterior": 61.58,
+      "lectura_actual": 63.77,
+      "consumo_m3": 2.19,
+      "monto_agua_bs": 63
+    },
+    {
+      "codigo_unidad": "LOC-2",
+      "lectura_anterior": 367.0,
+      "lectura_actual": 373.47,
+      "consumo_m3": 6.47,
+      "monto_agua_bs": 13
+    },
+    {
+      "codigo_unidad": "LOC-7",
+      "lectura_anterior": 13.0,
+      "lectura_actual": null,
+      "consumo_m3": null,
+      "monto_agua_bs": 13
+    },
+    {
+      "codigo_unidad": "LOC-8",
+      "lectura_anterior": 13.0,
+      "lectura_actual": null,
+      "consumo_m3": null,
+      "monto_agua_bs": 13
+    },
+    {
+      "codigo_unidad": "LOC-11",
+      "lectura_anterior": 13.0,
+      "lectura_actual": null,
+      "consumo_m3": null,
+      "monto_agua_bs": 13
+    },
+    {
+      "codigo_unidad": "LOC-3",
+      "lectura_anterior": 48.74,
+      "lectura_actual": 49.0,
+      "consumo_m3": 0.26,
+      "monto_agua_bs": 5
+    },
+    {
+      "codigo_unidad": "LOC-4",
+      "lectura_anterior": 117.2,
+      "lectura_actual": 118.01,
+      "consumo_m3": 0.81,
+      "monto_agua_bs": 14
+    },
+    {
+      "codigo_unidad": "LOC-6",
+      "lectura_anterior": 54.94,
+      "lectura_actual": 57.57,
+      "consumo_m3": 2.63,
+      "monto_agua_bs": 47
+    },
+    {
+      "codigo_unidad": "LOC-12",
+      "lectura_anterior": 261.8,
+      "lectura_actual": 265.79,
+      "consumo_m3": 3.99,
+      "monto_agua_bs": 71
+    },
+    {
+      "codigo_unidad": "LOC-18",
+      "lectura_anterior": 70.57,
+      "lectura_actual": 70.57,
+      "consumo_m3": 0.0,
+      "monto_agua_bs": 0
+    },
+    {
+      "codigo_unidad": "LOC-14",
+      "lectura_anterior": 343.1,
+      "lectura_actual": 346.33,
+      "consumo_m3": 3.23,
+      "monto_agua_bs": 15
+    },
+    {
+      "codigo_unidad": "LOC-15",
+      "lectura_anterior": 15.0,
+      "lectura_actual": null,
+      "consumo_m3": null,
+      "monto_agua_bs": 15
+    },
+    {
+      "codigo_unidad": "LOC-16",
+      "lectura_anterior": 15.0,
+      "lectura_actual": null,
+      "consumo_m3": null,
+      "monto_agua_bs": 15
+    },
+    {
+      "codigo_unidad": "LOC-17",
+      "lectura_anterior": 15.0,
+      "lectura_actual": null,
+      "consumo_m3": null,
+      "monto_agua_bs": 15
+    },
+    {
+      "codigo_unidad": "LOC-19",
+      "lectura_anterior": 15.0,
+      "lectura_actual": null,
+      "consumo_m3": null,
+      "monto_agua_bs": 15
+    },
+    {
+      "codigo_unidad": "OF-3-A",
+      "lectura_anterior": 209.45,
+      "lectura_actual": 214.77,
+      "consumo_m3": 5.32,
+      "monto_agua_bs": 95
+    },
+    {
+      "codigo_unidad": "OF-3-B",
+      "lectura_anterior": 65.29,
+      "lectura_actual": 66.6,
+      "consumo_m3": 1.31,
+      "monto_agua_bs": 23
+    },
+    {
+      "codigo_unidad": "OF-3-C",
+      "lectura_anterior": 64.41,
+      "lectura_actual": 65.21,
+      "consumo_m3": 0.8,
+      "monto_agua_bs": 14
+    },
+    {
+      "codigo_unidad": "OF-3-D",
+      "lectura_anterior": 59.93,
+      "lectura_actual": 59.93,
+      "consumo_m3": 0.0,
+      "monto_agua_bs": 0
+    },
+    {
+      "codigo_unidad": "OF-4-A",
+      "lectura_anterior": 20.84,
+      "lectura_actual": 21.07,
+      "consumo_m3": 0.23,
+      "monto_agua_bs": 4
+    },
+    {
+      "codigo_unidad": "OF-4-B",
+      "lectura_anterior": 26.19,
+      "lectura_actual": 26.19,
+      "consumo_m3": 0.0,
+      "monto_agua_bs": 0
+    },
+    {
+      "codigo_unidad": "OF-4-C",
+      "lectura_anterior": 45.26,
+      "lectura_actual": 45.57,
+      "consumo_m3": 0.31,
+      "monto_agua_bs": 6
+    },
+    {
+      "codigo_unidad": "OF-4-D",
+      "lectura_anterior": 69.27,
+      "lectura_actual": 69.44,
+      "consumo_m3": 0.17,
+      "monto_agua_bs": 3
+    },
+    {
+      "codigo_unidad": "OF-4-E",
+      "lectura_anterior": 16.65,
+      "lectura_actual": 16.65,
+      "consumo_m3": 0.0,
+      "monto_agua_bs": 0
+    },
+    {
+      "codigo_unidad": "OF-5-A",
+      "lectura_anterior": 36.69,
+      "lectura_actual": 37.8,
+      "consumo_m3": 1.11,
+      "monto_agua_bs": 20
+    },
+    {
+      "codigo_unidad": "OF-5-B",
+      "lectura_anterior": 8.33,
+      "lectura_actual": 8.45,
+      "consumo_m3": 0.12,
+      "monto_agua_bs": 2
+    },
+    {
+      "codigo_unidad": "OF-5-C",
+      "lectura_anterior": 41.92,
+      "lectura_actual": 42.28,
+      "consumo_m3": 0.36,
+      "monto_agua_bs": 6
+    },
+    {
+      "codigo_unidad": "OF-5-D",
+      "lectura_anterior": 61.8,
+      "lectura_actual": 61.82,
+      "consumo_m3": 0.02,
+      "monto_agua_bs": 0
+    },
+    {
+      "codigo_unidad": "OF-5-E",
+      "lectura_anterior": 245.02,
+      "lectura_actual": 246.37,
+      "consumo_m3": 1.35,
+      "monto_agua_bs": 24
+    },
+    {
+      "codigo_unidad": "OF-5-F",
+      "lectura_anterior": 111.09,
+      "lectura_actual": 111.37,
+      "consumo_m3": 0.28,
+      "monto_agua_bs": 5
+    },
+    {
+      "codigo_unidad": "OF-5-G",
+      "lectura_anterior": 4.33,
+      "lectura_actual": 4.39,
+      "consumo_m3": 0.06,
+      "monto_agua_bs": 1
+    },
+    {
+      "codigo_unidad": "OF-6-A",
+      "lectura_anterior": 122.5,
+      "lectura_actual": 123.56,
+      "consumo_m3": 1.06,
+      "monto_agua_bs": 19
+    },
+    {
+      "codigo_unidad": "OF-6-B",
+      "lectura_anterior": 161.91,
+      "lectura_actual": 163.27,
+      "consumo_m3": 1.36,
+      "monto_agua_bs": 24
+    },
+    {
+      "codigo_unidad": "OF-6-C",
+      "lectura_anterior": 35.71,
+      "lectura_actual": 36.23,
+      "consumo_m3": 0.52,
+      "monto_agua_bs": 9
+    },
+    {
+      "codigo_unidad": "OF-6-D",
+      "lectura_anterior": 102.95,
+      "lectura_actual": 103.62,
+      "consumo_m3": 0.67,
+      "monto_agua_bs": 12
+    },
+    {
+      "codigo_unidad": "OF-6-E",
+      "lectura_anterior": 29.21,
+      "lectura_actual": 29.67,
+      "consumo_m3": 0.46,
+      "monto_agua_bs": 8
+    },
+    {
+      "codigo_unidad": "OF-6-F",
+      "lectura_anterior": 142.53,
+      "lectura_actual": 144.02,
+      "consumo_m3": 1.49,
+      "monto_agua_bs": 27
+    },
+    {
+      "codigo_unidad": "OF-6-G",
+      "lectura_anterior": 51.52,
+      "lectura_actual": 53.71,
+      "consumo_m3": 2.19,
+      "monto_agua_bs": 39
+    },
+    {
+      "codigo_unidad": "OF-7-A",
+      "lectura_anterior": 37.09,
+      "lectura_actual": 37.11,
+      "consumo_m3": 0.02,
+      "monto_agua_bs": 0
+    },
+    {
+      "codigo_unidad": "OF-7-B",
+      "lectura_anterior": 35.3,
+      "lectura_actual": 35.36,
+      "consumo_m3": 0.06,
+      "monto_agua_bs": 1
+    },
+    {
+      "codigo_unidad": "OF-7-C",
+      "lectura_anterior": 71.8,
+      "lectura_actual": 72.28,
+      "consumo_m3": 0.48,
+      "monto_agua_bs": 9
+    },
+    {
+      "codigo_unidad": "OF-7-D",
+      "lectura_anterior": 96.27,
+      "lectura_actual": 98.5,
+      "consumo_m3": 2.23,
+      "monto_agua_bs": 40
+    },
+    {
+      "codigo_unidad": "OF-7-E",
+      "lectura_anterior": 2.72,
+      "lectura_actual": 3.26,
+      "consumo_m3": 0.54,
+      "monto_agua_bs": 10
+    },
+    {
+      "codigo_unidad": "OF-7-F",
+      "lectura_anterior": 18.83,
+      "lectura_actual": 19.07,
+      "consumo_m3": 0.24,
+      "monto_agua_bs": 4
+    },
+    {
+      "codigo_unidad": "OF-7-G",
+      "lectura_anterior": 62.32,
+      "lectura_actual": 62.48,
+      "consumo_m3": 0.16,
+      "monto_agua_bs": 3
+    },
+    {
+      "codigo_unidad": "OF-8-A",
+      "lectura_anterior": 9.13,
+      "lectura_actual": 9.53,
+      "consumo_m3": 0.4,
+      "monto_agua_bs": 7
+    },
+    {
+      "codigo_unidad": "OF-8-B",
+      "lectura_anterior": 102.39,
+      "lectura_actual": 102.89,
+      "consumo_m3": 0.5,
+      "monto_agua_bs": 9
+    },
+    {
+      "codigo_unidad": "OF-8-C",
+      "lectura_anterior": 68.3,
+      "lectura_actual": 68.74,
+      "consumo_m3": 0.44,
+      "monto_agua_bs": 8
+    },
+    {
+      "codigo_unidad": "OF-8-D",
+      "lectura_anterior": 47.4,
+      "lectura_actual": 47.68,
+      "consumo_m3": 0.28,
+      "monto_agua_bs": 5
+    },
+    {
+      "codigo_unidad": "OF-8-E",
+      "lectura_anterior": 48.01,
+      "lectura_actual": 48.15,
+      "consumo_m3": 0.14,
+      "monto_agua_bs": 2
+    },
+    {
+      "codigo_unidad": "OF-8-F",
+      "lectura_anterior": 28.06,
+      "lectura_actual": 29.36,
+      "consumo_m3": 1.3,
+      "monto_agua_bs": 23
+    },
+    {
+      "codigo_unidad": "OF-8-G",
+      "lectura_anterior": 97.29,
+      "lectura_actual": 98.23,
+      "consumo_m3": 0.94,
+      "monto_agua_bs": 17
+    },
+    {
+      "codigo_unidad": "OF-9-A",
+      "lectura_anterior": 7.05,
+      "lectura_actual": 7.16,
+      "consumo_m3": 0.11,
+      "monto_agua_bs": 2
+    },
+    {
+      "codigo_unidad": "OF-9-B",
+      "lectura_anterior": 106.66,
+      "lectura_actual": 106.67,
+      "consumo_m3": 0.01,
+      "monto_agua_bs": 0
+    },
+    {
+      "codigo_unidad": "OF-9-C",
+      "lectura_anterior": 44.88,
+      "lectura_actual": 45.33,
+      "consumo_m3": 0.45,
+      "monto_agua_bs": 8
+    },
+    {
+      "codigo_unidad": "OF-9-D",
+      "lectura_anterior": 18.48,
+      "lectura_actual": 20.18,
+      "consumo_m3": 1.7,
+      "monto_agua_bs": 30
+    },
+    {
+      "codigo_unidad": "OF-9-E",
+      "lectura_anterior": 6.18,
+      "lectura_actual": 6.8,
+      "consumo_m3": 0.62,
+      "monto_agua_bs": 11
+    },
+    {
+      "codigo_unidad": "OF-9-F",
+      "lectura_anterior": 4.6,
+      "lectura_actual": 4.6,
+      "consumo_m3": 0.0,
+      "monto_agua_bs": 0
+    },
+    {
+      "codigo_unidad": "OF-9-G",
+      "lectura_anterior": 12.82,
+      "lectura_actual": 13.16,
+      "consumo_m3": 0.34,
+      "monto_agua_bs": 6
+    },
+    {
+      "codigo_unidad": "OF-10-A",
+      "lectura_anterior": 46.04,
+      "lectura_actual": 46.5,
+      "consumo_m3": 0.46,
+      "monto_agua_bs": 8
+    },
+    {
+      "codigo_unidad": "OF-10-B",
+      "lectura_anterior": 11.9,
+      "lectura_actual": 12.09,
+      "consumo_m3": 0.19,
+      "monto_agua_bs": 3
+    },
+    {
+      "codigo_unidad": "OF-10-C",
+      "lectura_anterior": 3.63,
+      "lectura_actual": 4.0,
+      "consumo_m3": 0.37,
+      "monto_agua_bs": 7
+    },
+    {
+      "codigo_unidad": "OF-10-D",
+      "lectura_anterior": 6.09,
+      "lectura_actual": 6.36,
+      "consumo_m3": 0.27,
+      "monto_agua_bs": 5
+    },
+    {
+      "codigo_unidad": "OF-10-E",
+      "lectura_anterior": 34.76,
+      "lectura_actual": 35.2,
+      "consumo_m3": 0.44,
+      "monto_agua_bs": 8
+    },
+    {
+      "codigo_unidad": "OF-10-F",
+      "lectura_anterior": 10.41,
+      "lectura_actual": 10.41,
+      "consumo_m3": 0.0,
+      "monto_agua_bs": 0
+    },
+    {
+      "codigo_unidad": "OF-10-G",
+      "lectura_anterior": 17.73,
+      "lectura_actual": 18.32,
+      "consumo_m3": 0.59,
+      "monto_agua_bs": 11
+    },
+    {
+      "codigo_unidad": "DEP-11-A",
+      "lectura_anterior": 673.11,
+      "lectura_actual": 681.85,
+      "consumo_m3": 8.74,
+      "monto_agua_bs": 43
+    },
+    {
+      "codigo_unidad": "DEP-11-B",
+      "lectura_anterior": 581.31,
+      "lectura_actual": 586.16,
+      "consumo_m3": 4.85,
+      "monto_agua_bs": 24
+    },
+    {
+      "codigo_unidad": "DEP-11-C",
+      "lectura_anterior": 860.04,
+      "lectura_actual": 869.23,
+      "consumo_m3": 9.19,
+      "monto_agua_bs": 45
+    },
+    {
+      "codigo_unidad": "DEP-11-D",
+      "lectura_anterior": 395.22,
+      "lectura_actual": 403.27,
+      "consumo_m3": 8.05,
+      "monto_agua_bs": 39
+    },
+    {
+      "codigo_unidad": "DEP-12-A",
+      "lectura_anterior": 407.53,
+      "lectura_actual": 412.01,
+      "consumo_m3": 4.48,
+      "monto_agua_bs": 22
+    },
+    {
+      "codigo_unidad": "DEP-12-B",
+      "lectura_anterior": 626.97,
+      "lectura_actual": 631.85,
+      "consumo_m3": 4.88,
+      "monto_agua_bs": 24
+    },
+    {
+      "codigo_unidad": "DEP-12-C",
+      "lectura_anterior": 441.53,
+      "lectura_actual": 453.72,
+      "consumo_m3": 12.19,
+      "monto_agua_bs": 59
+    },
+    {
+      "codigo_unidad": "DEP-12-D",
+      "lectura_anterior": 718.61,
+      "lectura_actual": 733.84,
+      "consumo_m3": 15.23,
+      "monto_agua_bs": 74
+    },
+    {
+      "codigo_unidad": "DEP-13-A",
+      "lectura_anterior": 878.84,
+      "lectura_actual": 885.58,
+      "consumo_m3": 6.74,
+      "monto_agua_bs": 33
+    },
+    {
+      "codigo_unidad": "DEP-13-B",
+      "lectura_anterior": 1122.0,
+      "lectura_actual": 1134.65,
+      "consumo_m3": 12.65,
+      "monto_agua_bs": 62
+    },
+    {
+      "codigo_unidad": "DEP-13-C",
+      "lectura_anterior": 457.82,
+      "lectura_actual": 460.76,
+      "consumo_m3": 2.94,
+      "monto_agua_bs": 14
+    },
+    {
+      "codigo_unidad": "DEP-13-D",
+      "lectura_anterior": 345.25,
+      "lectura_actual": 345.25,
+      "consumo_m3": 0.0,
+      "monto_agua_bs": 0
+    },
+    {
+      "codigo_unidad": "DEP-14-A",
+      "lectura_anterior": 1410.56,
+      "lectura_actual": 1422.81,
+      "consumo_m3": 12.25,
+      "monto_agua_bs": 60
+    },
+    {
+      "codigo_unidad": "DEP-14-B",
+      "lectura_anterior": 551.17,
+      "lectura_actual": 556.66,
+      "consumo_m3": 5.49,
+      "monto_agua_bs": 27
+    },
+    {
+      "codigo_unidad": "DEP-14-C",
+      "lectura_anterior": 337.09,
+      "lectura_actual": 337.09,
+      "consumo_m3": 0.0,
+      "monto_agua_bs": 0
+    },
+    {
+      "codigo_unidad": "DEP-14-D",
+      "lectura_anterior": 371.77,
+      "lectura_actual": 377.28,
+      "consumo_m3": 5.51,
+      "monto_agua_bs": 27
+    },
+    {
+      "codigo_unidad": "DEP-15-A",
+      "lectura_anterior": 526.97,
+      "lectura_actual": 531.51,
+      "consumo_m3": 4.54,
+      "monto_agua_bs": 22
+    },
+    {
+      "codigo_unidad": "DEP-15-B",
+      "lectura_anterior": 1303.29,
+      "lectura_actual": 1316.83,
+      "consumo_m3": 13.54,
+      "monto_agua_bs": 66
+    },
+    {
+      "codigo_unidad": "DEP-15-C",
+      "lectura_anterior": 513.66,
+      "lectura_actual": 518.29,
+      "consumo_m3": 4.63,
+      "monto_agua_bs": 23
+    },
+    {
+      "codigo_unidad": "DEP-15-D",
+      "lectura_anterior": 693.32,
+      "lectura_actual": 699.14,
+      "consumo_m3": 5.82,
+      "monto_agua_bs": 28
+    },
+    {
+      "codigo_unidad": "DEP-16-A",
+      "lectura_anterior": 9.5,
+      "lectura_actual": 9.5,
+      "consumo_m3": 0.0,
+      "monto_agua_bs": 0
+    },
+    {
+      "codigo_unidad": "DEP-16-B",
+      "lectura_anterior": 2026.45,
+      "lectura_actual": 2048.31,
+      "consumo_m3": 21.86,
+      "monto_agua_bs": 107
+    },
+    {
+      "codigo_unidad": "DEP-16-C",
+      "lectura_anterior": 423.38,
+      "lectura_actual": 424.59,
+      "consumo_m3": 1.21,
+      "monto_agua_bs": 6
+    },
+    {
+      "codigo_unidad": "DEP-16-D",
+      "lectura_anterior": 524.06,
+      "lectura_actual": 528.21,
+      "consumo_m3": 4.15,
+      "monto_agua_bs": 20
+    },
+    {
+      "codigo_unidad": "DEP-17-A",
+      "lectura_anterior": 1579.89,
+      "lectura_actual": 1602.14,
+      "consumo_m3": 22.25,
+      "monto_agua_bs": 109
+    },
+    {
+      "codigo_unidad": "DEP-17-B",
+      "lectura_anterior": 673.77,
+      "lectura_actual": 681.94,
+      "consumo_m3": 8.17,
+      "monto_agua_bs": 40
+    },
+    {
+      "codigo_unidad": "DEP-17-C",
+      "lectura_anterior": 628.07,
+      "lectura_actual": 633.42,
+      "consumo_m3": 5.35,
+      "monto_agua_bs": 26
+    },
+    {
+      "codigo_unidad": "DEP-17-D",
+      "lectura_anterior": 468.93,
+      "lectura_actual": 475.35,
+      "consumo_m3": 6.42,
+      "monto_agua_bs": 31
+    },
+    {
+      "codigo_unidad": "DEP-18-A",
+      "lectura_anterior": 1087.33,
+      "lectura_actual": 1106.54,
+      "consumo_m3": 19.21,
+      "monto_agua_bs": 94
+    },
+    {
+      "codigo_unidad": "DEP-18-B",
+      "lectura_anterior": 547.48,
+      "lectura_actual": 555.64,
+      "consumo_m3": 8.16,
+      "monto_agua_bs": 40
+    },
+    {
+      "codigo_unidad": "DEP-18-C",
+      "lectura_anterior": 183.79,
+      "lectura_actual": 185.0,
+      "consumo_m3": 1.21,
+      "monto_agua_bs": 6
+    },
+    {
+      "codigo_unidad": "DEP-18-D",
+      "lectura_anterior": 418.24,
+      "lectura_actual": 421.93,
+      "consumo_m3": 3.69,
+      "monto_agua_bs": 18
+    },
+    {
+      "codigo_unidad": "DEP-19-A",
+      "lectura_anterior": 696.72,
+      "lectura_actual": 696.72,
+      "consumo_m3": 0.0,
+      "monto_agua_bs": 0
+    },
+    {
+      "codigo_unidad": "DEP-19-B",
+      "lectura_anterior": 823.76,
+      "lectura_actual": 830.63,
+      "consumo_m3": 6.87,
+      "monto_agua_bs": 34
+    },
+    {
+      "codigo_unidad": "DEP-19-C",
+      "lectura_anterior": 586.35,
+      "lectura_actual": 587.7,
+      "consumo_m3": 1.35,
+      "monto_agua_bs": 7
+    },
+    {
+      "codigo_unidad": "DEP-19-D",
+      "lectura_anterior": 324.71,
+      "lectura_actual": 329.27,
+      "consumo_m3": 4.56,
+      "monto_agua_bs": 22
+    },
+    {
+      "codigo_unidad": "DEP-20-A",
+      "lectura_anterior": 713.69,
+      "lectura_actual": 718.93,
+      "consumo_m3": 5.24,
+      "monto_agua_bs": 26
+    },
+    {
+      "codigo_unidad": "DEP-20-B",
+      "lectura_anterior": 777.89,
+      "lectura_actual": 783.97,
+      "consumo_m3": 6.08,
+      "monto_agua_bs": 30
+    },
+    {
+      "codigo_unidad": "DEP-20-C",
+      "lectura_anterior": 488.83,
+      "lectura_actual": 499.63,
+      "consumo_m3": 10.8,
+      "monto_agua_bs": 53
+    },
+    {
+      "codigo_unidad": "DEP-20-D",
+      "lectura_anterior": 193.37,
+      "lectura_actual": 193.37,
+      "consumo_m3": 0.0,
+      "monto_agua_bs": 0
+    },
+    {
+      "codigo_unidad": "DEP-21-A",
+      "lectura_anterior": 437.15,
+      "lectura_actual": 439.89,
+      "consumo_m3": 2.74,
+      "monto_agua_bs": 13
+    },
+    {
+      "codigo_unidad": "DEP-21-B",
+      "lectura_anterior": 328.8,
+      "lectura_actual": 333.54,
+      "consumo_m3": 4.74,
+      "monto_agua_bs": 23
+    },
+    {
+      "codigo_unidad": "DEP-21-C",
+      "lectura_anterior": 257.67,
+      "lectura_actual": 262.36,
+      "consumo_m3": 4.69,
+      "monto_agua_bs": 23
+    },
+    {
+      "codigo_unidad": "DEP-21-D",
+      "lectura_anterior": 352.89,
+      "lectura_actual": 358.94,
+      "consumo_m3": 6.05,
+      "monto_agua_bs": 30
+    },
+    {
+      "codigo_unidad": "DEP-22-A",
+      "lectura_anterior": 1042.37,
+      "lectura_actual": 1048.86,
+      "consumo_m3": 6.49,
+      "monto_agua_bs": 32
+    },
+    {
+      "codigo_unidad": "DEP-22-B",
+      "lectura_anterior": 615.78,
+      "lectura_actual": 617.71,
+      "consumo_m3": 1.93,
+      "monto_agua_bs": 9
+    },
+    {
+      "codigo_unidad": "DEP-22-C",
+      "lectura_anterior": 216.9,
+      "lectura_actual": 217.19,
+      "consumo_m3": 0.29,
+      "monto_agua_bs": 1
+    },
+    {
+      "codigo_unidad": "DEP-22-D",
+      "lectura_anterior": 306.03,
+      "lectura_actual": 310.53,
+      "consumo_m3": 4.5,
+      "monto_agua_bs": 22
+    },
+    {
+      "codigo_unidad": "DEP-23-A",
+      "lectura_anterior": 468.91,
+      "lectura_actual": 475.49,
+      "consumo_m3": 6.58,
+      "monto_agua_bs": 32
+    },
+    {
+      "codigo_unidad": "DEP-23-B",
+      "lectura_anterior": 650.64,
+      "lectura_actual": 655.0,
+      "consumo_m3": 4.36,
+      "monto_agua_bs": 21
+    },
+    {
+      "codigo_unidad": "DEP-23-C",
+      "lectura_anterior": 396.47,
+      "lectura_actual": 399.6,
+      "consumo_m3": 3.13,
+      "monto_agua_bs": 15
+    },
+    {
+      "codigo_unidad": "DEP-23-D",
+      "lectura_anterior": 172.07,
+      "lectura_actual": 175.09,
+      "consumo_m3": 3.02,
+      "monto_agua_bs": 15
+    },
+    {
+      "codigo_unidad": "DEP-24-A",
+      "lectura_anterior": 933.4,
+      "lectura_actual": 947.1,
+      "consumo_m3": 13.7,
+      "monto_agua_bs": 67
+    },
+    {
+      "codigo_unidad": "DEP-24-B",
+      "lectura_anterior": 251.6,
+      "lectura_actual": 251.98,
+      "consumo_m3": 0.38,
+      "monto_agua_bs": 2
+    },
+    {
+      "codigo_unidad": "DEP-24-C",
+      "lectura_anterior": 471.14,
+      "lectura_actual": 473.26,
+      "consumo_m3": 2.12,
+      "monto_agua_bs": 10
+    },
+    {
+      "codigo_unidad": "DEP-24-D",
+      "lectura_anterior": 711.88,
+      "lectura_actual": 713.75,
+      "consumo_m3": 1.87,
+      "monto_agua_bs": 9
+    },
+    {
+      "codigo_unidad": "DEP-25-A",
+      "lectura_anterior": 979.06,
+      "lectura_actual": 986.4,
+      "consumo_m3": 7.34,
+      "monto_agua_bs": 36
+    },
+    {
+      "codigo_unidad": "DEP-25-B",
+      "lectura_anterior": 385.48,
+      "lectura_actual": 389.56,
+      "consumo_m3": 4.08,
+      "monto_agua_bs": 20
+    },
+    {
+      "codigo_unidad": "DEP-25-C",
+      "lectura_anterior": 459.01,
+      "lectura_actual": 466.26,
+      "consumo_m3": 7.25,
+      "monto_agua_bs": 35
+    },
+    {
+      "codigo_unidad": "DEP-25-D",
+      "lectura_anterior": 231.71,
+      "lectura_actual": 231.71,
+      "consumo_m3": 0.0,
+      "monto_agua_bs": 0
+    },
+    {
+      "codigo_unidad": "DEP-26-A",
+      "lectura_anterior": 552.25,
+      "lectura_actual": 552.61,
+      "consumo_m3": 0.36,
+      "monto_agua_bs": 2
+    },
+    {
+      "codigo_unidad": "DEP-26-B",
+      "lectura_anterior": 469.72,
+      "lectura_actual": 474.68,
+      "consumo_m3": 4.96,
+      "monto_agua_bs": 24
+    },
+    {
+      "codigo_unidad": "DEP-26-C",
+      "lectura_anterior": 234.94,
+      "lectura_actual": 234.94,
+      "consumo_m3": 0.0,
+      "monto_agua_bs": 0
+    },
+    {
+      "codigo_unidad": "DEP-26-D",
+      "lectura_anterior": 382.02,
+      "lectura_actual": 383.71,
+      "consumo_m3": 1.69,
+      "monto_agua_bs": 8
+    },
+    {
+      "codigo_unidad": "DEP-27-A",
+      "lectura_anterior": 1004.76,
+      "lectura_actual": 1006.13,
+      "consumo_m3": 1.37,
+      "monto_agua_bs": 7
+    },
+    {
+      "codigo_unidad": "DEP-27-B",
+      "lectura_anterior": 449.57,
+      "lectura_actual": 454.18,
+      "consumo_m3": 4.61,
+      "monto_agua_bs": 22
+    },
+    {
+      "codigo_unidad": "DEP-27-C",
+      "lectura_anterior": 387.33,
+      "lectura_actual": 394.5,
+      "consumo_m3": 7.17,
+      "monto_agua_bs": 35
+    },
+    {
+      "codigo_unidad": "DEP-28-29-A",
+      "lectura_anterior": 2355.97,
+      "lectura_actual": 2373.62,
+      "consumo_m3": 17.65,
+      "monto_agua_bs": 86
+    },
+    {
+      "codigo_unidad": "DEP-28-29-B",
+      "lectura_anterior": 1153.74,
+      "lectura_actual": 1160.7,
+      "consumo_m3": 6.96,
+      "monto_agua_bs": 34
+    },
+    {
+      "codigo_unidad": "DEP-30",
+      "lectura_anterior": 259.3,
+      "lectura_actual": 271.94,
+      "consumo_m3": 12.64,
+      "monto_agua_bs": 62
+    }
+  ]
+}

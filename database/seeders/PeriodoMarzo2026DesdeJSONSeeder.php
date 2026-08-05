@@ -5,17 +5,19 @@ namespace Database\Seeders;
 use App\Models\PeriodoExpensa;
 use App\Models\FacturaAguaConfig;
 use App\Models\FacturaAguaPeriodo;
-use App\Models\LecturaMedidor;
-use App\Models\Unidad;
 use App\Models\Expensa;
 use App\Models\FactorProrrateo;
+use App\Models\Unidad;
 use App\Models\User;
 use App\Services\ExpensaService;
+use Database\Seeders\Concerns\ImportaLecturasConGrupos;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 class PeriodoMarzo2026DesdeJSONSeeder extends Seeder
 {
+    use ImportaLecturasConGrupos;
+
     /**
      * Run the database seeds.
      * SOLO GENERA EXPENSAS - SIN PAGOS
@@ -196,59 +198,20 @@ class PeriodoMarzo2026DesdeJSONSeeder extends Seeder
     }
 
     /**
-     * 4. Importar lecturas de medidor desde JSON
+     * 4. Importar lecturas de medidor desde JSON (reconoce grupos compartidos)
      */
     private function importarLecturasDesdeJSON($periodo, $adminUserId)
     {
-        $this->command->info('📏 Importando lecturas de medidor desde JSON...');
+        $this->command->info('📏 Importando lecturas de medidor desde JSON (con grupos)...');
 
         $jsonPath = base_path('EXCELS/LECTURAS AGUA/MARZO2026.json');
 
-        if (!file_exists($jsonPath)) {
-            $this->command->warn("  ⚠️ No se encontró archivo: {$jsonPath}");
-            return;
-        }
-
-        $jsonData = json_decode(file_get_contents($jsonPath), true);
-        $lecturas = $jsonData['lecturas'];
-
-        $this->command->info("  ✓ Lecturas a importar: " . count($lecturas) . " unidades");
-
-        $totalImportadas = 0;
-        $unidadesNoEncontradas = [];
-
-        foreach ($lecturas as $item) {
-            $codigoUnidad = $this->mapearCodigoUnidad($item['codigo_unidad']);
-
-            if ($codigoUnidad === null) continue;
-
-            $unidad = Unidad::where('codigo', $codigoUnidad)->first();
-
-            if ($unidad) {
-                LecturaMedidor::updateOrCreate(
-                    [
-                        'periodo_id' => $periodo->id,
-                        'unidad_id' => $unidad->id,
-                    ],
-                    [
-                        'lectura_anterior' => $item['lectura_anterior'],
-                        'lectura_actual' => $item['lectura_actual'],
-                        'consumo_m3' => $item['consumo_m3'] ?? 0,
-                        'medidor_grupo_id' => null,
-                        'registrado_por' => $adminUserId,
-                    ]
-                );
-                $totalImportadas++;
-            } else {
-                $unidadesNoEncontradas[] = $codigoUnidad;
-            }
-        }
-
-        if (!empty($unidadesNoEncontradas)) {
-            $this->command->warn("  ⚠️ Unidades no encontradas: " . implode(', ', array_unique($unidadesNoEncontradas)));
-        }
-
-        $this->command->info("  ✓ Lecturas importadas: {$totalImportadas} unidades");
+        $this->importarLecturasConGrupos(
+            $periodo->id,
+            $adminUserId,
+            $jsonPath,
+            $this->command
+        );
     }
 
     /**
@@ -346,24 +309,5 @@ class PeriodoMarzo2026DesdeJSONSeeder extends Seeder
         ]);
 
         $this->command->info("  ✓ Período cerrado correctamente");
-    }
-
-    /**
-     * Mapear códigos de unidades del JSON a códigos de BD
-     */
-    private function mapearCodigoUnidad($codigoJson)
-    {
-        $mapeosEspeciales = [
-            'LOC-12-13' => 'LOC-12',
-            'DEP-25-C' => 'DEP-25-C-T',
-            'PARQ-128' => null,
-            'PARQUEO-128' => null,
-        ];
-
-        if (isset($mapeosEspeciales[$codigoJson])) {
-            return $mapeosEspeciales[$codigoJson];
-        }
-
-        return $codigoJson;
     }
 }

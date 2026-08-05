@@ -30,7 +30,7 @@ class DatabaseSeeder extends Seeder
             \Database\Seeders\OficinasFromExcelSeeder::class,
             \Database\Seeders\LocalesFromExcelSeeder::class,
             \Database\Seeders\ParqueosBaulerasFromExcelSeeder::class,
-            \Database\Seeders\CrearOficinas4D4ESeeder::class,
+            // \Database\Seeders\CrearOficinas4D4ESeeder::class,
         ]);
 
         // FASE 1.5: Configuración del Sistema
@@ -46,13 +46,15 @@ class DatabaseSeeder extends Seeder
             CategoriaEgresoSeeder::class,
         ]);
 
-        // FASE 2: Histórico de Expensas (Enero - Mayo 2026)
+        // FASE 2: Histórico de Expensas (Enero - Julio 2026)
         $this->call([
             \Database\Seeders\PeriodoEnero2026DesdeJSONSeeder::class,
             \Database\Seeders\PeriodoFebrero2026DesdeJSONSeeder::class,
             \Database\Seeders\PeriodoMarzo2026DesdeJSONSeeder::class,
             \Database\Seeders\PeriodoAbril2026DesdeJSONSeeder::class,
             \Database\Seeders\PeriodoMayo2026DesdeJSONSeeder::class,
+            \Database\Seeders\PeriodoJunio2026DesdeJSONSeeder::class,
+            \Database\Seeders\PeriodoJulio2026DesdeJSONSeeder::class,
         ]);
     }
 }
