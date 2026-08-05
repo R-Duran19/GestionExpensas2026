@@ -285,18 +285,52 @@
             @if($this->datosHorizontales && !empty($this->datosHorizontales['filas']))
 
                 @php
+                    $esAmbos = $concepto === 'ambos';
                     // Sufijo para headers según concepto activo
                     $sufijo = match($concepto) {
                         'expensa' => ' EXPENSA',
                         'agua'    => ' AGUA',
                         default   => '',
                     };
+                    // Colores alternados para agrupar período + agua
+                    $colorPar = fn($i) => $i % 2 === 0 ? 'bg-blue-50' : 'bg-slate-100';
+                    $colorParBody = fn($i) => $i % 2 === 0 ? 'bg-blue-50/40' : 'bg-slate-50/60';
                 @endphp
 
                 <div class="overflow-x-auto">
                     @if($vista === 'resumida')
                         {{-- Vista Resumida Horizontal --}}
                         <table class="min-w-full divide-y divide-gray-200">
+                            @if($esAmbos)
+                            {{-- Header dual: Total + Agua por período --}}
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th rowspan="2" scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 shadow-sm">
+                                        Tipo Unidad
+                                    </th>
+                                    @foreach($this->datosHorizontales['periodos'] as $i => $periodo)
+                                        <th colspan="2" scope="col" class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap {{ $colorPar($i) }}">
+                                            {{ $periodo['nombre'] }}
+                                        </th>
+                                    @endforeach
+                                    <th colspan="2" scope="col" class="px-3 py-3 text-right text-xs font-medium text-gray-900 uppercase tracking-wider whitespace-nowrap bg-indigo-50">TOTAL GEN.</th>
+                                    <th colspan="2" scope="col" class="px-3 py-3 text-right text-xs font-medium text-green-700 uppercase tracking-wider whitespace-nowrap bg-green-50">TOTAL PAGADO</th>
+                                    <th colspan="2" scope="col" class="px-3 py-3 text-right text-xs font-medium text-red-700 uppercase tracking-wider whitespace-nowrap bg-red-50">TOTAL DEUDA</th>
+                                </tr>
+                                <tr>
+                                    @foreach($this->datosHorizontales['periodos'] as $i => $periodo)
+                                        <th scope="col" class="px-3 py-2 text-right text-[10px] font-medium text-gray-500 uppercase whitespace-nowrap {{ $colorPar($i) }}">Gen.</th>
+                                        <th scope="col" class="px-3 py-2 text-right text-[10px] font-medium text-blue-600 uppercase whitespace-nowrap {{ $colorPar($i) }}">Agua</th>
+                                    @endforeach
+                                    <th scope="col" class="px-3 py-2 text-right text-[10px] font-medium text-gray-900 uppercase bg-indigo-50">Gen.</th>
+                                    <th scope="col" class="px-3 py-2 text-right text-[10px] font-medium text-blue-600 uppercase bg-indigo-50">Agua</th>
+                                    <th scope="col" class="px-3 py-2 text-right text-[10px] font-medium text-green-700 uppercase bg-green-50">Pag.</th>
+                                    <th scope="col" class="px-3 py-2 text-right text-[10px] font-medium text-blue-600 uppercase bg-green-50">Agua</th>
+                                    <th scope="col" class="px-3 py-2 text-right text-[10px] font-medium text-red-700 uppercase bg-red-50">Deu.</th>
+                                    <th scope="col" class="px-3 py-2 text-right text-[10px] font-medium text-blue-600 uppercase bg-red-50">Agua</th>
+                                </tr>
+                            </thead>
+                            @else
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 shadow-sm">
@@ -318,26 +352,47 @@
                                     </th>
                                 </tr>
                             </thead>
+                            @endif
                             <tbody class="bg-white divide-y divide-gray-200">
                                 @foreach($this->datosHorizontales['filas'] as $fila)
                                     <tr>
                                         <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white shadow-sm">
                                             {{ $fila['tipo_unidad'] }}
                                         </td>
-                                        @foreach($fila['periodos'] as $periodo)
-                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
+                                        @foreach($fila['periodos'] as $i => $periodo)
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900 text-right {{ $esAmbos ? $colorParBody($i) : '' }}">
                                                 Bs.{{ number_format($periodo['generado'], 2) }}
                                             </td>
+                                            @if($esAmbos)
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-blue-700 text-right {{ $colorParBody($i) }}">
+                                                {{ $periodo['generado_agua'] !== null ? 'Bs.' . number_format($periodo['generado_agua'], 2) : '-' }}
+                                            </td>
+                                            @endif
                                         @endforeach
-                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold bg-indigo-50">
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold bg-indigo-50">
                                             Bs.{{ number_format($fila['totales']['generado'], 2) }}
                                         </td>
-                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-green-600 font-medium text-right bg-green-50">
+                                        @if($esAmbos)
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-blue-700 text-right font-bold bg-indigo-50">
+                                            Bs.{{ number_format($fila['totales']['generado_agua'] ?? 0, 2) }}
+                                        </td>
+                                        @endif
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-green-600 font-medium text-right bg-green-50">
                                             Bs.{{ number_format($fila['totales']['cobrado'], 2) }}
                                         </td>
-                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-medium text-right bg-red-50">
+                                        @if($esAmbos)
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-blue-700 font-medium text-right bg-green-50">
+                                            Bs.{{ number_format($fila['totales']['cobrado_agua'] ?? 0, 2) }}
+                                        </td>
+                                        @endif
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-red-600 font-medium text-right bg-red-50">
                                             Bs.{{ number_format($fila['totales']['deuda'], 2) }}
                                         </td>
+                                        @if($esAmbos)
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-blue-700 font-medium text-right bg-red-50">
+                                            Bs.{{ number_format($fila['totales']['deuda_agua'] ?? 0, 2) }}
+                                        </td>
+                                        @endif
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -349,20 +404,40 @@
                                     <td class="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900 sticky left-0 bg-blue-50 shadow-sm">
                                         Σ TOTAL
                                     </td>
-                                    @foreach($this->datosHorizontales['periodos'] as $periodo)
-                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
+                                    @foreach($this->datosHorizontales['periodos'] as $i => $periodo)
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold {{ $esAmbos ? $colorParBody($i) : '' }}">
                                             Bs.{{ number_format($this->totalesColumnas['por_periodo'][$periodo['id']]['generado'], 2) }}
                                         </td>
+                                        @if($esAmbos)
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-blue-700 text-right font-bold {{ $colorParBody($i) }}">
+                                            Bs.{{ number_format($this->totalesColumnas['por_periodo'][$periodo['id']]['generado_agua'], 2) }}
+                                        </td>
+                                        @endif
                                     @endforeach
-                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold bg-indigo-100">
+                                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold bg-indigo-100">
                                         Bs.{{ number_format($this->totalesColumnas['generales']['generado'], 2) }}
                                     </td>
-                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-green-700 text-right font-bold bg-green-100">
+                                    @if($esAmbos)
+                                    <td class="px-3 py-3 whitespace-nowrap text-sm text-blue-700 text-right font-bold bg-indigo-100">
+                                        Bs.{{ number_format($this->totalesColumnas['generales']['generado_agua'], 2) }}
+                                    </td>
+                                    @endif
+                                    <td class="px-3 py-3 whitespace-nowrap text-sm text-green-700 text-right font-bold bg-green-100">
                                         Bs.{{ number_format($this->totalesColumnas['generales']['cobrado'], 2) }}
                                     </td>
-                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-red-700 text-right font-bold bg-red-100">
+                                    @if($esAmbos)
+                                    <td class="px-3 py-3 whitespace-nowrap text-sm text-blue-700 text-right font-bold bg-green-100">
+                                        Bs.{{ number_format($this->totalesColumnas['generales']['cobrado_agua'], 2) }}
+                                    </td>
+                                    @endif
+                                    <td class="px-3 py-3 whitespace-nowrap text-sm text-red-700 text-right font-bold bg-red-100">
                                         Bs.{{ number_format($this->totalesColumnas['generales']['deuda'], 2) }}
                                     </td>
+                                    @if($esAmbos)
+                                    <td class="px-3 py-3 whitespace-nowrap text-sm text-blue-700 text-right font-bold bg-red-100">
+                                        Bs.{{ number_format($this->totalesColumnas['generales']['deuda_agua'], 2) }}
+                                    </td>
+                                    @endif
                                 </tr>
                             </tfoot>
                             @endif
@@ -370,6 +445,42 @@
                     @else
                         {{-- Vista Detallada Horizontal --}}
                         <table class="min-w-full divide-y divide-gray-200">
+                            @if($esAmbos)
+                            {{-- Header dual: Total + Agua por período --}}
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th rowspan="2" scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 shadow-sm">
+                                        Unidad
+                                    </th>
+                                    <th rowspan="2" scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                        Propietario
+                                    </th>
+                                    @foreach($this->datosHorizontales['periodos'] as $i => $periodo)
+                                        <th colspan="2" scope="col" class="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap {{ $colorPar($i) }}">
+                                            {{ $periodo['nombre'] }}
+                                        </th>
+                                    @endforeach
+                                    <th colspan="2" scope="col" class="px-3 py-3 text-right text-xs font-medium text-gray-900 uppercase tracking-wider whitespace-nowrap bg-indigo-50">TOTAL GEN.</th>
+                                    <th colspan="2" scope="col" class="px-3 py-3 text-right text-xs font-medium text-green-700 uppercase tracking-wider whitespace-nowrap bg-green-50">TOTAL PAGADO</th>
+                                    <th colspan="2" scope="col" class="px-3 py-3 text-right text-xs font-medium text-red-700 uppercase tracking-wider whitespace-nowrap bg-red-50">TOTAL DEUDA</th>
+                                    <th rowspan="2" scope="col" class="px-3 py-3 text-right text-xs font-medium text-gray-900 uppercase tracking-wider whitespace-nowrap">
+                                        % COBR.
+                                    </th>
+                                </tr>
+                                <tr>
+                                    @foreach($this->datosHorizontales['periodos'] as $i => $periodo)
+                                        <th scope="col" class="px-3 py-2 text-right text-[10px] font-medium text-gray-500 uppercase whitespace-nowrap {{ $colorPar($i) }}">Gen.</th>
+                                        <th scope="col" class="px-3 py-2 text-right text-[10px] font-medium text-blue-600 uppercase whitespace-nowrap {{ $colorPar($i) }}">Agua</th>
+                                    @endforeach
+                                    <th scope="col" class="px-3 py-2 text-right text-[10px] font-medium text-gray-900 uppercase bg-indigo-50">Gen.</th>
+                                    <th scope="col" class="px-3 py-2 text-right text-[10px] font-medium text-blue-600 uppercase bg-indigo-50">Agua</th>
+                                    <th scope="col" class="px-3 py-2 text-right text-[10px] font-medium text-green-700 uppercase bg-green-50">Pag.</th>
+                                    <th scope="col" class="px-3 py-2 text-right text-[10px] font-medium text-blue-600 uppercase bg-green-50">Agua</th>
+                                    <th scope="col" class="px-3 py-2 text-right text-[10px] font-medium text-red-700 uppercase bg-red-50">Deu.</th>
+                                    <th scope="col" class="px-3 py-2 text-right text-[10px] font-medium text-blue-600 uppercase bg-red-50">Agua</th>
+                                </tr>
+                            </thead>
+                            @else
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 shadow-sm">
@@ -397,6 +508,7 @@
                                     </th>
                                 </tr>
                             </thead>
+                            @endif
                             <tbody class="bg-white divide-y divide-gray-200">
                                 @foreach($this->datosHorizontales['filas'] as $fila)
                                     <tr>
@@ -406,21 +518,41 @@
                                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                                             {{ $fila['propietario'] }}
                                         </td>
-                                        @foreach($fila['periodos'] as $periodo)
-                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
+                                        @foreach($fila['periodos'] as $i => $periodo)
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900 text-right {{ $esAmbos ? $colorParBody($i) : '' }}">
                                                 Bs.{{ number_format($periodo['generado'], 2) }}
                                             </td>
+                                            @if($esAmbos)
+                                            <td class="px-3 py-3 whitespace-nowrap text-sm text-blue-700 text-right {{ $colorParBody($i) }}">
+                                                {{ $periodo['generado_agua'] !== null ? 'Bs.' . number_format($periodo['generado_agua'], 2) : '-' }}
+                                            </td>
+                                            @endif
                                         @endforeach
-                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold bg-indigo-50">
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold bg-indigo-50">
                                             Bs.{{ number_format($fila['totales']['generado'], 2) }}
                                         </td>
-                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-green-600 font-medium text-right bg-green-50">
+                                        @if($esAmbos)
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-blue-700 text-right font-bold bg-indigo-50">
+                                            Bs.{{ number_format($fila['totales']['generado_agua'] ?? 0, 2) }}
+                                        </td>
+                                        @endif
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-green-600 font-medium text-right bg-green-50">
                                             Bs.{{ number_format($fila['totales']['cobrado'], 2) }}
                                         </td>
-                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-medium text-right bg-red-50">
+                                        @if($esAmbos)
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-blue-700 font-medium text-right bg-green-50">
+                                            Bs.{{ number_format($fila['totales']['cobrado_agua'] ?? 0, 2) }}
+                                        </td>
+                                        @endif
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-red-600 font-medium text-right bg-red-50">
                                             Bs.{{ number_format($fila['totales']['deuda'], 2) }}
                                         </td>
-                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
+                                        @if($esAmbos)
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-blue-700 font-medium text-right bg-red-50">
+                                            Bs.{{ number_format($fila['totales']['deuda_agua'] ?? 0, 2) }}
+                                        </td>
+                                        @endif
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
                                             {{ number_format($fila['totales']['porcentaje_cobranza'], 1) }}%
                                         </td>
                                     </tr>
@@ -434,21 +566,41 @@
                                     <td class="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900 sticky left-0 bg-blue-50 shadow-sm" colspan="2">
                                         Σ TOTAL
                                     </td>
-                                    @foreach($this->datosHorizontales['periodos'] as $periodo)
-                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
+                                    @foreach($this->datosHorizontales['periodos'] as $i => $periodo)
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold {{ $esAmbos ? $colorParBody($i) : '' }}">
                                             Bs.{{ number_format($this->totalesColumnas['por_periodo'][$periodo['id']]['generado'], 2) }}
                                         </td>
+                                        @if($esAmbos)
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-blue-700 text-right font-bold {{ $colorParBody($i) }}">
+                                            Bs.{{ number_format($this->totalesColumnas['por_periodo'][$periodo['id']]['generado_agua'], 2) }}
+                                        </td>
+                                        @endif
                                     @endforeach
-                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold bg-indigo-100">
+                                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold bg-indigo-100">
                                         Bs.{{ number_format($this->totalesColumnas['generales']['generado'], 2) }}
                                     </td>
-                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-green-700 text-right font-bold bg-green-100">
+                                    @if($esAmbos)
+                                    <td class="px-3 py-3 whitespace-nowrap text-sm text-blue-700 text-right font-bold bg-indigo-100">
+                                        Bs.{{ number_format($this->totalesColumnas['generales']['generado_agua'], 2) }}
+                                    </td>
+                                    @endif
+                                    <td class="px-3 py-3 whitespace-nowrap text-sm text-green-700 text-right font-bold bg-green-100">
                                         Bs.{{ number_format($this->totalesColumnas['generales']['cobrado'], 2) }}
                                     </td>
-                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-red-700 text-right font-bold bg-red-100">
+                                    @if($esAmbos)
+                                    <td class="px-3 py-3 whitespace-nowrap text-sm text-blue-700 text-right font-bold bg-green-100">
+                                        Bs.{{ number_format($this->totalesColumnas['generales']['cobrado_agua'], 2) }}
+                                    </td>
+                                    @endif
+                                    <td class="px-3 py-3 whitespace-nowrap text-sm text-red-700 text-right font-bold bg-red-100">
                                         Bs.{{ number_format($this->totalesColumnas['generales']['deuda'], 2) }}
                                     </td>
-                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
+                                    @if($esAmbos)
+                                    <td class="px-3 py-3 whitespace-nowrap text-sm text-blue-700 text-right font-bold bg-red-100">
+                                        Bs.{{ number_format($this->totalesColumnas['generales']['deuda_agua'], 2) }}
+                                    </td>
+                                    @endif
+                                    <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
                                         {{ $this->totalesColumnas['generales']['generado'] > 0 ? number_format(($this->totalesColumnas['generales']['cobrado'] / $this->totalesColumnas['generales']['generado']) * 100, 1) : 0 }}%
                                     </td>
                                 </tr>

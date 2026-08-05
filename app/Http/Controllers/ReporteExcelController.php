@@ -55,7 +55,7 @@ class ReporteExcelController extends Controller
             : $this->reporteService->transformarDetalladoAHorizontal($datosOriginales, $filtroAño);
 
         // Crear exportación horizontal
-        $export = new ReporteGeneralHorizontalExport($datosHorizontales, $vista);
+        $export = new ReporteGeneralHorizontalExport($datosHorizontales, $vista, $concepto);
 
         // Generar nombre de archivo
         $nombreArchivo = $this->generarNombreArchivo($vista, $filtros);

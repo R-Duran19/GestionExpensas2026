@@ -297,6 +297,14 @@ class ReporteGeneral extends Component
         $totalCobrado = collect($datos)->sum('cobrado');
         $totalDeuda = collect($datos)->sum('deuda');
 
+        // Cuando es ambos, generado contiene solo expensa.
+        // Sumar el agua para que las tarjetas muestren el total real.
+        if ($this->concepto === 'ambos') {
+            $totalGenerado += collect($datos)->sum('generado_agua');
+            $totalCobrado += collect($datos)->sum('cobrado_agua');
+            $totalDeuda += collect($datos)->sum('deuda_agua');
+        }
+
         // Contar unidades únicas desde el detallado filtrado por concepto
         // (evita doble conteo cuando hay múltiples períodos en resumido).
         $detalladoFiltrado = $this->reporteService->aplicarConcepto(
@@ -411,6 +419,9 @@ class ReporteGeneral extends Component
                 'generado' => 0,
                 'cobrado' => 0,
                 'deuda' => 0,
+                'generado_agua' => 0,
+                'cobrado_agua' => 0,
+                'deuda_agua' => 0,
             ];
         }
 
@@ -419,6 +430,9 @@ class ReporteGeneral extends Component
             'generado' => 0,
             'cobrado' => 0,
             'deuda' => 0,
+            'generado_agua' => 0,
+            'cobrado_agua' => 0,
+            'deuda_agua' => 0,
         ];
 
         // Sumar datos de cada fila
@@ -427,6 +441,9 @@ class ReporteGeneral extends Component
             $totalesGenerales['generado'] += $fila['totales']['generado'];
             $totalesGenerales['cobrado'] += $fila['totales']['cobrado'];
             $totalesGenerales['deuda'] += $fila['totales']['deuda'];
+            $totalesGenerales['generado_agua'] += $fila['totales']['generado_agua'] ?? 0;
+            $totalesGenerales['cobrado_agua'] += $fila['totales']['cobrado_agua'] ?? 0;
+            $totalesGenerales['deuda_agua'] += $fila['totales']['deuda_agua'] ?? 0;
 
             // Sumar a cada período
             foreach ($fila['periodos'] as $periodo) {
@@ -435,6 +452,9 @@ class ReporteGeneral extends Component
                     $totalesPorPeriodo[$periodoId]['generado'] += $periodo['generado'];
                     $totalesPorPeriodo[$periodoId]['cobrado'] += $periodo['cobrado'];
                     $totalesPorPeriodo[$periodoId]['deuda'] += $periodo['deuda'];
+                    $totalesPorPeriodo[$periodoId]['generado_agua'] += $periodo['generado_agua'] ?? 0;
+                    $totalesPorPeriodo[$periodoId]['cobrado_agua'] += $periodo['cobrado_agua'] ?? 0;
+                    $totalesPorPeriodo[$periodoId]['deuda_agua'] += $periodo['deuda_agua'] ?? 0;
                 }
             }
         }

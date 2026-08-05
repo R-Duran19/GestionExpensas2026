@@ -16,17 +16,22 @@ class ReporteGeneralHorizontalExport implements FromCollection, WithHeadings, Wi
 {
     protected $datosHorizontales;
     protected $tipoVista;
+    protected $concepto;
+    protected $esAmbos;
 
     /**
      * Constructor
      *
      * @param array $datosHorizontales - Datos transformados a formato horizontal (IGUAL que frontend)
      * @param string $tipoVista - 'resumido' o 'detallado'
+     * @param string $concepto - 'ambos', 'expensa' o 'agua'
      */
-    public function __construct(array $datosHorizontales, string $tipoVista)
+    public function __construct(array $datosHorizontales, string $tipoVista, string $concepto = 'ambos')
     {
         $this->datosHorizontales = $datosHorizontales;
         $this->tipoVista = $tipoVista;
+        $this->concepto = $concepto;
+        $this->esAmbos = $concepto === 'ambos';
     }
 
     /**
@@ -42,39 +47,43 @@ class ReporteGeneralHorizontalExport implements FromCollection, WithHeadings, Wi
 
         $rows = collect($filas)->map(function ($fila) {
             if ($this->tipoVista === 'resumido') {
-                // Vista Resumida: Tipo Unidad | Período 1 (GEN) | Período 2 (GEN) | ... | TOTAL GENERADO | TOTAL PAGADO | TOTAL DEUDA
-                $row = [
-                    $fila['tipo_unidad'],
-                ];
+                $row = [$fila['tipo_unidad']];
 
-                // Agregar datos de cada período (solo generado)
                 foreach ($fila['periodos'] as $periodo) {
                     $row[] = $periodo['generado'];
+                    if ($this->esAmbos) {
+                        $row[] = $periodo['generado_agua'] ?? 0;
+                    }
                 }
 
-                // Agregar totales
                 $row[] = $fila['totales']['generado'];
+                if ($this->esAmbos) { $row[] = $fila['totales']['generado_agua'] ?? 0; }
                 $row[] = $fila['totales']['cobrado'];
+                if ($this->esAmbos) { $row[] = $fila['totales']['cobrado_agua'] ?? 0; }
                 $row[] = $fila['totales']['deuda'];
+                if ($this->esAmbos) { $row[] = $fila['totales']['deuda_agua'] ?? 0; }
 
                 return $row;
 
             } else {
-                // Vista Detallada: Unidad | Propietario | Período 1 (GEN) | Período 2 (GEN) | ... | TOTAL GENERADO | TOTAL PAGADO | TOTAL DEUDA | % COBRANZA
                 $row = [
                     $fila['unidad'],
                     $fila['propietario'],
                 ];
 
-                // Agregar datos de cada período (solo generado)
                 foreach ($fila['periodos'] as $periodo) {
                     $row[] = $periodo['generado'];
+                    if ($this->esAmbos) {
+                        $row[] = $periodo['generado_agua'] ?? 0;
+                    }
                 }
 
-                // Agregar totales
                 $row[] = $fila['totales']['generado'];
+                if ($this->esAmbos) { $row[] = $fila['totales']['generado_agua'] ?? 0; }
                 $row[] = $fila['totales']['cobrado'];
+                if ($this->esAmbos) { $row[] = $fila['totales']['cobrado_agua'] ?? 0; }
                 $row[] = $fila['totales']['deuda'];
+                if ($this->esAmbos) { $row[] = $fila['totales']['deuda_agua'] ?? 0; }
                 $row[] = $fila['totales']['porcentaje_cobranza'] . '%';
 
                 return $row;
@@ -96,30 +105,40 @@ class ReporteGeneralHorizontalExport implements FromCollection, WithHeadings, Wi
         $periodos = $this->datosHorizontales['periodos'];
 
         if ($this->tipoVista === 'resumido') {
-            // Vista Resumida: Tipo Unidad | Período 1 (GEN) | Período 2 (GEN) | ... | TOTAL GENERADO | TOTAL PAGADO | TOTAL DEUDA
             $headings = ['TIPO UNIDAD'];
 
             foreach ($periodos as $periodo) {
                 $headings[] = $periodo['nombre'] . ' (GEN)';
+                if ($this->esAmbos) {
+                    $headings[] = $periodo['nombre'] . ' (AGUA)';
+                }
             }
 
             $headings[] = 'TOTAL GENERADO Bs.';
+            if ($this->esAmbos) { $headings[] = 'TOTAL GENERADO AGUA Bs.'; }
             $headings[] = 'TOTAL PAGADO Bs.';
+            if ($this->esAmbos) { $headings[] = 'TOTAL PAGADO AGUA Bs.'; }
             $headings[] = 'TOTAL DEUDA Bs.';
+            if ($this->esAmbos) { $headings[] = 'TOTAL DEUDA AGUA Bs.'; }
 
             return $headings;
 
         } else {
-            // Vista Detallada: Unidad | Propietario | Período 1 (GEN) | Período 2 (GEN) | ... | TOTAL GENERADO | TOTAL PAGADO | TOTAL DEUDA | % COBRANZA
             $headings = ['UNIDAD', 'PROPIETARIO'];
 
             foreach ($periodos as $periodo) {
                 $headings[] = $periodo['nombre'] . ' (GEN)';
+                if ($this->esAmbos) {
+                    $headings[] = $periodo['nombre'] . ' (AGUA)';
+                }
             }
 
             $headings[] = 'TOTAL GENERADO Bs.';
+            if ($this->esAmbos) { $headings[] = 'TOTAL GENERADO AGUA Bs.'; }
             $headings[] = 'TOTAL PAGADO Bs.';
+            if ($this->esAmbos) { $headings[] = 'TOTAL PAGADO AGUA Bs.'; }
             $headings[] = 'TOTAL DEUDA Bs.';
+            if ($this->esAmbos) { $headings[] = 'TOTAL DEUDA AGUA Bs.'; }
             $headings[] = '% COBRANZA';
 
             return $headings;
@@ -183,13 +202,15 @@ class ReporteGeneralHorizontalExport implements FromCollection, WithHeadings, Wi
         $numColumnas = 0;
         if (!empty($this->datosHorizontales) && !empty($this->datosHorizontales['periodos'])) {
             $numPeriodos = count($this->datosHorizontales['periodos']);
+            // Cuando es ambos, cada período y cada total tienen 2 columnas (Gen + Agua)
+            $mult = $this->esAmbos ? 2 : 1;
 
             if ($this->tipoVista === 'resumido') {
-                // Tipo Unidad + N períodos + 3 totales
-                $numColumnas = 1 + $numPeriodos + 3;
+                // Tipo Unidad + (N períodos × mult) + (3 totales × mult)
+                $numColumnas = 1 + ($numPeriodos * $mult) + (3 * $mult);
             } else {
-                // Unidad + Propietario + N períodos + 3 totales + % cobranza
-                $numColumnas = 2 + $numPeriodos + 4;
+                // Unidad + Propietario + (N períodos × mult) + (3 totales × mult) + % cobranza
+                $numColumnas = 2 + ($numPeriodos * $mult) + (3 * $mult) + 1;
             }
         }
 

@@ -326,7 +326,10 @@ class ReporteService
      * Aplicar el filtro de concepto a los datos del reporte.
      *
      * Operaciones:
-     * 1. Sobrescribe generado/cobrado/deuda con los valores del concepto seleccionado.
+     * 1. Sobrescribe generado/cobrado/deuda con los valores del concepto:
+     *    - ambos: la columna principal es SOLO expensa (el agua va en su columna aparte).
+     *    - expensa: solo expensa.
+     *    - agua: solo agua.
      * 2. Cuando el concepto es 'agua', excluye filas de unidades/tipos sin medidor
      *    (parqueos y bauleras nunca tienen medidor de agua; sus valores son 0).
      *
@@ -342,16 +345,17 @@ class ReporteService
             return $datos;
         }
 
-        // 1. Sobrescribir valores según concepto
-        if ($concepto !== 'ambos') {
-            $sufijo = $concepto; // 'expensa' o 'agua'
-            $datos = array_map(function ($row) use ($sufijo) {
-                $row['generado'] = $row["generado_{$sufijo}"] ?? null;
-                $row['cobrado']  = $row["cobrado_{$sufijo}"] ?? null;
-                $row['deuda']    = $row["deuda_{$sufijo}"] ?? null;
-                return $row;
-            }, $datos);
-        }
+        // 1. Sobrescribir valores según concepto.
+        //    Cuando es 'ambos', la columna principal (generado) contiene SOLO
+        //    expensa, para que se muestre separada de la columna de agua.
+        $conceptoColumna = $concepto === 'ambos' ? 'expensa' : $concepto;
+
+        $datos = array_map(function ($row) use ($conceptoColumna) {
+            $row['generado'] = $row["generado_{$conceptoColumna}"] ?? null;
+            $row['cobrado']  = $row["cobrado_{$conceptoColumna}"] ?? null;
+            $row['deuda']    = $row["deuda_{$conceptoColumna}"] ?? null;
+            return $row;
+        }, $datos);
 
         // 2. Excluir unidades/tipos sin medidor cuando el concepto es 'agua'.
         //    Parqueos y bauleras no tienen medidor de agua, por lo que no aplican.
@@ -546,6 +550,9 @@ class ReporteService
                         'generado' => 0,
                         'cobrado' => 0,
                         'deuda' => 0,
+                        'generado_agua' => 0,
+                        'cobrado_agua' => 0,
+                        'deuda_agua' => 0,
                     ]
                 ];
 
@@ -559,12 +566,18 @@ class ReporteService
                         'generado' => $datoPeriodo['generado'] ?? 0,
                         'cobrado' => $datoPeriodo['cobrado'] ?? 0,
                         'deuda' => $datoPeriodo['deuda'] ?? 0,
+                        'generado_agua' => $datoPeriodo['generado_agua'] ?? 0,
+                        'cobrado_agua' => $datoPeriodo['cobrado_agua'] ?? 0,
+                        'deuda_agua' => $datoPeriodo['deuda_agua'] ?? 0,
                     ];
 
                     // Sumar a los totales
                     $fila['totales']['generado'] += $datoPeriodo['generado'] ?? 0;
                     $fila['totales']['cobrado'] += $datoPeriodo['cobrado'] ?? 0;
                     $fila['totales']['deuda'] += $datoPeriodo['deuda'] ?? 0;
+                    $fila['totales']['generado_agua'] += $datoPeriodo['generado_agua'] ?? 0;
+                    $fila['totales']['cobrado_agua'] += $datoPeriodo['cobrado_agua'] ?? 0;
+                    $fila['totales']['deuda_agua'] += $datoPeriodo['deuda_agua'] ?? 0;
                 }
 
                 return $fila;
@@ -640,11 +653,15 @@ class ReporteService
                     'unidad' => $primerRow['unidad'],
                     'tipo' => $primerRow['tipo'],
                     'propietario' => $primerRow['propietario'],
+                    'tiene_medidor' => $primerRow['tiene_medidor'] ?? false,
                     'periodos' => [],
                     'totales' => [
                         'generado' => 0,
                         'cobrado' => 0,
                         'deuda' => 0,
+                        'generado_agua' => 0,
+                        'cobrado_agua' => 0,
+                        'deuda_agua' => 0,
                     ]
                 ];
 
@@ -658,13 +675,19 @@ class ReporteService
                         'generado' => $datoPeriodo['generado'] ?? 0,
                         'cobrado' => $datoPeriodo['cobrado'] ?? 0,
                         'deuda' => $datoPeriodo['deuda'] ?? 0,
+                        'generado_agua' => $datoPeriodo['generado_agua'] ?? null,
+                        'cobrado_agua' => $datoPeriodo['cobrado_agua'] ?? null,
+                        'deuda_agua' => $datoPeriodo['deuda_agua'] ?? null,
                         'estado' => $datoPeriodo['estado'] ?? 'Pendiente',
                     ];
 
-                    // Sumar a los totales
+                    // Sumar a los totales (null se trata como 0)
                     $fila['totales']['generado'] += $datoPeriodo['generado'] ?? 0;
                     $fila['totales']['cobrado'] += $datoPeriodo['cobrado'] ?? 0;
                     $fila['totales']['deuda'] += $datoPeriodo['deuda'] ?? 0;
+                    $fila['totales']['generado_agua'] += $datoPeriodo['generado_agua'] ?? 0;
+                    $fila['totales']['cobrado_agua'] += $datoPeriodo['cobrado_agua'] ?? 0;
+                    $fila['totales']['deuda_agua'] += $datoPeriodo['deuda_agua'] ?? 0;
                 }
 
                 // Calcular porcentaje de cobranza
