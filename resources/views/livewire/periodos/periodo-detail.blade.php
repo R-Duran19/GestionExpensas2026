@@ -219,13 +219,13 @@
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                                        {{ number_format($row['lectura_anterior'], 0) }} m³
+                                        {{ number_format($row['lectura_anterior'], 2, '.', ',') }} m³
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
-                                        {{ number_format($row['lectura_actual'], 0) }} m³
+                                        {{ number_format($row['lectura_actual'], 2, '.', ',') }} m³
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
-                                        {{ number_format($row['consumo_m3'], 1) }} m³
+                                        {{ number_format($row['consumo_m3'], 2, '.', ',') }} m³
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {{ $row['fecha']?->format('d/m/Y') }}
@@ -255,13 +255,13 @@
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                                        {{ number_format($row['lectura_anterior'], 0) }} m³
+                                        {{ number_format($row['lectura_anterior'], 2, '.', ',') }} m³
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
-                                        {{ number_format($row['lectura_actual'], 0) }} m³
+                                        {{ number_format($row['lectura_actual'], 2, '.', ',') }} m³
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-purple-700 text-right font-bold">
-                                        {{ number_format($row['consumo_total'], 1) }} m³
+                                        {{ number_format($row['consumo_total'], 2, '.', ',') }} m³
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {{ $row['fecha']?->format('d/m/Y') }}
@@ -292,7 +292,7 @@
                                                                     {{ $unidad['propietario'] ?: '-' }}
                                                                 </td>
                                                                 <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
-                                                                    {{ number_format($unidad['consumo_m3'], 1) }} m³
+                                                                    {{ number_format($unidad['consumo_m3'], 2, '.', ',') }} m³
                                                                 </td>
                                                             </tr>
                                                         @endforeach
