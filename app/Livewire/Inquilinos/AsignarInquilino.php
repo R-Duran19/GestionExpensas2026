@@ -80,7 +80,10 @@ class AsignarInquilino extends Component
             }
         }
 
-        $this->unidadesDisponibles = $query->orderBy('codigo')->get();
+        $this->unidadesDisponibles = $query
+            ->orderByRaw(Unidad::ordenPorTipoUnidadRaw('tipo_unidad'))
+            ->orderByRaw(Unidad::ordenPorCodigoRaw('codigo', 'ASC'))
+            ->get();
     }
 
     /**

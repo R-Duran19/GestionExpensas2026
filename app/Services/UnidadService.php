@@ -258,10 +258,10 @@ class UnidadService
             $query->where('tiene_medidor', $filtros['tiene_medidor']);
         }
 
-        // Ordenamiento natural para tipo_unidad y codigo
-        return $query->orderBy('tipo_unidad')
+        // Ordenamiento natural unificado (tipo_unidad -> piso -> código natural)
+        return $query->orderByRaw(Unidad::ordenPorTipoUnidadRaw('tipo_unidad'))
             ->orderByRaw('CAST(piso AS UNSIGNED)')
-            ->orderByRaw("SUBSTRING_INDEX(codigo, '-', -1) + 0")
+            ->orderByRaw(Unidad::ordenPorCodigoRaw('codigo', 'ASC'))
             ->get();
     }
 

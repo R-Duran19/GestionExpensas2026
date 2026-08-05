@@ -145,9 +145,9 @@ class ExpensaList extends Component
         }
 
         // Ordenar por tipo de unidad (departamento, oficina, local, parqueo, baulera)
-        // y luego orden natural por código (ej: D-1, D-2, D-10)
-        $query->orderByRaw("FIELD(unidades.tipo_unidad, 'departamento', 'oficina', 'local', 'parqueo', 'baulera')")
-              ->orderByRaw("CAST(SUBSTRING_INDEX(unidades.codigo, '-', -1) AS UNSIGNED)");
+        // y luego orden natural por código (ej: DEP-1, DEP-2, ..., DEP-10, DEP-11)
+        $query->orderByRaw(Unidad::ordenPorTipoUnidadRaw('unidades.tipo_unidad'))
+              ->orderByRaw(Unidad::ordenPorCodigoRaw('unidades.codigo', 'ASC'));
 
         // Paginar
         return $query->paginate(20);

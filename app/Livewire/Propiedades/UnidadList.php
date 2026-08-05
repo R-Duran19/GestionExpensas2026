@@ -81,7 +81,7 @@ class UnidadList extends Component
 
         // Ordenamiento
         if ($this->ordenar_por === 'codigo') {
-            $query->orderByRaw("SUBSTRING_INDEX(codigo, '-', -1) + 0 {$this->direccion_orden}");
+            $query->orderByRaw(Unidad::ordenPorCodigoRaw('codigo', $this->direccion_orden));
         } else {
             $query->orderBy($this->ordenar_por, $this->direccion_orden);
         }

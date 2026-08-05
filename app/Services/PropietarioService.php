@@ -180,9 +180,9 @@ class PropietarioService
     public function obtenerUnidadesDisponibles(): \Illuminate\Database\Eloquent\Collection
     {
         return Unidad::inactivos()
-            ->orderBy('tipo_unidad')
+            ->orderByRaw(Unidad::ordenPorTipoUnidadRaw('tipo_unidad'))
             ->orderByRaw('CAST(piso AS UNSIGNED)')
-            ->orderByRaw("SUBSTRING_INDEX(codigo, '-', -1) + 0")
+            ->orderByRaw(Unidad::ordenPorCodigoRaw('codigo', 'ASC'))
             ->get();
     }
 }

@@ -104,7 +104,9 @@ class IngresoForm extends Component
     public function mount($ingreso = null, $unidad = null)
     {
         $this->categorias = CategoriaIngreso::activas()->orderBy('nombre')->get();
-        $this->unidades = Unidad::orderBy('codigo')->get();
+        $this->unidades = Unidad::orderByRaw(Unidad::ordenPorTipoUnidadRaw('tipo_unidad'))
+            ->orderByRaw(Unidad::ordenPorCodigoRaw('codigo', 'ASC'))
+            ->get();
         $this->fecha = now()->format('Y-m-d');
 
         // Si viene unidad (desde ruta de expensas), pre-seleccionar

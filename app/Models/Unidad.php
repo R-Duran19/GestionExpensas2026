@@ -91,6 +91,54 @@ class Unidad extends Model
     }
 
     /**
+     * Helpers de ordenamiento (orden natural unificado para códigos de unidad)
+     *
+     * Soluciona el problema clásico de orden lexicográfico:
+     *   dep-1, dep-11, dep-2  ->  dep-1, dep-2, ..., dep-11
+     *
+     * Requiere MySQL/MariaDB con soporte REGEXP_SUBSTR (MySQL 8.0+ / MariaDB 10.5+).
+     */
+
+    /**
+     * Expresión SQL para ordenar unidades por código de forma natural.
+     *
+     * Orden de claves (todas respetan la dirección indicada):
+     *   1. Prefijo alfabético antes del primer guion (DEP, OF, LOC, P, B, PB)
+     *   2. Primer número encontrado en el código, como entero (11, 12, 28, 30, ...)
+     *   3. Longitud del código (agrupa 1 dígito vs 2 dígitos vs 3 dígitos)
+     *   4. El código completo (desempate alfabético final: A, B, C, ...)
+     *
+     * Ejemplo para departamentos:
+     *   DEP-11-A, DEP-11-B, ..., DEP-28-29-A, DEP-28-29-B, DEP-30
+     *
+     * @param  string $column   Nombre de la columna (admite alias: 'u.codigo', 'unidades.codigo')
+     * @param  string $direction 'ASC' o 'DESC'
+     * @return string           Expresión lista para ->orderByRaw(...)
+     */
+    public static function ordenPorCodigoRaw(string $column = 'codigo', string $direction = 'ASC'): string
+    {
+        $dir = strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC';
+
+        return implode(', ', [
+            "SUBSTRING_INDEX({$column}, '-', 1) {$dir}",
+            "CAST(REGEXP_SUBSTR({$column}, '[0-9]+') AS UNSIGNED) {$dir}",
+            "LENGTH({$column}) {$dir}",
+            "{$column} {$dir}",
+        ]);
+    }
+
+    /**
+     * Expresión SQL para ordenar por tipo de unidad de forma consistente en todo el sistema.
+     *
+     * Orden lógico: departamentos -> oficinas -> locales -> parqueos -> bauleras
+     * (residenciales/comerciales primero, accesorios al final).
+     */
+    public static function ordenPorTipoUnidadRaw(string $column = 'tipo_unidad'): string
+    {
+        return "FIELD({$column}, 'departamento', 'oficina', 'local', 'parqueo', 'baulera')";
+    }
+
+    /**
      * Scopes
      */
 

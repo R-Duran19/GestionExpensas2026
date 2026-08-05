@@ -32,7 +32,7 @@ class UnidadExportController extends Controller
         $unidades = Unidad::with('propietarioActual')
             ->selectRaw("*, CASE tipo_unidad {$ordenCases} END AS orden_tipo")
             ->orderBy('orden_tipo')
-            ->orderByRaw("LENGTH(codigo), codigo")
+            ->orderByRaw(Unidad::ordenPorCodigoRaw('codigo', 'ASC'))
             ->get();
 
         $factorDomiciliario = CategoriaUnidad::DOMICILIARIA->getFactorProrrateo();

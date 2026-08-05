@@ -153,7 +153,8 @@ class PropietarioEditConUnidades extends Component
             $unidades = Unidad::buscar($valor)
                 ->where('activo', false)
                 ->whereDoesntHave('propietarioActual')
-                ->orderBy('codigo')
+                ->orderByRaw(Unidad::ordenPorTipoUnidadRaw('tipo_unidad'))
+                ->orderByRaw(Unidad::ordenPorCodigoRaw('codigo', 'ASC'))
                 ->limit(10)
                 ->get();
 

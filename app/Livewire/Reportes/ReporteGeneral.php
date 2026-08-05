@@ -319,12 +319,14 @@ class ReporteGeneral extends Component
 
     /**
      * Obtener unidades disponibles (para filtro, cacheado)
+     * Ordenadas por tipo_unidad y luego por código natural ascendente.
      */
     #[Computed(persist: true)]
     public function unidades()
     {
         return Cache::remember('reportes.unidades', 7200, function () {
-            return Unidad::orderByRaw("LENGTH(codigo), codigo")
+            return Unidad::orderByRaw(Unidad::ordenPorTipoUnidadRaw('tipo_unidad'))
+                ->orderByRaw(Unidad::ordenPorCodigoRaw('codigo', 'ASC'))
                 ->get(['id', 'codigo', 'tipo_unidad'])
                 ->map(function ($unidad) {
                     return [

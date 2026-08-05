@@ -140,9 +140,11 @@ class ReporteService
 
         // Ordenamiento
         if ($porPeriodo) {
-            $query->orderByDesc('p.año')->orderByDesc('p.mes')->orderBy('u.tipo_unidad');
+            $query->orderByDesc('p.año')
+                ->orderByDesc('p.mes')
+                ->orderByRaw(Unidad::ordenPorTipoUnidadRaw('u.tipo_unidad'));
         } else {
-            $query->orderBy('u.tipo_unidad');
+            $query->orderByRaw(Unidad::ordenPorTipoUnidadRaw('u.tipo_unidad'));
         }
 
         $results = $query->get();
@@ -233,11 +235,12 @@ class ReporteService
         // Aplicar filtros
         $this->aplicarFiltros($query, $filtros);
 
-        // Ordenamiento con ordenamiento natural para códigos
+        // Ordenamiento natural unificado (ver Unidad::ordenPorCodigoRaw).
+        // Orden: período DESC -> tipo_unidad -> código natural ascendente.
         $query->orderByDesc('p.año')
             ->orderByDesc('p.mes')
-            ->orderBy('u.tipo_unidad')
-            ->orderByRaw("SUBSTRING_INDEX(u.codigo, '-', -1) + 0");
+            ->orderByRaw(Unidad::ordenPorTipoUnidadRaw('u.tipo_unidad'))
+            ->orderByRaw(Unidad::ordenPorCodigoRaw('u.codigo', 'ASC'));
 
         $results = $query->get();
 
@@ -431,6 +434,18 @@ class ReporteService
     }
 
     /**
+     * Extraer el primer número de un código de unidad (para ordenamiento natural en colecciones).
+     * Ej: 'DEP-11-A' -> 11, 'LOC-1' -> 1, 'B-301' -> 301.
+     */
+    protected function extraerPrimerNumero(string $codigo): int
+    {
+        if (preg_match('/\d+/', $codigo, $m)) {
+            return (int) $m[0];
+        }
+        return 0;
+    }
+
+    /**
      * Transformar datos resumidos a formato horizontal (períodos como columnas)
      *
      * @param array $datosResumido
@@ -552,8 +567,19 @@ class ReporteService
             ->values()
             ->toArray();
 
+        // Agrupar por unidad preservando el orden natural definido en la query SQL.
+        // Re-ordenamos explícitamente (defensivo) por si el groupBy altera el orden.
+        $ordenadas = collect($datosDetallado)
+            ->sortBy([
+                [fn ($r) => $r['tipo'], 'asc'],
+                [fn ($r) => $this->extraerPrimerNumero($r['unidad'] ?? ''), 'asc'],
+                [fn ($r) => strlen($r['unidad'] ?? ''), 'asc'],
+                [fn ($r) => $r['unidad'] ?? '', 'asc'],
+            ])
+            ->values();
+
         // Agrupar por unidad
-        $agrupadoPorUnidad = collect($datosDetallado)
+        $agrupadoPorUnidad = collect($ordenadas)
             ->groupBy('unidad_id')
             ->map(function ($rows, $unidadId) use ($periodos) {
                 $primerRow = $rows->first();

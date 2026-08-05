@@ -58,8 +58,8 @@ class RegistrarLecturasMasivas extends Component
             ->where('tipo_medidor', 'individual') // Solo medidores individuales (excluye grupales)
             ->whereNotIn('id', $unidadesConLectura) // Excluir unidades con lectura registrada
             ->with(['propietarios'])
-            ->orderBy('tipo_unidad')
-            ->orderByRaw("SUBSTRING_INDEX(codigo, '-', -1) + 0");
+            ->orderByRaw(Unidad::ordenPorTipoUnidadRaw('tipo_unidad'))
+            ->orderByRaw(Unidad::ordenPorCodigoRaw('codigo', 'ASC'));
 
         // Filtro de búsqueda - usar el scope optimizado del modelo
         if ($this->search) {

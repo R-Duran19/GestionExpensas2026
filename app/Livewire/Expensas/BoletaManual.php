@@ -56,7 +56,9 @@ class BoletaManual extends Component
             $query->where('tipo_unidad', $this->filtroTipo);
         }
 
-        return $query->orderBy('codigo')->get();
+        return $query->orderByRaw(Unidad::ordenPorTipoUnidadRaw('tipo_unidad'))
+            ->orderByRaw(Unidad::ordenPorCodigoRaw('codigo', 'ASC'))
+            ->get();
     }
 
     public function seleccionarTodas()
