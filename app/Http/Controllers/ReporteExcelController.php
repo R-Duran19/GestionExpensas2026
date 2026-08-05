@@ -31,6 +31,7 @@ class ReporteExcelController extends Controller
         $unidadId = $request->get('unidad_id', 'todas');
         $agrupacion = $request->get('agrupacion', 'periodo'); // 'periodo' o 'acumulado'
         $filtroAño = $request->get('filtro_año', null);
+        $concepto = $request->get('concepto', 'ambos'); // 'ambos', 'expensa' o 'agua'
 
         // Preparar filtros
         $filtros = [
@@ -44,8 +45,11 @@ class ReporteExcelController extends Controller
         // Generar datos del reporte
         $datosReporte = $this->reporteService->generarReporteConsolidado($filtros, $agruparPorPeriodo);
 
+        // Aplicar filtro de concepto (IGUAL que en el frontend):
+        // sobrescribe valores y excluye filas sin medidor cuando el concepto es 'agua'.
+        $datosOriginales = $this->reporteService->aplicarConcepto($datosReporte[$vista], $concepto);
+
         // Transformar a formato horizontal (IGUAL que en el frontend)
-        $datosOriginales = $datosReporte[$vista];
         $datosHorizontales = $vista === 'resumido'
             ? $this->reporteService->transformarResumidoAHorizontal($datosOriginales, $filtroAño)
             : $this->reporteService->transformarDetalladoAHorizontal($datosOriginales, $filtroAño);

@@ -1,5 +1,5 @@
         @else
-            @if($datosHorizontales && !empty($datosHorizontales['filas']))
+            @if($this->datosHorizontales && !empty($this->datosHorizontales['filas']))
                 <style>
                     .truncate {
                         overflow: hidden;
@@ -18,7 +18,7 @@
                                     <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 shadow-sm">
                                         Tipo Unidad
                                     </th>
-                                    @foreach($datosHorizontales['periodos'] as $periodo)
+                                    @foreach($this->datosHorizontales['periodos'] as $periodo)
                                         <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                                             {{ $periodo['nombre'] }}
                                         </th>
@@ -35,7 +35,7 @@
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
-                                @foreach($datosHorizontales['filas'] as $fila)
+                                @foreach($this->datosHorizontales['filas'] as $fila)
                                     <tr>
                                         <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white shadow-sm">
                                             {{ $fila['tipo_unidad'] }}
@@ -65,7 +65,7 @@
                                     <td class="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900 sticky left-0 bg-blue-50 shadow-sm">
                                         Σ TOTAL
                                     </td>
-                                    @foreach($datosHorizontales['periodos'] as $periodo)
+                                    @foreach($this->datosHorizontales['periodos'] as $periodo)
                                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">
                                             —
                                         </td>
@@ -94,7 +94,7 @@
                                     <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style="width: 120px;">
                                         Propietario
                                     </th>
-                                    @foreach($datosHorizontales['periodos'] as $periodo)
+                                    @foreach($this->datosHorizontales['periodos'] as $periodo)
                                         <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                                             {{ $periodo['nombre'] }}
                                         </th>
@@ -114,7 +114,7 @@
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
-                                @foreach($datosHorizontales['filas'] as $fila)
+                                @foreach($this->datosHorizontales['filas'] as $fila)
                                     <tr>
                                         <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white shadow-sm">
                                             {{ $fila['unidad'] }}
@@ -152,7 +152,7 @@
                                     <td class="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900 sticky left-0 bg-blue-50 shadow-sm" colspan="2">
                                         Σ TOTAL
                                     </td>
-                                    @foreach($datosHorizontales['periodos'] as $periodo)
+                                    @foreach($this->datosHorizontales['periodos'] as $periodo)
                                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">
                                             —
                                         </td>
@@ -179,7 +179,7 @@
                 {{-- Resumen de registros --}}
                 <div class="bg-gray-50 px-6 py-4 border-t border-gray-200">
                     <p class="text-sm text-gray-700">
-                        Mostrando <span class="font-medium">{{ count($datosHorizontales['filas']) }}</span> registros
+                        Mostrando <span class="font-medium">{{ count($this->datosHorizontales['filas']) }}</span> registros
                         @if($filtroAño)
                             del año <span class="font-medium">{{ $filtroAño }}</span>
                         @endif

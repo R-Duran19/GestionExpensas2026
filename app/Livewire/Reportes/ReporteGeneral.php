@@ -23,13 +23,16 @@ class ReporteGeneral extends Component
     // 'ambos' = expensa + agua (total), 'expensa' = solo expensa, 'agua' = solo agua
     public $concepto = 'ambos';
 
-    // Datos cargados
-    public $datosReporte = null;
+    // Estado de carga
     public $cargando = false;
     public $datosCargados = false; // Control de estado de carga
 
-    // Datos en formato horizontal
-    public $datosHorizontales = null; // Datos transformados para tabla horizontal
+    // Snapshot de filtros del último reporte generado (liviano).
+    // NO almacenamos los datos del reporte en propiedades públicas: Livewire
+    // serializa TODAS las propiedades públicas en cada request (wire:snapshot),
+    // lo que provoca PayloadTooLargeException con reportes grandes.
+    // Los datos pesados se recuperan vía #[Computed] desde el cache del ReporteService.
+    public $filtrosReporteActivo = null;
 
     protected ReporteService $reporteService;
 
@@ -60,13 +63,19 @@ class ReporteGeneral extends Component
         $agruparPorPeriodo = $this->agrupacion === 'periodo';
 
         try {
-            $this->datosReporte = $this->reporteService->generarReporteConsolidado($filtros, $agruparPorPeriodo);
+            // Generar el reporte (el servicio cachea internamente con Cache::remember).
+            // NO se guarda en propiedad pública para evitar PayloadTooLargeException.
+            $datos = $this->reporteService->generarReporteConsolidado($filtros, $agruparPorPeriodo);
+
+            // Guardar solo los filtros activos (livianos) para que los
+            // computed properties recuperen los datos desde el caché del servicio.
+            $this->filtrosReporteActivo = [
+                'filtros' => $filtros,
+                'agrupar_por_periodo' => $agruparPorPeriodo,
+            ];
             $this->datosCargados = true;
 
-            // Transformar datos a formato horizontal
-            $this->transformarDatosAHorizontal();
-
-            if (empty($this->datosReporte['resumido']) && empty($this->datosReporte['detallado'])) {
+            if (empty($datos['resumido']) && empty($datos['detallado'])) {
                 $this->dispatch('notify',
                     message: 'No se encontraron datos con los filtros seleccionados',
                     type: 'warning'
@@ -108,45 +117,54 @@ class ReporteGeneral extends Component
     }
 
     /**
-     * Transformar datos actuales a formato horizontal.
-     * Aplica el filtro de concepto (ambos/expresa/agua) sobre los valores.
+     * Datos crudos del reporte (recuperados desde caché del servicio).
+     * #[Computed] NO se serializa en el payload de Livewire.
      */
-    protected function transformarDatosAHorizontal(): void
+    #[Computed]
+    public function datosReporte(): ?array
     {
-        if (!$this->datosReporte) {
-            $this->datosHorizontales = null;
-            return;
+        if (!$this->filtrosReporteActivo) {
+            return null;
+        }
+
+        return $this->reporteService->generarReporteConsolidado(
+            $this->filtrosReporteActivo['filtros'],
+            $this->filtrosReporteActivo['agrupar_por_periodo']
+        );
+    }
+
+    /**
+     * Datos transformados a formato horizontal (períodos como columnas).
+     * Se deriva de datosReporte + vista + concepto + año actuales.
+     * Es un #[Computed]: se recalcula automáticamente al cambiar vista/concepto,
+     * sin necesidad de llamar manualmente a ningún método de transformación.
+     */
+    #[Computed]
+    public function datosHorizontales(): ?array
+    {
+        $datosReporte = $this->datosReporte;
+
+        if (!$datosReporte) {
+            return null;
         }
 
         $vista = $this->vista === 'resumida' ? 'resumido' : 'detallado';
-        $datos = $this->datosReporte[$vista] ?? [];
-
-        // Aplicar filtro de concepto: sobreescribir generado/cobrado/deuda
-        // con los valores del concepto seleccionado.
-        // - ambos: usar los totales (que ya están en generado/cobrado/deuda)
-        // - expensa: usar generado_expensa, cobrado_expensa, deuda_expensa
-        // - agua: usar generado_agua, cobrado_agua, deuda_agua (null si sin medidor)
-        if ($this->concepto !== 'ambos') {
-            $datos = array_map(function ($row) {
-                $sufijo = $this->concepto; // 'expensa' o 'agua'
-                $row['generado'] = $row["generado_{$sufijo}"] ?? null;
-                $row['cobrado']  = $row["cobrado_{$sufijo}"] ?? null;
-                $row['deuda']    = $row["deuda_{$sufijo}"] ?? null;
-                return $row;
-            }, $datos);
-        }
+        $datos = $this->reporteService->aplicarConcepto(
+            $datosReporte[$vista] ?? [],
+            $this->concepto
+        );
 
         if ($vista === 'resumido') {
-            $this->datosHorizontales = $this->reporteService->transformarResumidoAHorizontal(
-                $datos,
-                $this->filtroAño
-            );
-        } else {
-            $this->datosHorizontales = $this->reporteService->transformarDetalladoAHorizontal(
+            return $this->reporteService->transformarResumidoAHorizontal(
                 $datos,
                 $this->filtroAño
             );
         }
+
+        return $this->reporteService->transformarDetalladoAHorizontal(
+            $datos,
+            $this->filtroAño
+        );
     }
 
     /**
@@ -198,9 +216,8 @@ class ReporteGeneral extends Component
         $this->filtroAño = null; // Reiniciar filtro de año
         $this->agrupacion = 'periodo';
         $this->concepto = 'ambos';
+        $this->filtrosReporteActivo = null; // Invalidar reporte activo
         $this->datosCargados = false; // Reiniciar estado
-        $this->datosReporte = null;
-        $this->datosHorizontales = null; // Limpiar datos horizontales
         // No generar automáticamente - esperar acción del usuario
     }
 
@@ -210,11 +227,8 @@ class ReporteGeneral extends Component
     public function setVista($vista)
     {
         $this->vista = $vista;
-
-        // Transformar datos a la nueva vista si hay datos cargados
-        if ($this->datosCargados) {
-            $this->transformarDatosAHorizontal();
-        }
+        // No se necesita transformar manualmente: el #[Computed] datosHorizontales
+        // se recalcula automáticamente con la nueva vista.
     }
 
     /**
@@ -225,10 +239,8 @@ class ReporteGeneral extends Component
     {
         if (in_array($concepto, ['ambos', 'expensa', 'agua'])) {
             $this->concepto = $concepto;
-            // Recalcular la transformación con el nuevo concepto
-            if ($this->datosCargados) {
-                $this->transformarDatosAHorizontal();
-            }
+            // No se necesita transformar manualmente: el #[Computed] datosHorizontales
+            // se recalcula automáticamente con el nuevo concepto.
         }
     }
 
@@ -255,29 +267,54 @@ class ReporteGeneral extends Component
             return;
         }
         $this->agrupacion = $agrupacion;
+        $this->filtrosReporteActivo = null; // Invalidar reporte activo
         $this->datosCargados = false;
-        $this->datosReporte = null;
-        $this->datosHorizontales = null;
     }
 
     /**
-     * Obtener totales generales para las tarjetas
+     * Obtener totales generales para las tarjetas.
+     * Respeta el filtro de concepto: las tarjetas muestran los totales
+     * correspondientes al concepto seleccionado (ambos/expensa/agua).
      */
     #[Computed]
     public function totalesGenerales()
     {
-        if (!$this->datosReporte || empty($this->datosReporte['totales'])) {
+        if (!$this->datosReporte) {
             return null;
         }
 
-        $totales = $this->datosReporte['totales'];
+        $vista = $this->vista === 'resumida' ? 'resumido' : 'detallado';
+        $datos = $this->datosReporte[$vista] ?? [];
+
+        // Aplicar concepto para que las tarjetas coincidan con la tabla
+        $datos = $this->reporteService->aplicarConcepto($datos, $this->concepto);
+
+        if (empty($datos)) {
+            return null;
+        }
+
+        $totalGenerado = collect($datos)->sum('generado');
+        $totalCobrado = collect($datos)->sum('cobrado');
+        $totalDeuda = collect($datos)->sum('deuda');
+
+        // Contar unidades únicas desde el detallado filtrado por concepto
+        // (evita doble conteo cuando hay múltiples períodos en resumido).
+        $detalladoFiltrado = $this->reporteService->aplicarConcepto(
+            $this->datosReporte['detallado'] ?? [],
+            $this->concepto
+        );
+        $unidades = collect($detalladoFiltrado)->pluck('unidad_id')->unique()->count();
+
+        $porcentaje = $totalGenerado > 0
+            ? round(($totalCobrado / $totalGenerado) * 100, 2)
+            : 0.0;
 
         return [
-            'unidades' => $totales['unidades'],
-            'generado' => number_format($totales['total_generado'], 2),
-            'cobrado' => number_format($totales['total_cobrado'], 2),
-            'deuda' => number_format($totales['total_deuda'], 2),
-            'porcentaje_cobranza' => number_format($totales['porcentaje_cobranza'], 1),
+            'unidades' => $unidades,
+            'generado' => number_format($totalGenerado, 2),
+            'cobrado' => number_format($totalCobrado, 2),
+            'deuda' => number_format($totalDeuda, 2),
+            'porcentaje_cobranza' => number_format($porcentaje, 1),
         ];
     }
 

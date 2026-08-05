@@ -22,6 +22,7 @@
                 <input type="hidden" name="unidad_id" value="{{ $filtroUnidad }}">
                 <input type="hidden" name="agrupacion" value="{{ $agrupacion }}">
                 <input type="hidden" name="filtro_año" value="{{ $filtroAño }}">
+                <input type="hidden" name="concepto" value="{{ $concepto }}">
 
                 <button type="submit"
                         class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700 active:bg-green-900 focus:outline-none focus:border-green-900 focus:ring ring-green-300 disabled:opacity-25 transition ease-in-out duration-150">
@@ -281,7 +282,7 @@
                 <p class="text-gray-600">Intenta cambiar los filtros o selecciona diferentes opciones.</p>
             </div>
         @else
-            @if($datosHorizontales && !empty($datosHorizontales['filas']))
+            @if($this->datosHorizontales && !empty($this->datosHorizontales['filas']))
 
                 @php
                     // Sufijo para headers según concepto activo
@@ -301,7 +302,7 @@
                                     <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 shadow-sm">
                                         Tipo Unidad
                                     </th>
-                                    @foreach($datosHorizontales['periodos'] as $periodo)
+                                    @foreach($this->datosHorizontales['periodos'] as $periodo)
                                         <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                                             {{ $periodo['nombre'] }}
                                         </th>
@@ -318,7 +319,7 @@
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
-                                @foreach($datosHorizontales['filas'] as $fila)
+                                @foreach($this->datosHorizontales['filas'] as $fila)
                                     <tr>
                                         <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white shadow-sm">
                                             {{ $fila['tipo_unidad'] }}
@@ -348,7 +349,7 @@
                                     <td class="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900 sticky left-0 bg-blue-50 shadow-sm">
                                         Σ TOTAL
                                     </td>
-                                    @foreach($datosHorizontales['periodos'] as $periodo)
+                                    @foreach($this->datosHorizontales['periodos'] as $periodo)
                                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
                                             Bs.{{ number_format($this->totalesColumnas['por_periodo'][$periodo['id']]['generado'], 2) }}
                                         </td>
@@ -377,7 +378,7 @@
                                     <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                                         Propietario
                                     </th>
-                                    @foreach($datosHorizontales['periodos'] as $periodo)
+                                    @foreach($this->datosHorizontales['periodos'] as $periodo)
                                         <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                                             {{ $periodo['nombre'] }}
                                         </th>
@@ -397,7 +398,7 @@
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
-                                @foreach($datosHorizontales['filas'] as $fila)
+                                @foreach($this->datosHorizontales['filas'] as $fila)
                                     <tr>
                                         <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white shadow-sm">
                                             {{ $fila['unidad'] }}
@@ -433,7 +434,7 @@
                                     <td class="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900 sticky left-0 bg-blue-50 shadow-sm" colspan="2">
                                         Σ TOTAL
                                     </td>
-                                    @foreach($datosHorizontales['periodos'] as $periodo)
+                                    @foreach($this->datosHorizontales['periodos'] as $periodo)
                                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
                                             Bs.{{ number_format($this->totalesColumnas['por_periodo'][$periodo['id']]['generado'], 2) }}
                                         </td>
@@ -460,9 +461,27 @@
                 {{-- Resumen de registros --}}
                 <div class="bg-gray-50 px-6 py-4 border-t border-gray-200">
                     <p class="text-sm text-gray-700">
-                        Mostrando <span class="font-medium">{{ count($datosHorizontales['filas']) }}</span> registros
+                        Mostrando <span class="font-medium">{{ count($this->datosHorizontales['filas']) }}</span> registros
                         @if($filtroAño)
                             del año <span class="font-medium">{{ $filtroAño }}</span>
+                        @endif
+                        @if($concepto === 'agua')
+                            <span class="text-gray-500">(solo unidades con medidor de agua)</span>
+                        @endif
+                    </p>
+                </div>
+            @else
+                {{-- Datos cargados pero el filtro de concepto dejó la tabla vacía --}}
+                <div class="p-12 text-center">
+                    <svg class="h-12 w-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Sin registros para el concepto seleccionado</h3>
+                    <p class="text-gray-600">
+                        @if($concepto === 'agua')
+                            El tipo de unidad seleccionado no tiene medidores de agua. Los parqueos y bauleras no generan cargos de agua.
+                        @else
+                            No hay datos para mostrar con los filtros actuales.
                         @endif
                     </p>
                 </div>

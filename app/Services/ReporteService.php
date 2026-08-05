@@ -323,6 +323,56 @@ class ReporteService
     }
 
     /**
+     * Aplicar el filtro de concepto a los datos del reporte.
+     *
+     * Operaciones:
+     * 1. Sobrescribe generado/cobrado/deuda con los valores del concepto seleccionado.
+     * 2. Cuando el concepto es 'agua', excluye filas de unidades/tipos sin medidor
+     *    (parqueos y bauleras nunca tienen medidor de agua; sus valores son 0).
+     *
+     * Es un filtro de presentación: no requiere regenerar la query.
+     *
+     * @param array  $datos    Filas del reporte (formato resumido o detallado)
+     * @param string $concepto 'ambos', 'expensa' o 'agua'
+     * @return array
+     */
+    public function aplicarConcepto(array $datos, string $concepto): array
+    {
+        if (empty($datos)) {
+            return $datos;
+        }
+
+        // 1. Sobrescribir valores según concepto
+        if ($concepto !== 'ambos') {
+            $sufijo = $concepto; // 'expensa' o 'agua'
+            $datos = array_map(function ($row) use ($sufijo) {
+                $row['generado'] = $row["generado_{$sufijo}"] ?? null;
+                $row['cobrado']  = $row["cobrado_{$sufijo}"] ?? null;
+                $row['deuda']    = $row["deuda_{$sufijo}"] ?? null;
+                return $row;
+            }, $datos);
+        }
+
+        // 2. Excluir unidades/tipos sin medidor cuando el concepto es 'agua'.
+        //    Parqueos y bauleras no tienen medidor de agua, por lo que no aplican.
+        if ($concepto === 'agua') {
+            $datos = array_filter($datos, function ($row) {
+                // Vista detallada: cada fila tiene el flag tiene_medidor por unidad
+                if (array_key_exists('tiene_medidor', $row)) {
+                    return !empty($row['tiene_medidor']);
+                }
+                // Vista resumida: filtrar tipos sin actividad de agua
+                // (parqueos/bauleras tendrán generado_agua y deuda_agua en 0)
+                return (float)($row['generado_agua'] ?? 0) > 0
+                    || (float)($row['deuda_agua'] ?? 0) > 0;
+            });
+            $datos = array_values($datos); // Reindexar claves
+        }
+
+        return $datos;
+    }
+
+    /**
      * Aplicar filtros a la consulta
      *
      * @param $query
