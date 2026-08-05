@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PropietarioExportController;
 use App\Http\Controllers\ReciboPDFController;
 use App\Http\Controllers\EgresoPDFController;
 use App\Http\Controllers\BoletaExpensaPDFController;
@@ -78,6 +79,11 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::prefix('propietarios')->name('propietarios.')->group(function () {
         Route::get('/', \App\Livewire\Propietarios\PropietarioList::class)->name('index');
         Route::get('/crear', \App\Livewire\Propietarios\PropietarioForm::class)->name('create');
+
+        // Exportación a Excel - DEBE ir antes de /{propietario} para evitar conflicto de rutas
+        Route::get('/exportar/unidades-excel', [PropietarioExportController::class, 'unidadesConInquilinos'])
+            ->name('exportar.unidades');
+
         Route::get('/{propietario}', \App\Livewire\Propietarios\PropietarioShow::class)->name('show');
         Route::get('/{propietario}/editar', \App\Livewire\Propietarios\PropietarioEditConUnidades::class)->name('edit');
     });
