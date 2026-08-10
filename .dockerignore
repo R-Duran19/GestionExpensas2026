@@ -1,55 +1,106 @@
-# Git
+# =============================================================================
+# .dockerignore — lo que NO entra en la imagen Docker
+# =============================================================================
+# Objetivo: imagen más liviana + cero secretos/cached-files dentro del build.
+# La imagen debe contener SOLO lo mínimo para correr la app en producción.
+# =============================================================================
+
+# --- Control de versiones ---
 .git
 .gitattributes
 .gitignore
+.github
 
-# Docker
+# --- Docker / deploy local ---
 Dockerfile
 docker-compose.yml
+docker-compose.*.yml
 .dockerignore
+deploy.sh
+deploy-server.sh
+docker-setup.sh
+Makefile
+diagnose.sh
 
-# Documentación
+# --- Documentación (no se necesita en runtime) ---
 *.md
 docs/
+docs-*.js
+Config-Vps.md
 
-# Entorno
+# --- SECRETOS / CREDENCIALES (NUNCA dentro de la imagen) ---
 .env
 .env.*
 !.env.example
+.auth.json
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
 
-# Dependencias
+# --- Dependencias (se instalan frescas dentro del build) ---
 node_modules/
 vendor/
 
-# Logs y caché
-*.log
-storage/logs/
-storage/framework/cache/
-storage/framework/sessions/
-storage/framework/views/
-bootstrap/cache/
+# --- Artefactos de build y caché (se regeneran) ---
+public/build/
+public/hot
+.phpunit.cache/
+.phpunit.result.cache
+bootstrap/cache/*.php
+!bootstrap/cache/.gitignore
 
-# Testing
+# --- Estado de Laravel (se crea/regenera en runtime) ---
+storage/logs/*.log
+storage/framework/cache/**
+!storage/framework/cache/.gitignore
+storage/framework/sessions/**
+!storage/framework/sessions/.gitignore
+storage/framework/views/**
+!storage/framework/views/.gitignore
+storage/app/public/**
+!storage/app/public/.gitignore
+storage/app/private/**
+!storage/app/private/.gitignore
+storage/debugbar/
+storage/pail
+storage/*.key
+
+# --- Testing ---
 tests/
 phpunit.xml
-.phpunit.result.cache
+phpunit.xml.dist
+.env.testing
 
-# IDE
+# --- IDEs / editores ---
 .vscode/
 .idea/
+.fleet/
+.nova/
+.zed/
+.phpactor.json
 *.swp
 *.swo
 *~
 
-# OS
+# --- OS ---
 .DS_Store
 Thumbs.db
+desktop.ini
+nul
 
-# Build temporales
-public/build/
-public/hot
-
-# Agents y herramientas locales
+# --- Agents / tooling local ---
 .claude/
 .agents/
+.skills/
 skills-lock.json
+
+# --- Archivos temporales / basura del repo ---
+*.tmp
+*.bak
+*.orig
+errores/
+expensas_temp.txt
+2026-*-local-command-caveat*.txt

@@ -1,6 +1,11 @@
+# =============================================================================
+# Dockerfile — Gestión de Expensas (Laravel 12 + PHP 8.4 + Nginx + Supervisor)
+# =============================================================================
 FROM php:8.4-fpm
 
-# Instalar dependencias del sistema
+# -----------------------------------------------------------------------------
+# 1. Dependencias del sistema + extensiones PHP + Node.js + cliente MySQL
+# -----------------------------------------------------------------------------
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -15,14 +20,15 @@ RUN apt-get update && apt-get install -y \
     libfreetype6-dev \
     libjpeg62-turbo-dev \
     libwebp-dev \
+    default-mysql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar Node.js desde NodeSource (versión 22, misma que en local)
+# Node.js 22 (para build de assets con Vite)
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar extensiones de PHP necesarias para Laravel
+# Extensiones PHP requeridas por Laravel
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-install -j$(nproc) \
     pdo \
@@ -35,36 +41,55 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     zip \
     opcache
 
-# Instalar Composer
+# Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Configurar el directorio de trabajo
+# -----------------------------------------------------------------------------
+# 2. Código de la aplicación
+# -----------------------------------------------------------------------------
 WORKDIR /var/www/html
-
-# Copiar los archivos del proyecto
 COPY . .
 
-# Crear directorios necesarios
-RUN mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs
+# -----------------------------------------------------------------------------
+# 3. Dependencias PHP y build de assets front (Vite)
+# -----------------------------------------------------------------------------
+RUN composer install \
+        --no-interaction \
+        --no-dev \
+        --optimize-autoloader \
+        --no-progress
 
-# Dar permisos al directorio de almacenamiento
-RUN chown -R www-data:www-data /var/www/html \
+RUN npm install --no-audit --no-fund \
+    && npm run build \
+    && npm cache clean --force
+
+# -----------------------------------------------------------------------------
+# 4. Permisos y directorios necesarios
+# -----------------------------------------------------------------------------
+RUN mkdir -p \
+        bootstrap/cache \
+        storage/framework/cache \
+        storage/framework/cache/data \
+        storage/framework/sessions \
+        storage/framework/views \
+        storage/logs \
+        storage/app/public \
+    && chown -R www-data:www-data /var/www/html \
     && chmod -R 775 /var/www/html/storage \
-    && chmod -R 775 /var/www/html/bootstrap/cache \
-    && mkdir -p /var/www/html/storage/app/public \
-    && mkdir -p /var/www/html/storage/framework/cache \
-    && mkdir -p /var/www/html/storage/framework/sessions \
-    && mkdir -p /var/www/html/storage/framework/views \
-    && mkdir -p /var/www/html/storage/logs
+    && chmod -R 775 /var/www/html/bootstrap/cache
 
-# Copiar configuración de nginx
+# -----------------------------------------------------------------------------
+# 5. Configuración de nginx, supervisor y entrypoint
+# -----------------------------------------------------------------------------
 COPY docker/nginx/default.conf /etc/nginx/sites-available/default
-
-# Copiar configuración de supervisor
 COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Exponer puertos
+# -----------------------------------------------------------------------------
+# 6. Puertos y arranque
+# -----------------------------------------------------------------------------
 EXPOSE 80 9000
 
-# Comando de inicio
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

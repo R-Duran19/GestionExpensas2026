@@ -1,29 +1,79 @@
-*.log
-.DS_Store
+# =============================================================================
+# .gitignore — lo que NUNCA se commitea al repo
+# =============================================================================
+
+# --- SECRETOS / CREDENCIALES (lo más importante) ---
 .env
+.env.*
+!.env.example
 .env.backup
 .env.production
-.phpactor.json
-.phpunit.result.cache
-/.fleet
-/.idea
-/.nova
-/.phpunit.cache
-/.vscode
-/.zed
-/auth.json
+.env.docker
+.env.docker.example
+.env.local
+.env.*.local
+auth.json
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+
+# --- Laravel ---
+/vendor
 /node_modules
 /public/build
 /public/hot
 /public/storage
 /storage/*.key
 /storage/pail
-/vendor
-/docs
+/storage/debugbar/
 Homestead.json
 Homestead.yaml
-Thumbs.db
 
+# --- Caché y logs ---
+*.log
+.phpunit.cache/
+.phpunit.result.cache
+storage/logs/*.log
+bootstrap/cache/*.php
+!bootstrap/cache/.gitignore
+
+# --- Tests locales (no commiteados) ---
+.env.testing
+
+# --- IDEs / editores ---
+/.fleet
+/.idea
+/.nova
+/.phpunit.cache
+/.vscode
+/.zed
+/.phpactor.json
+*.swp
+*.swo
+*~
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
+nul
+
+# --- Documentación local (no commiteada) ---
+/docs
+
+# --- Agents / tooling local ---
 /.agents
 /.claude
+/.skills
 skills-lock.json
+
+# --- Temporales y basura ---
+*.tmp
+*.bak
+*.orig
+errores/
+expensas_temp.txt
+2026-*-local-command-caveat*.txt

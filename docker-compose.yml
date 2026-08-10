@@ -1,3 +1,10 @@
+# =============================================================================
+# docker-compose.yml — Gestión de Expensas
+# =============================================================================
+# Las credenciales y valores sensibles se leen del archivo .env del host
+# (ver .env.example). Nunca hardcodear secretos aquí.
+# =============================================================================
+
 services:
   # Contenedor de la aplicación Laravel
   app:
@@ -8,22 +15,55 @@ services:
     restart: unless-stopped
     working_dir: /var/www/html
     volumes:
-      - ./:/var/www/html
-      - ./storage/app/public:/var/www/html/public/storage
+      # Solo persistimos storage del host; el código vive baked en la imagen
+      - ./storage:/var/www/html/storage
     environment:
+      # App
+      - APP_NAME=${APP_NAME:-Gestión de Expensas}
       - APP_ENV=${APP_ENV:-production}
       - APP_DEBUG=${APP_DEBUG:-false}
+      - APP_KEY=${APP_KEY:?APP_KEY es obligatoria. Copia .env.example a .env y rellénala.}
       - APP_URL=${APP_URL:-https://expensas.acmanalytics.online}
+      - APP_LOCALE=${APP_LOCALE:-es}
+      - APP_FALLBACK_LOCALE=${APP_FALLBACK_LOCALE:-en}
+      - APP_FAKER_LOCALE=${APP_FAKER_LOCALE:-es_BO}
+      # DB
+      - DB_CONNECTION=mysql
       - DB_HOST=mysql
       - DB_PORT=3306
-      - DB_DATABASE=${DB_DATABASE:-expensas_db}
-      - DB_USERNAME=${DB_USERNAME:-AdminUserExpe2026}
-      - DB_PASSWORD=${DB_PASSWORD:-AdminExpe8119}
+      - DB_DATABASE=${DB_DATABASE:?DB_DATABASE es obligatoria}
+      - DB_USERNAME=${DB_USERNAME:?DB_USERNAME es obligatorio}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD es obligatoria}
+      # Session / Cache / Queue
+      - SESSION_DRIVER=database
+      - SESSION_LIFETIME=120
+      - SESSION_ENCRYPT=false
+      - SESSION_PATH=/
+      - SESSION_DOMAIN=expensas.acmanalytics.online
+      - SESSION_SECURE_COOKIE=true
+      - CACHE_STORE=database
+      - QUEUE_CONNECTION=database
+      # Logs
+      - LOG_CHANNEL=stack
+      - LOG_STACK=single
+      - LOG_LEVEL=warning
+      # Mail
+      - MAIL_MAILER=log
+      - MAIL_FROM_ADDRESS=noreply@expensas.com
+      - MAIL_FROM_NAME="Gestión de Expensas"
+      # Vite / Assets / Proxy
+      - VITE_APP_NAME="Gestión de Expensas"
+      - ASSET_URL=${APP_URL:-https://expensas.acmanalytics.online}
+      - TRUSTED_PROXIES=*
+      # Auto-deploy
+      - RUN_MIGRATIONS=${RUN_MIGRATIONS:-true}
+      - RUN_SEEDERS=${RUN_SEEDERS:-true}
     networks:
       - expensas_network
       - proxy_network
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     expose:
       - "80"
       - "9000"
@@ -34,20 +74,30 @@ services:
     container_name: gestion_expensas_mysql
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: ${DB_DATABASE:-expensas_db}
-      MYSQL_USER: ${DB_USERNAME:-AdminUserExpe2026}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-AdminExpe8119}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-AdminExpe8119}
+      MYSQL_DATABASE: ${DB_DATABASE:?DB_DATABASE es obligatoria}
+      MYSQL_USER: ${DB_USERNAME:?DB_USERNAME es obligatorio}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD es obligatoria}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD es obligatoria}
       MYSQL_ALLOW_EMPTY_PASSWORD: 'no'
-    # Puerto MySQL comentado - no es necesario exponerlo externamente
-    # La aplicación se conecta internamente por la red Docker
+    # El puerto 3306 NO se expone al host (solo accesible dentro de la red Docker).
+    # Descomentar SOLO para debug temporal desde el host:
     # ports:
-    #   - "${DB_PORT:-3307}:3306"
+    #   - "127.0.0.1:3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
       - expensas_network
-    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --ssl=0
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --ssl=0
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
 
 networks:
   # Conexión a la red externa del nginx-proxy-manager (VPS)
