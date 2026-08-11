@@ -103,27 +103,82 @@
                 </div>
             </div>
 
-            <!-- Información del propietario -->
-            <div>
-                <h4 class="text-sm font-medium text-gray-900 mb-3">Propietario Actual</h4>
-                @if($unidad->propietarioActual)
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <div class="text-sm font-medium text-gray-900 mb-2">
-                            {{ $unidad->propietarioActual->nombre_completo }}
+            <!-- Información del responsable de pago y propietario -->
+            <div class="space-y-4">
+                @php
+                    $inquilino = $unidad->inquilinoActual;
+                    $propietario = $unidad->propietarioActual;
+                @endphp
+
+                @if($inquilino)
+                    <!-- Responsable de pago (Inquilino) -->
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
+                            Responsable de Pago
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                Inquilino
+                            </span>
+                        </h4>
+                        <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                            <div class="text-sm font-medium text-gray-900 mb-2">
+                                {{ $inquilino->nombre_completo }}
+                            </div>
+                            <div class="space-y-1 text-sm text-gray-600">
+                                <div>CI: {{ $inquilino->ci ?: 'Sin CI' }}</div>
+                                @if($inquilino->telefono)
+                                    <div>Tel: {{ $inquilino->telefono }}</div>
+                                @endif
+                                @if($inquilino->email)
+                                    <div>{{ $inquilino->email }}</div>
+                                @endif
+                            </div>
                         </div>
-                        <div class="space-y-1 text-sm text-gray-600">
-                            <div>CI: {{ $unidad->propietarioActual->ci }}</div>
-                            @if($unidad->propietarioActual->telefono)
-                                <div>Tel: {{ $unidad->propietarioActual->telefono }}</div>
-                            @endif
-                            @if($unidad->propietarioActual->email)
-                                <div>{{ $unidad->propietarioActual->email }}</div>
-                            @endif
+                    </div>
+
+                    @if($propietario)
+                        <!-- Propietario (secundario) -->
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-500 mb-2">Propietario</h4>
+                            <div class="bg-gray-50 rounded-lg p-3">
+                                <div class="text-sm font-medium text-gray-700">
+                                    {{ $propietario->nombre_completo }}
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    CI: {{ $propietario->ci ?: 'Sin CI' }}
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+                @elseif($propietario)
+                    <!-- Solo propietario (sin inquilino) -->
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
+                            Propietario
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                                Propietario
+                            </span>
+                        </h4>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="text-sm font-medium text-gray-900 mb-2">
+                                {{ $propietario->nombre_completo }}
+                            </div>
+                            <div class="space-y-1 text-sm text-gray-600">
+                                <div>CI: {{ $propietario->ci ?: 'Sin CI' }}</div>
+                                @if($propietario->telefono)
+                                    <div>Tel: {{ $propietario->telefono }}</div>
+                                @endif
+                                @if($propietario->email)
+                                    <div>{{ $propietario->email }}</div>
+                                @endif
+                            </div>
                         </div>
                     </div>
                 @else
-                    <div class="bg-gray-50 rounded-lg p-4 text-sm text-gray-500">
-                        Sin propietario asignado
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-900 mb-3">Propietario</h4>
+                        <div class="bg-gray-50 rounded-lg p-4 text-sm text-gray-500">
+                            Sin propietario asignado
+                        </div>
                     </div>
                 @endif
             </div>

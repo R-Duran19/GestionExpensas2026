@@ -48,18 +48,31 @@ class ExpensaPropietarioDetalle extends Component
 
     public function cargarPeriodosDisponibles()
     {
-        // Obtener todos los períodos donde este responsable (propietario o inquilino) tiene expensas
+        // Obtener los unidadIds visibles para este responsable aplicando la misma
+        // regla maestra que cargarDatos(): el propietario no ve unidades con inquilino.
         if ($this->tipo === 'inquilino') {
-            $responsable = Inquilino::find($this->propietarioId);
-            $unidadIds = $responsable->unidadesActuales()
-                ->where('activo', true)
-                ->pluck('unidades.id');
+            $responsable = Inquilino::with(['unidadesActuales' => function ($q) {
+                $q->where('activo', true);
+            }])->find($this->propietarioId);
         } else {
-            $responsable = Propietario::find($this->propietarioId);
-            $unidadIds = $responsable->unidadesActuales()
-                ->where('activo', true)
-                ->pluck('unidades.id');
+            $responsable = Propietario::with(['unidadesActuales' => function ($q) {
+                $q->where('activo', true)->with('inquilinoActual');
+            }])->find($this->propietarioId);
         }
+
+        $unidades = $responsable ? $responsable->unidadesActuales : collect();
+
+        $unidades = $unidades->filter(function ($u) {
+            if (!$u->activo) {
+                return false;
+            }
+            if ($this->tipo === 'propietario' && $u->inquilinoActual !== null) {
+                return false;
+            }
+            return true;
+        });
+
+        $unidadIds = $unidades->pluck('id');
 
         $periodosConExpensas = Expensa::whereIn('unidad_id', $unidadIds)
             ->with('periodo')
@@ -92,13 +105,23 @@ class ExpensaPropietarioDetalle extends Component
             }])->findOrFail($this->propietarioId);
         } else {
             $this->propietario = Propietario::with(['unidadesActuales' => function ($q) {
-                $q->where('activo', true);
+                $q->where('activo', true)->with('inquilinoActual');
             }])->findOrFail($this->propietarioId);
         }
 
-        // Obtener unidades del propietario con sus expensas del período
+        // Obtener unidades del responsable con sus expensas del período.
+        // Regla maestra: el propietario NO ve las unidades que tienen inquilino actual
+        // (esas aparecen bajo el inquilino). El inquilino ve todas sus unidades actuales.
         $this->unidadesConExpensas = $this->propietario->unidadesActuales
-            ->filter(fn($u) => $u->activo)
+            ->filter(function ($u) {
+                if (!$u->activo) {
+                    return false;
+                }
+                if ($this->tipo === 'propietario' && $u->inquilinoActual !== null) {
+                    return false;
+                }
+                return true;
+            })
             ->map(function ($unidad) {
                 $expensa = Expensa::where('periodo_id', $this->periodoId)
                     ->where('unidad_id', $unidad->id)

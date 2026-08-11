@@ -266,7 +266,19 @@
                     - PISO {{ strtoupper($unidad->piso) }}
                 @endif
             </div>
-            @if($unidad->propietarioActual)
+            @if($unidad->inquilinoActual)
+                <div class="propietario-info">
+                    INQUILINO: {{ strtoupper($unidad->inquilinoActual->nombre_completo) }}
+                    @if($unidad->inquilinoActual->ci)
+                        | CI: {{ $unidad->inquilinoActual->ci }}
+                    @endif
+                </div>
+                @if($unidad->propietarioActual)
+                    <div class="propietario-info" style="font-size: 8px; color: #555;">
+                        PROPIETARIO: {{ strtoupper($unidad->propietarioActual->nombre_completo) }}
+                    </div>
+                @endif
+            @elseif($unidad->propietarioActual)
                 <div class="propietario-info">
                     COPROPIETARIO: {{ strtoupper($unidad->propietarioActual->nombre_completo) }}
                     @if($unidad->propietarioActual->ci)

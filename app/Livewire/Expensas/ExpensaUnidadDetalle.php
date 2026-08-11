@@ -32,7 +32,7 @@ class ExpensaUnidadDetalle extends Component
     public function mount($unidad)
     {
         $this->unidadId = $unidad;
-        $this->unidad = Unidad::with(['propietarioActual', 'medidorGrupo'])->findOrFail($this->unidadId);
+        $this->unidad = Unidad::with(['propietarioActual', 'inquilinoActual', 'medidorGrupo'])->findOrFail($this->unidadId);
 
         // Livewire ya inicializó $this->periodoId desde la URL (queryString) antes del mount.
         // Solo asignamos valor por defecto si no viene ninguno.
@@ -91,6 +91,7 @@ class ExpensaUnidadDetalle extends Component
         $this->expensa = Expensa::with([
             'periodo',
             'unidad.propietarioActual',
+            'unidad.inquilinoActual',
             'unidad.medidorGrupo',
             'detallesPago.ingreso',
         ])

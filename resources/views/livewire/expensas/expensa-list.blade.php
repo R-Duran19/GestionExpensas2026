@@ -185,7 +185,7 @@
                     <input
                         type="text"
                         wire:model.live="search"
-                        placeholder="Buscar por código de unidad o propietario..."
+                        placeholder="Buscar por código de unidad, propietario o inquilino..."
                         class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     >
 
@@ -209,7 +209,7 @@
                                 Unidad
                             </th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Propietario
+                                Responsable
                             </th>
                             <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Estado
@@ -281,13 +281,30 @@
                                 </td>
 
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    @if($unidad->propietarioActual)
-                                        <div class="text-sm text-gray-900">
-                                            {{ $unidad->propietarioActual->nombre_completo }}
+                                    @php
+                                        $inquilino = $unidad->inquilinoActual;
+                                        $propietario = $unidad->propietarioActual;
+                                        $responsable = $inquilino ?: $propietario;
+                                    @endphp
+                                    @if($responsable)
+                                        <div class="flex items-center gap-2">
+                                            <div class="text-sm font-medium text-gray-900">
+                                                {{ $responsable->nombre_completo }}
+                                            </div>
+                                            @if($inquilino)
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                                    Inquilino
+                                                </span>
+                                            @endif
                                         </div>
                                         <div class="text-sm text-gray-500">
-                                            {{ $unidad->propietarioActual->ci }}
+                                            {{ $responsable->ci ?: 'Sin CI' }}
                                         </div>
+                                        @if($inquilino && $propietario)
+                                            <div class="text-xs text-gray-400 mt-1">
+                                                Propietario: {{ $propietario->nombre_completo }}
+                                            </div>
+                                        @endif
                                     @else
                                         <div class="text-sm text-gray-500">Sin propietario</div>
                                     @endif
@@ -348,9 +365,13 @@
                                         @endif
 
                                         <!-- Ver PDF -->
-                                        @if($unidad->propietarioActual && $expensa)
+                                        @php
+                                            $responsablePdfTipo = $unidad->inquilinoActual ? 'inquilino' : 'propietario';
+                                            $responsablePdfId = $unidad->inquilinoActual?->id ?? $unidad->propietarioActual?->id;
+                                        @endphp
+                                        @if($responsablePdfId && $expensa)
                                             <a
-                                                href="{{ route('expensas.pdf.mostrar', [$this->periodo->id, $unidad->propietarioActual->id]) }}"
+                                                href="{{ route('expensas.pdf.mostrar', [$this->periodo->id, $responsablePdfTipo, $responsablePdfId]) }}"
                                                 class="text-red-600 hover:text-red-900"
                                                 title="Ver PDF de boleta"
                                                 target="_blank"
@@ -576,7 +597,7 @@
 
                                         <!-- Ver PDF consolidado -->
                                         <a
-                                            href="{{ route('expensas.pdf.mostrar', [$this->periodo->id, $propietario->id]) }}"
+                                            href="{{ route('expensas.pdf.mostrar', [$this->periodo->id, $propietario->tipo ?? 'propietario', $propietario->id]) }}"
                                             class="text-red-600 hover:text-red-900"
                                             title="Ver PDF de boleta consolidada"
                                             target="_blank"

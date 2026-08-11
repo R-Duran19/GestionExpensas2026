@@ -30,9 +30,9 @@ class GenerarExpensaUnidadPDFService
     public function generar(Unidad $unidad, PeriodoExpensa $periodo, string $tipo = 'stream')
     {
         try {
-            // Cargar relaciones necesarias (solo propietarioActual es una relación)
+            // Cargar relaciones necesarias (solo propietarioActual e inquilinoActual son relaciones)
             // tipo_unidad y categoria_unidad son enums, no relaciones
-            $unidad->load(['propietarioActual']);
+            $unidad->load(['propietarioActual', 'inquilinoActual']);
 
             // Obtener expensa de esta unidad para el período
             $expensa = Expensa::where('periodo_id', $periodo->id)

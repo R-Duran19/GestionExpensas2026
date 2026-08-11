@@ -167,9 +167,14 @@ Route::middleware(['auth', 'admin'])->group(function () {
             ]);
         })->name('detalle');
 
-        // PDF de boleta de expensa (por período y propietario)
-        Route::get('/pdf/{periodo}/{propietario}', [BoletaExpensaPDFController::class, 'mostrar'])->name('pdf.mostrar');
-        Route::get('/pdf/{periodo}/{propietario}/descargar', [BoletaExpensaPDFController::class, 'descargar'])->name('pdf.descargar');
+        // PDF de boleta de expensa (por período, tipo y responsable)
+        // {tipo} = 'propietario' | 'inquilino'
+        Route::get('/pdf/{periodo}/{tipo}/{responsable}', [BoletaExpensaPDFController::class, 'mostrar'])
+            ->where('tipo', 'propietario|inquilino')
+            ->name('pdf.mostrar');
+        Route::get('/pdf/{periodo}/{tipo}/{responsable}/descargar', [BoletaExpensaPDFController::class, 'descargar'])
+            ->where('tipo', 'propietario|inquilino')
+            ->name('pdf.descargar');
 
         // PDF de expensa de unidad específica
         Route::get('/unidad-pdf/{periodo}/{unidad}', [ExpensaUnidadPDFController::class, 'mostrar'])->name('unidad.pdf.mostrar');

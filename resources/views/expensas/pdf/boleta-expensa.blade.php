@@ -229,7 +229,7 @@
             <div class="edificio-nombre">{{ $configuracion->nombre_edificio }}</div>
             <div class="titulo-boleta">EXPENSAS DEL MES DE {{ strtoupper($periodo->nombre_periodo) }}</div>
             <div class="propietario-info">
-                COPROPIETARIO: {{ strtoupper($propietario->nombre) }} {{ strtoupper($propietario->apellido) }}
+                {{ $etiquetaResponsable }}: {{ strtoupper($propietario->nombre) }} {{ strtoupper($propietario->apellido) }}
             </div>
         </div>
 

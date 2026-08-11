@@ -96,6 +96,7 @@ class ExpensaList extends Component
         $query = Unidad::activos()
             ->with([
                 'propietarioActual',
+                'inquilinoActual',
                 'expensas' => function ($query) {
                     if ($this->periodoId) {
                         $query->where('periodo_id', $this->periodoId);
@@ -111,28 +112,29 @@ class ExpensaList extends Component
                 $palabras = preg_split('/\s+/', $termino, -1, PREG_SPLIT_NO_EMPTY);
                 $palabras = array_filter($palabras, fn($p) => !empty(trim($p)));
 
-                // Si es una sola palabra, búsqueda simple
+                // Closure reutilizable: busca en código, propietario o inquilino
+                $aplicarFiltroNombre = function ($q, $termino) {
+                    $q->where('unidades.codigo', 'like', "%{$termino}%")
+                      ->orWhereHas('propietarioActual', function ($propQ) use ($termino) {
+                          $propQ->where('nombre', 'like', "%{$termino}%")
+                                ->orWhere('apellido', 'like', "%{$termino}%");
+                      })
+                      ->orWhereHas('inquilinoActual', function ($inqQ) use ($termino) {
+                          $inqQ->where('nombre', 'like', "%{$termino}%")
+                               ->orWhere('apellido', 'like', "%{$termino}%");
+                      });
+                };
+
                 if (count($palabras) === 1) {
+                    // Si es una sola palabra, búsqueda simple
                     $termino = $palabras[0];
-                    $query->where(function ($q) use ($termino) {
-                        $q->where('unidades.codigo', 'like', "%{$termino}%")
-                          ->orWhereHas('propietarioActual', function ($propQ) use ($termino) {
-                              $propQ->where('nombre', 'like', "%{$termino}%")
-                                    ->orWhere('apellido', 'like', "%{$termino}%");
-                          });
-                    });
+                    $query->where(fn ($q) => $aplicarFiltroNombre($q, $termino));
                 } else {
                     // Si son múltiples palabras, buscar combinaciones
-                    $query->where(function ($q) use ($palabras) {
+                    $query->where(function ($q) use ($palabras, $aplicarFiltroNombre) {
                         foreach ($palabras as $index => $palabra) {
                             $method = $index === 0 ? 'where' : 'orWhere';
-                            $q->$method(function ($subQ) use ($palabra) {
-                                $subQ->where('unidades.codigo', 'like', "%{$palabra}%")
-                                      ->orWhereHas('propietarioActual', function ($propQ) use ($palabra) {
-                                          $propQ->where('nombre', 'like', "%{$palabra}%")
-                                                ->orWhere('apellido', 'like', "%{$palabra}%");
-                                      });
-                            });
+                            $q->$method(fn ($subQ) => $aplicarFiltroNombre($subQ, $palabra));
                         }
                     });
                 }

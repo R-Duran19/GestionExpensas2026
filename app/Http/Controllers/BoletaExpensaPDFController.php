@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Propietario;
+use App\Models\Inquilino;
 use App\Models\PeriodoExpensa;
 use App\Services\GenerarBoletaExpensaPDFService;
 use Illuminate\Support\Facades\Log;
@@ -18,20 +19,40 @@ class BoletaExpensaPDFController extends Controller
     }
 
     /**
+     * Resolver el responsable (Propietario o Inquilino) según el tipo.
+     *
+     * @param string $tipo  'propietario' | 'inquilino'
+     * @param int $id
+     * @return Propietario|Inquilino
+     */
+    protected function resolverResponsable(string $tipo, int $id)
+    {
+        if ($tipo === 'inquilino') {
+            return Inquilino::findOrFail($id);
+        }
+
+        return Propietario::findOrFail($id);
+    }
+
+    /**
      * Generar y mostrar PDF de boleta de expensa
      *
      * @param PeriodoExpensa $periodo
-     * @param Propietario $propietario
+     * @param string $tipo  'propietario' | 'inquilino'
+     * @param int $responsable
      * @return mixed
      */
-    public function mostrar(PeriodoExpensa $periodo, Propietario $propietario)
+    public function mostrar(PeriodoExpensa $periodo, string $tipo, int $responsable)
     {
         try {
-            return $this->pdfService->generar($propietario, $periodo, 'stream');
+            $modelo = $this->resolverResponsable($tipo, $responsable);
+
+            return $this->pdfService->generar($modelo, $tipo, $periodo, 'stream');
 
         } catch (Exception $e) {
             Log::error('Error al mostrar PDF de boleta de expensa', [
-                'propietario_id' => $propietario->id,
+                'tipo' => $tipo,
+                'responsable_id' => $responsable,
                 'periodo_id' => $periodo->id,
                 'error' => $e->getMessage(),
             ]);
@@ -44,17 +65,21 @@ class BoletaExpensaPDFController extends Controller
      * Generar y descargar PDF de boleta de expensa
      *
      * @param PeriodoExpensa $periodo
-     * @param Propietario $propietario
+     * @param string $tipo  'propietario' | 'inquilino'
+     * @param int $responsable
      * @return mixed
      */
-    public function descargar(PeriodoExpensa $periodo, Propietario $propietario)
+    public function descargar(PeriodoExpensa $periodo, string $tipo, int $responsable)
     {
         try {
-            return $this->pdfService->generar($propietario, $periodo, 'descarga');
+            $modelo = $this->resolverResponsable($tipo, $responsable);
+
+            return $this->pdfService->generar($modelo, $tipo, $periodo, 'descarga');
 
         } catch (Exception $e) {
             Log::error('Error al descargar PDF de boleta de expensa', [
-                'propietario_id' => $propietario->id,
+                'tipo' => $tipo,
+                'responsable_id' => $responsable,
                 'periodo_id' => $periodo->id,
                 'error' => $e->getMessage(),
             ]);
