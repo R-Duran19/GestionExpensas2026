@@ -92,7 +92,7 @@ services:
       --character-set-server=utf8mb4
       --collation-server=utf8mb4_unicode_ci
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "--ssl-mode=DISABLED"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "--skip-ssl"]
       interval: 5s
       timeout: 5s
       retries: 30
