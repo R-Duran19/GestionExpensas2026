@@ -62,8 +62,7 @@ services:
       - expensas_network
       - proxy_network
     depends_on:
-      mysql:
-        condition: service_healthy
+      - mysql
     expose:
       - "80"
       - "9000"
@@ -91,12 +90,10 @@ services:
       --default-authentication-plugin=mysql_native_password
       --character-set-server=utf8mb4
       --collation-server=utf8mb4_unicode_ci
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "--skip-ssl"]
-      interval: 5s
-      timeout: 5s
-      retries: 30
-      start_period: 20s
+      --ssl=0
+    # Sin healthcheck: el propio entrypoint.sh del contenedor app ya espera
+    # a MySQL con un bucle de 60 intentos. Esto evita problemas de sintaxis
+    # entre clientes MariaDB (app) y MySQL oficial (healthcheck).
 
 networks:
   # Conexión a la red externa del nginx-proxy-manager (VPS)

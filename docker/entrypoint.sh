@@ -85,14 +85,11 @@ fi
 echo "⏳ Esperando a MySQL en ${DB_HOST:-mysql}:${DB_PORT:-3306} (usuario: ${DB_USERNAME})..."
 ATTEMPTS=0
 MAX_ATTEMPTS=60
-# Usamos --skip-ssl porque el cliente de MariaDB (default-mysql-client en Debian)
-# no reconoce --ssl-mode=DISABLED y por defecto pide TLS.
 until mysqladmin ping \
         -h"${DB_HOST:-mysql}" \
         -P"${DB_PORT:-3306}" \
         -u"${DB_USERNAME}" \
         -p"${DB_PASSWORD}" \
-        --skip-ssl \
         --silent 2>/dev/null; do
     ATTEMPTS=$((ATTEMPTS+1))
     if [ ${ATTEMPTS} -ge ${MAX_ATTEMPTS} ]; then
