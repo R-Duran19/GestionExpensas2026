@@ -50,9 +50,9 @@ services:
       # Mail
       - MAIL_MAILER=log
       - MAIL_FROM_ADDRESS=noreply@expensas.com
-      - MAIL_FROM_NAME="Gestión de Expensas"
+      - MAIL_FROM_NAME=Gestión de Expensas
       # Vite / Assets / Proxy
-      - VITE_APP_NAME="Gestión de Expensas"
+      - VITE_APP_NAME=Gestión de Expensas
       - ASSET_URL=${APP_URL:-https://expensas.acmanalytics.online}
       - TRUSTED_PROXIES=*
       # Auto-deploy
