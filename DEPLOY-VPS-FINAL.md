@@ -1,6 +1,6 @@
 # 🚀 Guía Definitiva de Deploy en VPS — Gestión de Expensas
 
-> Documento generado tras resolver 5 bugs consecutivos durante el deploy de agosto 2026. Esta es la configuración **probada y blindada** que funciona en el VPS de Contabo.
+> Documento generado tras resolver 7 bugs consecutivos durante el deploy de agosto 2026. Esta es la configuración **probada y blindada** que funciona en el VPS de Contabo.
 
 ---
 
@@ -28,10 +28,12 @@
 | 3 | `dependency failed to start: container gestion_expensas_mysql is unhealthy` | El healthcheck usaba `--skip-ssl` (sintaxis MariaDB) pero el contenedor MySQL tiene cliente MySQL oficial | **Quitar el healthcheck**. El entrypoint.sh ya espera MySQL con su propio bucle |
 | 4 | `syntax error near unexpected token 'then'` | Typo: `until ... then` en lugar de `until ... do` | Cambiar `then` por `do` + verificar con `bash -n` antes de commitear |
 | 5 | `Failed to parse dotenv file. Encountered unexpected whitespace at [""Gestión de Expensas"}"]` | Doble comilla: docker-compose pasaba `"Gestión de Expensas"` y el entrypoint la volvía a envolver | Quitar comillas internas del compose; solo un par en el `.env` final |
+| 6 | `SQLSTATE[23000]: Cannot add or update a child row: foreign key constraint fails factor_prorrateo_creado_por_foreign` | `FactorProrrateoSeeder` y `FacturaAguaSeeder` tenían fallback `?? 2` (ID inexistente) cuando el admin no se encontraba | Patrón robusto en 3 niveles: admin por email → primer usuario → `1` |
+| 7 | `livewire.min.js:1 Failed to load resource: 404` + `Livewire is not defined` | Nginx interno del contenedor tenía regex `location ~* \.js$` **sin** `try_files`. `/livewire/livewire.min.js` no existe físicamente (Livewire 4 lo sirve vía PHP) → nginx devolvía 404 directo, sin pasar a Laravel | `location ^~ /livewire/` prioritaria + `try_files` en la location de estáticos |
 
 ---
 
-## ✅ Las 5 reglas de oro (post-mortem)
+## ✅ Las 8 reglas de oro (post-mortem)
 
 ### 1. Nunca hardcodear secretos en `docker-compose.yml`
 Usar `${VAR:?mensaje}` → falla temprano si falta. Las credenciales viven en `.env` del host (no commiteado).
@@ -69,6 +71,34 @@ Detecta errores de sintaxis sin ejecutar. Es **gratis** y ahorra un ciclo comple
 ```bash
 # entrypoint.sh (un solo par)
 MAIL_FROM_NAME="${MAIL_FROM_NAME:-Gestión de Expensas}"
+```
+
+### 7. Seeders idempotentes con claves foráneas
+NUNCA usar un fallback hardcoded para IDs de FK (tipo `?? 2`). Patrón seguro en 3 niveles:
+
+```php
+$userId = User::where('email', 'admin@admin.com')->first()?->id
+    ?? User::first()?->id
+    ?? 1;
+```
+
+Cualquier seeder con `firstOrCreate` puede correr en cualquier orden sin romper.
+
+### 8. Nginx: rutas dinámicas de Livewire/Sanctum/etc. deben pasar a Laravel
+Livewire 3/4 sirve `/livewire/livewire.min.js` **vía PHP**, no como archivo físico. Si el nginx interno tiene una regex `location ~* \.js$` **sin** `try_files`, esos requests devuelven 404 directo y se rompe todo el frontend.
+
+Solución:
+```nginx
+# Antes que la regex de estáticos
+location ^~ /livewire/ {
+    try_files $uri /index.php?$query_string;
+}
+
+# Y en la location de estáticos, SIEMPRE agregar try_files como fallback
+location ~* \.(...|js|...)$ {
+    expires 30d;
+    try_files $uri /index.php?$query_string;
+}
 ```
 
 ---
@@ -241,8 +271,75 @@ El entrypoint es **idempotente**:
 | Limpiar caché | `docker compose exec app php artisan optimize:clear` |
 | Listar rutas | `docker compose exec app php artisan route:list` |
 | Migraciones pendientes | `docker compose exec app php artisan migrate:status` |
-| Backup BD | `docker compose exec mysql mysqldump -u root -p"$DB_ROOT_PASSWORD" expensas_db > backup_$(date +%Y%m%d).sql` |
-| Restaurar BD | `docker compose exec -T mysql mysql -u root -p"$DB_ROOT_PASSWORD" expensas_db < backup.sql` |
+
+---
+
+## 💾 Backup y restore de la base de datos
+
+### Backup comprimido (recomendado)
+
+```bash
+cd ~/GestionExpensas2026
+
+docker compose exec -T mysql mysqldump \
+    -u root -p"$DB_ROOT_PASSWORD" \
+    --single-transaction \
+    --quick \
+    --routines \
+    --triggers \
+    expensas_db | gzip > "backup_expensas_$(date +%Y%m%d_%H%M%S).sql.gz"
+
+# Verificar integridad del gzip
+gunzip -t backup_expensas_*.sql.gz && echo "Backup OK"
+
+# Ver tamaño
+ls -lh backup_expensas_*.sql.gz
+```
+
+Genera un archivo `backup_expensas_YYYYMMDD_HHMMSS.sql.gz` en el directorio actual.
+
+### Alias para backup con un comando
+
+```bash
+echo 'alias backup-expensas="cd ~/GestionExpensas2026 && docker compose exec -T mysql mysqldump -u root -p\"\$DB_ROOT_PASSWORD\" --single-transaction --quick --routines --triggers expensas_db | gzip > backup_expensas_\$(date +%Y%m%d_%H%M%S).sql.gz && ls -lh backup_expensas_*.sql.gz | tail -1"' >> ~/.bashrc
+source ~/.bashrc
+
+# Después solo ejecutás:
+backup-expensas
+```
+
+### Descargar backup a tu PC
+
+```bash
+# Desde Windows (PowerShell o Git Bash)
+scp richy@169.58.133.43:~/GestionExpensas2026/backup_expensas_*.sql.gz "C:/backups/"
+```
+
+### Restaurar un backup
+
+```bash
+# En el VPS, dentro del directorio del proyecto
+gunzip < backup_expensas_20260811_053000.sql.gz | \
+    docker compose exec -T mysql mysql -u root -p"$DB_ROOT_PASSWORD" expensas_db
+
+# Después limpiar caché de Laravel para que refleje los datos nuevos
+docker compose exec app php artisan optimize:clear
+```
+
+### Backup automático con cron (opcional, set-and-forget)
+
+```bash
+# Crear directorio de backups
+mkdir -p /home/richy/backups
+
+# Editar crontab
+crontab -e
+
+# Agregar backup diario a las 03:00 AM, conservar 7 días (todo en una línea)
+0 3 * * * cd /home/richy/GestionExpensas2026 && docker compose exec -T mysql mysqldump -u root -p"$(grep DB_ROOT_PASSWORD .env | cut -d= -f2)" --single-transaction --quick --routines --triggers expensas_db | gzip > /home/richy/backups/backup_expensas_$(date +\%Y\%m\%d).sql.gz && find /home/richy/backups/ -name "backup_expensas_*.sql.gz" -mtime +7 -delete
+```
+
+> ⚠️ Si la contraseña tiene caracteres especiales (`$`, `!`, etc.), escaparlos en el crontab.
 
 ---
 
@@ -260,17 +357,20 @@ docker compose exec app php artisan optimize:clear
 
 | Síntoma | Diagnóstico |
 |---|---|
-| 502 Bad Gateway | `docker exec nginx-proxy-manager-app-1 curl -I http://gestion_expensas_app:80`. Si da conexión rechazada → problema red. Si 200/302 → config NPM. |
-| 500 Internal Server Error | Verificar permisos (ver arriba) + `docker compose exec app cat storage/logs/laravel.log \| tail -50` |
+| 502 Bad Gateway | `docker exec nginx-proxy-manager-app-1 curl -I http://gestion_expensas_app:80`. Si da conexión rechazada → problema red. Si 200/302 → config NPM (revisar Advanced vacío + Force SSL). |
+| 500 Internal Server Error | Verificar permisos (ver arriba) + `docker compose exec app tail -50 storage/logs/laravel.log` |
 | `Access denied for user` | Las credenciales del `.env` no coinciden con las que MySQL tiene. `docker compose down -v && docker compose up -d --build` |
 | Migraciones colgadas | `docker compose exec app php artisan migrate:status` |
 | APP_KEY vacía | Generar con `docker compose exec app php artisan key:generate --force` |
+| `Livewire is not defined` / `livewire.min.js 404` | Nginx interno no deriva `/livewire/` a Laravel. Verificar `docker/nginx/default.conf` tenga `location ^~ /livewire/` + `try_files` en estáticos. |
+| Componentes Livewire no actualizan URL (`?periodoId=` no aparece) | Mismo bug que arriba (Livewire JS no cargó) o falta de datos en BD (verificar `PeriodoExpensa::count() > 0`). |
+| `foreign key constraint fails` al correr seeders | Algún seeder tiene fallback `?? 2` para IDs. Patrón robusto: `Model::where(...)->first()?->id ?? Model::first()?->id ?? 1`. |
 
 ---
 
 ## 📍 Versión documentada
 
 - Última actualización: agosto 2026
-- Commit base: `f467b63` (post-fix dotenv)
+- Commit base: `70a1cb1` (post-fix nginx/Livewire)
 - Repositorio: https://github.com/R-Duran19/GestionExpensas2026
 - Dominio: https://expensas.acmanalytics.online
