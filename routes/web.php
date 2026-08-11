@@ -115,6 +115,9 @@ Route::middleware(['auth', 'admin'])->group(function () {
         // Página principal de configuración
         Route::get('/', \App\Livewire\Configuracion\ConfiguracionIndex::class)->name('index');
 
+        // Datos del Edificio (singleton: nombre, dirección, mensaje de PDFs, etc.)
+        Route::get('/edificio', \App\Livewire\Configuracion\ConfiguracionEdificioForm::class)->name('edificio');
+
         // Factores de Prorrateo
         Route::get('/factores', \App\Livewire\Configuracion\ConfiguracionFactores::class)->name('factores');
 
