@@ -83,21 +83,36 @@ fi
 # 2. Esperar a MySQL (usa credenciales inyectadas por docker-compose)
 # -----------------------------------------------------------------------------
 echo "⏳ Esperando a MySQL en ${DB_HOST:-mysql}:${DB_PORT:-3306} (usuario: ${DB_USERNAME})..."
+# IMPORTANTE: el contenedor app tiene el cliente MariaDB 11.x (default-mysql-client
+# de Debian). MariaDB no reconoce --ssl-mode=DISABLED (sintaxis MySQL 8) y por
+# defecto exige SSL si el server lo ofrece. Por eso:
+#   - el server MySQL del compose tiene --ssl=0 (no ofrece SSL)
+#   - acá pasamos --skip-ssl (sintaxis MariaDB) para forzar no-SSL
+# y mantenemos stderr visible para que cualquier error se vea en los logs.
 ATTEMPTS=0
 MAX_ATTEMPTS=60
+LAST_ERR=""
 until mysqladmin ping \
         -h"${DB_HOST:-mysql}" \
         -P"${DB_PORT:-3306}" \
         -u"${DB_USERNAME}" \
         -p"${DB_PASSWORD}" \
-        --silent 2>/dev/null; do
+        --skip-ssl \
+        --silent 2>/tmp/mysqladmin.err; then
     ATTEMPTS=$((ATTEMPTS+1))
+    LAST_ERR=$(cat /tmp/mysqladmin.err 2>/dev/null | head -1)
     if [ ${ATTEMPTS} -ge ${MAX_ATTEMPTS} ]; then
         echo "❌ Timeout esperando MySQL tras ${MAX_ATTEMPTS} intentos."
+        echo "   Último error: ${LAST_ERR}"
         echo "   ¿Está el contenedor 'mysql' levantado y en la misma red?"
         exit 1
     fi
-    echo "   MySQL no responde aún (intento ${ATTEMPTS}/${MAX_ATTEMPTS})..."
+    # Mostramos el error solo cada 10 intentos para no inundar el log
+    if [ $((ATTEMPTS % 10)) -eq 0 ] && [ -n "${LAST_ERR}" ]; then
+        echo "   MySQL no responde aún (intento ${ATTEMPTS}/${MAX_ATTEMPTS}) — ${LAST_ERR}"
+    else
+        echo "   MySQL no responde aún (intento ${ATTEMPTS}/${MAX_ATTEMPTS})..."
+    fi
     sleep 3
 done
 echo "✅ MySQL disponible"
