@@ -98,7 +98,7 @@ until mysqladmin ping \
         -u"${DB_USERNAME}" \
         -p"${DB_PASSWORD}" \
         --skip-ssl \
-        --silent 2>/tmp/mysqladmin.err; then
+        --silent 2>/tmp/mysqladmin.err; do
     ATTEMPTS=$((ATTEMPTS+1))
     LAST_ERR=$(cat /tmp/mysqladmin.err 2>/dev/null | head -1)
     if [ ${ATTEMPTS} -ge ${MAX_ATTEMPTS} ]; then
