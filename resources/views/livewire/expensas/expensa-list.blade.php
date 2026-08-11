@@ -131,7 +131,7 @@
                             Recalcular
                         </button>
 
-                        <!-- Boleta Manual -->
+                        <!-- Boletas para Imprimir -->
                         <a
                             href="{{ route('expensas.boleta.manual') }}"
                             class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
@@ -139,7 +139,7 @@
                             <svg class="-ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                             </svg>
-                            Boleta Manual
+                            Boletas para Imprimir
                         </a>
                     @endif
                 </div>

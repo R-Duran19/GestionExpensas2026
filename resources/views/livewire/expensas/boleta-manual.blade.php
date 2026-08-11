@@ -3,8 +3,8 @@
     <div class="bg-white rounded-lg shadow p-6 mb-6">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between">
             <div>
-                <h1 class="text-2xl font-bold text-gray-900">📄 Boleta Manual</h1>
-                <p class="text-sm text-gray-600 mt-1">Generación manual de boletas de expensa</p>
+                <h1 class="text-2xl font-bold text-gray-900">📄 Boletas para Imprimir</h1>
+                <p class="text-sm text-gray-600 mt-1">Generá un PDF consolidado con una boleta por página de las unidades que selecciones</p>
             </div>
 
             <!-- Volver a Expensas -->
@@ -45,6 +45,9 @@
                     <p class="text-sm text-gray-500 mt-1">
                         Período: <strong>{{ $this->periodo->nombre_periodo }}</strong> |
                         Seleccionadas: <strong>{{ count($this->unidadesSeleccionadas) }}</strong>
+                        @if(count($this->unidadesSeleccionadas) > 0)
+                            <button wire:click="limpiarSeleccion" class="ml-2 text-xs text-red-600 hover:text-red-800 underline">limpiar todo</button>
+                        @endif
                     </p>
                 </div>
 
@@ -56,7 +59,7 @@
                         <svg class="-ml-1 mr-2 h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
-                        Todas
+                        Marcar página
                     </button>
                     <button
                         wire:click="deseleccionarTodas"
@@ -65,7 +68,7 @@
                         <svg class="-ml-1 mr-2 h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
-                        Ninguna
+                        Desmarcar página
                     </button>
                 </div>
             </div>
@@ -75,7 +78,7 @@
                 <input
                     type="text"
                     wire:model.live="search"
-                    placeholder="Buscar por código de unidad o propietario..."
+                    placeholder="Buscar por código de unidad, propietario o inquilino..."
                     class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 >
 
@@ -94,18 +97,56 @@
             <div class="flex justify-end">
                 <button
                     wire:click="generarPDFs"
-                    class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    wire:loading.attr="disabled"
+                    class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
                 >
-                    <svg class="-ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg wire:loading.remove wire:target="generarPDFs" class="-ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                     </svg>
-                    Generar Boletas PDF
+                    <svg wire:loading wire:target="generarPDFs" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Generar Boletas PDF ({{ count($this->unidadesSeleccionadas) }})
                 </button>
             </div>
         </div>
 
+        <!-- Boleta generada (botón único al PDF consolidado) -->
+        @if($pdfGenerado)
+            <div class="bg-green-50 border border-green-200 rounded-lg shadow p-6 mb-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-medium text-green-900">
+                            ✅ PDF listo con {{ $pdfGenerado['cantidad'] }} boleta(s)
+                        </h2>
+                        <p class="text-sm text-green-700 mt-1">
+                            Período: <strong>{{ $pdfGenerado['periodo'] }}</strong>. Una página por unidad.
+                        </p>
+                    </div>
+                    <div class="flex gap-2">
+                        <a href="{{ $pdfGenerado['url'] }}" target="_blank" rel="noopener"
+                           class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                            <svg class="-ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                            </svg>
+                            Abrir PDF
+                        </a>
+                        <a href="{{ $pdfGenerado['descargar'] }}"
+                           class="inline-flex items-center px-4 py-2 border border-green-300 rounded-md shadow-sm text-sm font-medium text-green-700 bg-white hover:bg-green-50">
+                            <svg class="-ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                            Descargar
+                        </a>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <!-- Lista de Unidades -->
-        <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="bg-white rounded-lg shadow overflow-hidden mb-6">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
@@ -121,7 +162,7 @@
                                 Unidad
                             </th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Propietario
+                                Responsable
                             </th>
                             <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Estado
@@ -185,13 +226,30 @@
                                 </td>
 
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    @if($unidad->propietarioActual)
-                                        <div class="text-sm text-gray-900">
-                                            {{ $unidad->propietarioActual->nombre_completo }}
+                                    @php
+                                        $inquilino = $unidad->inquilinoActual;
+                                        $propietario = $unidad->propietarioActual;
+                                        $responsable = $inquilino ?: $propietario;
+                                    @endphp
+                                    @if($responsable)
+                                        <div class="flex items-center gap-2">
+                                            <div class="text-sm font-medium text-gray-900">
+                                                {{ $responsable->nombre_completo }}
+                                            </div>
+                                            @if($inquilino)
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                                    Inquilino
+                                                </span>
+                                            @endif
                                         </div>
-                                        <div class="text-sm text-gray-500">
-                                            {{ $unidad->propietarioActual->ci }}
+                                        <div class="text-xs text-gray-400">
+                                            {{ $responsable->ci ?: 'Sin CI' }}
                                         </div>
+                                        @if($inquilino && $propietario)
+                                            <div class="text-xs text-gray-400 mt-0.5">
+                                                Propietario: {{ $propietario->nombre_completo }}
+                                            </div>
+                                        @endif
                                     @else
                                         <div class="text-sm text-gray-500">Sin propietario</div>
                                     @endif
@@ -239,6 +297,11 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- Paginación -->
+            <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+                {{ $this->unidades->links() }}
+            </div>
         </div>
     @else
         <!-- Mensaje cuando no hay período seleccionado -->
@@ -251,26 +314,10 @@
         </div>
     @endif
 
-    <!-- Script para abrir PDFs -->
+    <!-- Script para alertas -->
     <script>
-        @this.on('abrirPDFs', (data) => {
-            const urls = data.urls;
-
-            // Abrir cada PDF en una nueva ventana
-            urls.forEach((url, index) => {
-                // Pequeño delay entre cada apertura para evitar bloqueo del navegador
-                setTimeout(() => {
-                    window.open(url, '_blank');
-                }, index * 300);
-            });
-        });
-
         @this.on('alerta', (data) => {
-            const tipo = data.tipo;
-            const titulo = data.titulo;
-            const mensaje = data.mensaje;
-
-            alert(`${titulo}: ${mensaje}`);
+            alert(`${data.titulo}: ${data.mensaje}`);
         });
     </script>
 </div>

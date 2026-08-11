@@ -7,6 +7,7 @@ use App\Http\Controllers\ReciboPDFController;
 use App\Http\Controllers\EgresoPDFController;
 use App\Http\Controllers\BoletaExpensaPDFController;
 use App\Http\Controllers\ExpensaUnidadPDFController;
+use App\Http\Controllers\BoletasImprimirController;
 use App\Http\Controllers\ReporteExcelController;
 use App\Http\Controllers\UnidadExportController;
 use Illuminate\Support\Facades\Route;
@@ -115,6 +116,9 @@ Route::middleware(['auth', 'admin'])->group(function () {
         // Página principal de configuración
         Route::get('/', \App\Livewire\Configuracion\ConfiguracionIndex::class)->name('index');
 
+        // Datos del Edificio (singleton: nombre, dirección, mensaje de PDFs, etc.)
+        Route::get('/edificio', \App\Livewire\Configuracion\ConfiguracionEdificioForm::class)->name('edificio');
+
         // Factores de Prorrateo
         Route::get('/factores', \App\Livewire\Configuracion\ConfiguracionFactores::class)->name('factores');
 
@@ -145,6 +149,10 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
         // Boleta Manual - Generación manual de PDFs
         Route::get('/boleta-manual', \App\Livewire\Expensas\BoletaManual::class)->name('boleta.manual');
+
+        // Boletas para Imprimir - PDF consolidado de varias unidades seleccionadas
+        Route::get('/boletas-imprimir/{periodo}', [BoletasImprimirController::class, 'mostrar'])->name('boletas.imprimir.mostrar');
+        Route::get('/boletas-imprimir/{periodo}/descargar', [BoletasImprimirController::class, 'descargar'])->name('boletas.imprimir.descargar');
 
         // Detalle de expensa por unidad (período vía query string ?periodoId=)
         Route::get('/unidad/{unidad}', \App\Livewire\Expensas\ExpensaUnidadDetalle::class)->name('unidad.detalle');

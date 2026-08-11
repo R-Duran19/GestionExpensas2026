@@ -5,21 +5,30 @@ namespace App\Livewire\Expensas;
 use App\Models\PeriodoExpensa;
 use App\Models\Unidad;
 use App\Models\Expensa;
-use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 class BoletaManual extends Component
 {
+    use WithPagination;
+
     public $periodoId = null;
     public $unidadesSeleccionadas = [];
     public $search = '';
     public $filtroTipo = '';
+    public $pdfGenerado = null;
+
+    protected $queryString = [
+        'search' => ['except' => ''],
+        'filtroTipo' => ['except' => ''],
+    ];
 
     #[Computed()]
     public function periodos()
     {
-        return PeriodoExpensa::orderBy('fecha_inicio', 'desc')
+        return PeriodoExpensa::orderBy('año', 'desc')
+            ->orderBy('mes', 'desc')
             ->get();
     }
 
@@ -34,21 +43,32 @@ class BoletaManual extends Component
 
     public function getUnidadesProperty()
     {
-        $query = Unidad::with(['propietarioActual', 'expensas' => function($query) {
-            if ($this->periodoId) {
-                $query->where('periodo_id', $this->periodoId);
-            }
-        }])->where('activo', true);
+        $query = Unidad::with([
+            'propietarioActual',
+            'inquilinoActual',
+            'expensas' => function ($query) {
+                if ($this->periodoId) {
+                    $query->where('periodo_id', $this->periodoId);
+                }
+            },
+        ])->where('activo', true);
 
-        // Filtro por búsqueda
+        // Filtro por búsqueda (código, propietario o inquilino)
         if ($this->search) {
-            $query->where(function($q) {
-                $q->where('codigo', 'like', '%' . $this->search . '%')
-                  ->orWhereHas('propietarioActual', function($subQ) {
-                      $subQ->where('nombre', 'like', '%' . $this->search . '%')
-                           ->orWhere('apellido', 'like', '%' . $this->search . '%');
-                  });
-            });
+            $termino = trim($this->search);
+            if ($termino !== '') {
+                $query->where(function ($q) use ($termino) {
+                    $q->where('codigo', 'like', '%' . $termino . '%')
+                      ->orWhereHas('propietarioActual', function ($subQ) use ($termino) {
+                          $subQ->where('nombre', 'like', '%' . $termino . '%')
+                               ->orWhere('apellido', 'like', '%' . $termino . '%');
+                      })
+                      ->orWhereHas('inquilinoActual', function ($subQ) use ($termino) {
+                          $subQ->where('nombre', 'like', '%' . $termino . '%')
+                               ->orWhere('apellido', 'like', '%' . $termino . '%');
+                      });
+                });
+            }
         }
 
         // Filtro por tipo
@@ -58,24 +78,31 @@ class BoletaManual extends Component
 
         return $query->orderByRaw(Unidad::ordenPorTipoUnidadRaw('tipo_unidad'))
             ->orderByRaw(Unidad::ordenPorCodigoRaw('codigo', 'ASC'))
-            ->get();
+            ->paginate(20);
     }
 
     public function seleccionarTodas()
     {
-        $this->unidadesSeleccionadas = $this->unidades->pluck('id')->toArray();
+        // Solo las de la página actual (paginación)
+        $idsPagina = $this->unidades->pluck('id')->all();
+        $this->unidadesSeleccionadas = array_values(
+            array_unique(array_merge($this->unidadesSeleccionadas, $idsPagina))
+        );
     }
 
     public function deseleccionarTodas()
     {
-        $this->unidadesSeleccionadas = [];
+        // Solo las de la página actual
+        $idsPagina = $this->unidades->pluck('id')->all();
+        $this->unidadesSeleccionadas = array_values(
+            array_diff($this->unidadesSeleccionadas, $idsPagina)
+        );
     }
 
     public function toggleTodas()
     {
-        $todasIds = $this->unidades->pluck('id')->toArray();
-        $todasSeleccionadas = count($this->unidadesSeleccionadas) === count($todasIds) &&
-                               empty(array_diff($todasIds, $this->unidadesSeleccionadas));
+        $idsPagina = $this->unidades->pluck('id')->all();
+        $todasSeleccionadas = !empty($idsPagina) && empty(array_diff($idsPagina, $this->unidadesSeleccionadas));
 
         if ($todasSeleccionadas) {
             $this->deseleccionarTodas();
@@ -84,8 +111,15 @@ class BoletaManual extends Component
         }
     }
 
+    public function limpiarSeleccion()
+    {
+        $this->unidadesSeleccionadas = [];
+    }
+
     public function generarPDFs()
     {
+        $this->pdfGenerado = null;
+
         if (empty($this->unidadesSeleccionadas)) {
             $this->dispatch('alerta', [
                 'tipo' => 'warning',
@@ -104,52 +138,70 @@ class BoletaManual extends Component
             return;
         }
 
-        // Obtener las unidades seleccionadas
-        $unidades = $this->unidades->filter(function($unidad) {
-            return in_array($unidad->id, $this->unidadesSeleccionadas);
-        });
+        // Query directa por IDs seleccionados para identificar cuáles tienen expensa
+        $expensas = Expensa::where('periodo_id', $this->periodo->id)
+            ->whereIn('unidad_id', $this->unidadesSeleccionadas)
+            ->pluck('unidad_id');
 
-        // Verificar que las unidades tengan expensas calculadas
-        $unidadesSinExpensa = [];
-        foreach ($unidades as $unidad) {
-            $expensa = $unidad->expensas->first();
-            if (!$expensa) {
-                $unidadesSinExpensa[] = $unidad->codigo;
-            }
-        }
+        $unidadesConExpensa = $expensas->all();
 
-        if (!empty($unidadesSinExpensa)) {
+        if (empty($unidadesConExpensa)) {
             $this->dispatch('alerta', [
                 'tipo' => 'warning',
                 'titulo' => 'Atención',
-                'mensaje' => 'Las siguientes unidades no tienen expensas calculadas para este período: ' . implode(', ', $unidadesSinExpensa) . '. Solo se generarán las que tienen expensas.'
-            ]);
-            // Filtrar solo las que tienen expensa
-            $unidades = $unidades->filter(function($unidad) {
-                return $unidad->expensas->first();
-            });
-        }
-
-        if ($unidades->isEmpty()) {
-            $this->dispatch('alerta', [
-                'tipo' => 'warning',
-                'titulo' => 'Atención',
-                'mensaje' => 'Ninguna de las unidades seleccionadas tiene expensas calculadas.'
+                'mensaje' => 'Ninguna de las unidades seleccionadas tiene expensas calculadas para este período.'
             ]);
             return;
         }
 
-        // Generar URLs de PDF y enviarlas al frontend
-        $urlsPDF = [];
-        foreach ($unidades as $unidad) {
-            $urlsPDF[] = route('expensas.unidad.pdf.mostrar', [
+        // Unidades seleccionadas sin expensa (para avisar)
+        $unidadesSinExpensa = array_diff($this->unidadesSeleccionadas, $unidadesConExpensa);
+
+        // Generar URL al PDF consolidado (una boleta por página)
+        $this->pdfGenerado = [
+            'url' => route('expensas.boletas.imprimir.mostrar', [
                 'periodo' => $this->periodo->id,
-                'unidad' => $unidad->id
-            ]);
+                'unidades' => implode(',', $unidadesConExpensa),
+            ]),
+            'descargar' => route('expensas.boletas.imprimir.descargar', [
+                'periodo' => $this->periodo->id,
+                'unidades' => implode(',', $unidadesConExpensa),
+            ]),
+            'cantidad' => count($unidadesConExpensa),
+            'periodo' => $this->periodo->nombre_periodo,
+        ];
+
+        $mensaje = 'Boleta lista: ' . count($unidadesConExpensa) . ' unidades. Usá los botones Ver/Descargar abajo.';
+        $tipo = 'success';
+        if (!empty($unidadesSinExpensa)) {
+            // Mostrar códigos de las que no tienen expensa
+            $codigosSin = Unidad::whereIn('id', $unidadesSinExpensa)->pluck('codigo')->all();
+            $mensaje = 'Se generó PDF con ' . count($unidadesConExpensa) . ' unidades. Sin expensa: ' . implode(', ', $codigosSin) . '.';
+            $tipo = 'warning';
         }
 
-        // Enviar las URLs al frontend para abrirlas
-        $this->dispatch('abrirPDFs', urls: $urlsPDF);
+        $this->dispatch('alerta', [
+            'tipo' => $tipo,
+            'titulo' => 'Boletas listas',
+            'mensaje' => $mensaje,
+        ]);
+    }
+
+    public function updatingSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingFiltroTipo()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingPeriodoId()
+    {
+        $this->resetPage();
+        $this->unidadesSeleccionadas = [];
+        $this->pdfGenerado = null;
     }
 
     public function render()

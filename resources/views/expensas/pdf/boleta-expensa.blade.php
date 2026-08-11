@@ -327,14 +327,14 @@
 
             <!-- Notas -->
             <div class="content-section">
-            @if($configuracion->informacion_adicional)
-                <div class="notas">
-                    <div class="notas-title">Notas:</div>
-                    <div>{{ $configuracion->informacion_adicional }}</div>
-                </div>
-            @else
-                <div class="notas">
-                    <div class="notas-title">Notas:</div>
+            @php
+                $mensajeNotas = trim($configuracion->informacion_adicional ?? '');
+            @endphp
+            <div class="notas">
+                <div class="notas-title">Notas:</div>
+                @if($mensajeNotas !== '')
+                    <div>{!! nl2br(e($mensajeNotas)) !!}</div>
+                @else
                     <div>
                         ESTIMADOS SEÑORES COPROPIETARIOS E INQUILINOS, LES RECORDAMOS QUE PUEDEN HACER SUS PAGOS EN EL BANCO
                         <strong>BANCO BISA N° DE CUENTA 727505-001-1</strong>
@@ -345,12 +345,7 @@
                             CUALQUIER CONSULTA COMUNICARSE A LOS TELÉFONOS {{ $configuracion->telefono }}
                         @endif
                     </div>
-                </div>
-            @endif
-
-            <!-- Aviso -->
-            <div class="aviso">
-                ⚠ EL NO PAGO DE ESTA BOLETA, SERÁ CONSIDERADO COMO DEUDA A PARTIR DEL 15 DEL MES PRÓXIMO.
+                @endif
             </div>
             </div>
         @else
