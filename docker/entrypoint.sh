@@ -85,8 +85,13 @@ fi
 echo "⏳ Esperando a MySQL en ${DB_HOST:-mysql}:${DB_PORT:-3306} (usuario: ${DB_USERNAME})..."
 ATTEMPTS=0
 MAX_ATTEMPTS=60
-until mysqladmin ping -h"${DB_HOST:-mysql}" -P"${DB_PORT:-3306}" \
-        -u"${DB_USERNAME}" -p"${DB_PASSWORD}" --silent 2>/dev/null; do
+until mysqladmin ping \
+        -h"${DB_HOST:-mysql}" \
+        -P"${DB_PORT:-3306}" \
+        -u"${DB_USERNAME}" \
+        -p"${DB_PASSWORD}" \
+        --ssl-mode=DISABLED \
+        --silent 2>/dev/null; do
     ATTEMPTS=$((ATTEMPTS+1))
     if [ ${ATTEMPTS} -ge ${MAX_ATTEMPTS} ]; then
         echo "❌ Timeout esperando MySQL tras ${MAX_ATTEMPTS} intentos."
