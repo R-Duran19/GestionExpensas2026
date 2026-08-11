@@ -12,8 +12,11 @@ class FactorProrrateoSeeder extends Seeder
      */
     public function run(): void
     {
-        // Obtener el usuario admin (asumimos que ya existe)
-        $adminUserId = \App\Models\User::where('email', 'admin@admin.com')->first()?->id ?? 2;
+        // Obtener el usuario admin (creado por AdminRoleSeeder). Si no existe,
+        // usar el primer usuario disponible, o 1 como último recurso.
+        $adminUserId = \App\Models\User::where('email', 'admin@admin.com')->first()?->id
+            ?? \App\Models\User::first()?->id
+            ?? 1;
 
         // Crear factor domiciliario (2.1)
         FactorProrrateo::firstOrCreate(
