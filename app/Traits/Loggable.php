@@ -126,6 +126,9 @@ trait Loggable
     /**
      * Prepara las propiedades para el log según la acción.
      *
+     * [SEGURIDAD-09 / Fase 3.1] Enmascara PII antes de guardar para que
+     * los activity_logs no contengan CI/telefono/email/cuit en claro.
+     *
      * @param Model $model
      * @param string $action
      * @return array
@@ -134,20 +137,85 @@ trait Loggable
     {
         return match ($action) {
             'created' => [
-                'attributes' => $model->getAttributes(),
+                'attributes' => self::maskSensitive($model->getAttributes()),
             ],
             'updated' => [
-                'old' => $model->getOriginal(),
-                'new' => $model->getChanges(),
+                'old' => self::maskSensitive($model->getOriginal()),
+                'new' => self::maskSensitive($model->getChanges()),
             ],
             'deleted' => [
-                'attributes' => $model->getOriginal(),
+                'attributes' => self::maskSensitive($model->getOriginal()),
             ],
             'restored' => [
-                'attributes' => $model->getAttributes(),
+                'attributes' => self::maskSensitive($model->getAttributes()),
             ],
             default => [],
         };
+    }
+
+    /**
+     * [SEGURIDAD-09 / Fase 3.1] Lista de campos sensibles a enmascarar.
+     *
+     * Cubre PII directa (ci/telefono/email/cuit), PII cifrada (_enc), hash,
+     * credenciales (password/remember_token) y cualquier otro que el modelo
+     * añada override de este metodo.
+     *
+     * Para extender en un modelo especifico:
+     *   protected static function sensitiveFields(): array {
+     *       return array_merge(parent::sensitiveFields(), ['mi_campo_secreto']);
+     *   }
+     *
+     * @return array<string>
+     */
+    protected static function sensitiveFields(): array
+    {
+        return [
+            // PII en claro (columnas legacy, se dropean en 3.D)
+            'ci',
+            'telefono',
+            'email',
+            'cuit',
+            // PII cifrada (commit 3.A en adelante)
+            'ci_enc',
+            'telefono_enc',
+            'email_enc',
+            'cuit_enc',
+            // Hash (no es sensible per se, pero contamina logs)
+            'ci_hash',
+            // Credenciales
+            'password',
+            'password_hash',
+            'remember_token',
+            'api_token',
+            // Comprobantes (rutas a archivos sensibles)
+            'comprobante_foto',
+        ];
+    }
+
+    /**
+     * [SEGURIDAD-09 / Fase 3.1] Reemplaza valores de campos sensibles por
+     * '***MASKED***'. Null sigue siendo null (para distinguir de vacio).
+     *
+     * @param array $attributes
+     * @return array
+     */
+    protected static function maskSensitive(array $attributes): array
+    {
+        if (empty($attributes)) {
+            return $attributes;
+        }
+
+        $sensitive = self::sensitiveFields();
+
+        foreach ($sensitive as $field) {
+            if (array_key_exists($field, $attributes)) {
+                $attributes[$field] = $attributes[$field] === null
+                    ? null
+                    : '***MASKED***';
+            }
+        }
+
+        return $attributes;
     }
 
     /**
