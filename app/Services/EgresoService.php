@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Egreso;
 use App\Models\SecuenciaCaja;
 use App\Models\CajaTotal;
+use App\Traits\ComprobanteStorage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
@@ -16,6 +17,10 @@ use Exception;
 
 class EgresoService
 {
+    // [SEGURIDAD-09 / Fase 1.2] Helpers para borrar/verificar comprobantes
+    // en disco privado (local) con fallback a publico (public).
+    use ComprobanteStorage;
+
     protected ImageManager $imageManager;
 
     public function __construct()
@@ -76,10 +81,8 @@ class EgresoService
 
             // Procesar nuevo comprobante si se proporciona
             if ($archivoComprobante) {
-                // Eliminar comprobante anterior si existe
-                if ($egreso->comprobante_foto && Storage::exists($egreso->comprobante_foto)) {
-                    Storage::delete($egreso->comprobante_foto);
-                }
+                // Eliminar comprobante anterior si existe (private o public)
+                $this->borrarComprobante($egreso->comprobante_foto);
 
                 $fecha = \Carbon\Carbon::parse($datos['fecha']);
                 $datos['comprobante_foto'] = $this->procesarImagenWebP($archivoComprobante, 'egresos', $fecha);
@@ -111,10 +114,8 @@ class EgresoService
         return DB::transaction(function () use ($egreso) {
             $fecha = $egreso->fecha->format('Y-m-d');
 
-            // Eliminar archivo de comprobante si existe
-            if ($egreso->comprobante_foto && Storage::exists($egreso->comprobante_foto)) {
-                Storage::delete($egreso->comprobante_foto);
-            }
+            // Eliminar archivo de comprobante si existe (private o public)
+            $this->borrarComprobante($egreso->comprobante_foto);
 
             // Soft delete
             $egreso->delete();
@@ -177,13 +178,14 @@ class EgresoService
             );
 
             // Crear directorio si no existe
-            $directorio = dirname(storage_path('app/public/' . $ruta));
+            // [SEGURIDAD-09 / Fase 1.2] Escribir a disco privado (storage/app/private)
+            $directorio = dirname(storage_path('app/private/' . $ruta));
             if (!file_exists($directorio)) {
                 mkdir($directorio, 0775, true);
             }
 
             // Guardar como WebP con quality 70
-            $image->save(storage_path('app/public/' . $ruta), quality: 70);
+            $image->save(storage_path('app/private/' . $ruta), quality: 70);
 
             return $ruta;
         } catch (Exception $e) {

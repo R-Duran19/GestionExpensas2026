@@ -9,6 +9,7 @@ use App\Models\SaldoAFavor;
 use App\Models\CategoriaIngreso;
 use App\Models\SecuenciaCaja;
 use App\Models\CajaTotal;
+use App\Traits\ComprobanteStorage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -21,6 +22,10 @@ use Carbon\Carbon;
 
 class PagoExpensaService
 {
+    // [SEGURIDAD-09 / Fase 1.2] Helpers para borrar/verificar comprobantes
+    // en disco privado (local) con fallback a publico (public).
+    use ComprobanteStorage;
+
     protected ImageManager $imageManager;
 
     public function __construct()
@@ -168,10 +173,11 @@ class PagoExpensaService
             // 5. Procesar comprobante si se proporciona
             $rutaComprobante = $ingreso->comprobante_foto; // Mantener el anterior si no se proporciona uno nuevo
             if ($archivoComprobante) {
-                // Eliminar comprobante anterior si existe
-                if ($ingreso->comprobante_foto && Storage::exists('public/' . $ingreso->comprobante_foto)) {
-                    Storage::delete('public/' . $ingreso->comprobante_foto);
-                }
+                // Eliminar comprobante anterior si existe (private o public)
+                // [SEGURIDAD-09 / Fase 1.2] Antes usaba Storage::exists('public/' . $ruta)
+                // que apuntaba mal al disco default; ahora usa el trait con fallback.
+                $this->borrarComprobante($ingreso->comprobante_foto);
+
                 $fecha = Carbon::parse($datosPago['fecha_pago'] ?? $ingreso->fecha);
                 $rutaComprobante = $this->procesarImagenWebP($archivoComprobante, 'pagos-expensas', $fecha);
             }
@@ -510,13 +516,14 @@ class PagoExpensaService
             );
 
             // Crear directorio si no existe
-            $directorio = storage_path('app/public/' . dirname($ruta));
+            // [SEGURIDAD-09 / Fase 1.2] Escribir a disco privado (storage/app/private)
+            $directorio = storage_path('app/private/' . dirname($ruta));
             if (!file_exists($directorio)) {
                 mkdir($directorio, 0775, true);
             }
 
             // Guardar como WebP con quality 70
-            $image->save(storage_path('app/public/' . $ruta), quality: 70);
+            $image->save(storage_path('app/private/' . $ruta), quality: 70);
 
             return $ruta;
         } catch (Exception $e) {
