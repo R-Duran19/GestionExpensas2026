@@ -97,7 +97,7 @@ class PropietarioForm extends Component
         try {
             if ($this->modo === 'crear') {
                 // Crear nuevo propietario
-                $propietario = Propietario::create([
+                Propietario::create([
                     'nombre' => ucwords(strtolower($this->nombre)),
                     'apellido' => ucwords(strtolower($this->apellido)),
                     'ci' => strtoupper($this->ci),
@@ -107,13 +107,17 @@ class PropietarioForm extends Component
                     'observaciones' => $this->observaciones ?: null,
                 ]);
 
-                $this->dispatch('toast-success', message: 'Propietario creado correctamente');
+                $mensaje = 'Propietario creado correctamente';
             } else {
                 // Actualizar propietario existente
                 $propietario = Propietario::find($this->propietario_id);
 
                 if (!$propietario) {
-                    $this->dispatch('toast-error', message: 'Propietario no encontrado');
+                    $this->dispatch('alerta', [
+                        'tipo' => 'error',
+                        'titulo' => 'Error',
+                        'mensaje' => 'Propietario no encontrado',
+                    ]);
                     return;
                 }
 
@@ -126,17 +130,23 @@ class PropietarioForm extends Component
                     'observaciones' => $this->observaciones ?: null,
                 ]);
 
-                $this->dispatch('toast-success', message: 'Propietario actualizado correctamente');
+                $mensaje = 'Propietario actualizado correctamente';
             }
 
-            // Notificar al componente lista
-            $this->dispatch('propietario-actualizado');
-
-            // Redirigir a la lista
-            return redirect()->route('propietarios.index');
+            // Mostrar alerta SweetAlert y redirigir al cerrarla (listener en app.js)
+            $this->dispatch('alerta', [
+                'tipo' => 'success',
+                'titulo' => 'Éxito',
+                'mensaje' => $mensaje,
+            ]);
+            $this->dispatch('redirect-to', route('propietarios.index'));
 
         } catch (\Exception $e) {
-            $this->dispatch('toast-error', message: 'Error al guardar: ' . $e->getMessage());
+            $this->dispatch('alerta', [
+                'tipo' => 'error',
+                'titulo' => 'Error',
+                'mensaje' => 'Error al guardar: ' . $e->getMessage(),
+            ]);
         }
     }
 

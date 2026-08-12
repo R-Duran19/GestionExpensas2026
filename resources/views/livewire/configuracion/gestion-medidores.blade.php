@@ -114,10 +114,9 @@
                                             @if($unidad->numero_medidor)
                                                 <div class="text-xs text-gray-600 mt-1 font-mono">
                                                     Nº: <input type="text"
-                                                                   wire:model.live="unidad_numero_{{ $unidad->id }}"
                                                                    value="{{ $unidad->numero_medidor }}"
                                                                    class="w-20 px-1 py-0.5 text-xs border border-gray-300 rounded bg-white"
-                                                                   onchange="Livewire.dispatch('actualizarNumeroMedidor', { unidadId: {{ $unidad->id }}, numero: this.value })">
+                                                                   wire:change="actualizarNumeroMedidor({{ $unidad->id }}, $event.target.value)">
                                                 </div>
                                             @else
                                                 <div class="text-xs text-gray-400 mt-1 italic">

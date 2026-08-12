@@ -97,7 +97,7 @@ class InquilinoForm extends Component
         try {
             if ($this->modo === 'crear') {
                 // Crear nuevo inquilino
-                $inquilino = Inquilino::create([
+                Inquilino::create([
                     'nombre' => ucwords(strtolower($this->nombre)),
                     'apellido' => ucwords(strtolower($this->apellido)),
                     'ci' => strtoupper($this->ci),
@@ -107,13 +107,17 @@ class InquilinoForm extends Component
                     'observaciones' => $this->observaciones ?: null,
                 ]);
 
-                $this->dispatch('toast-success', message: 'Inquilino creado correctamente');
+                $mensaje = 'Inquilino creado correctamente';
             } else {
                 // Actualizar inquilino existente
                 $inquilino = Inquilino::find($this->inquilino_id);
 
                 if (!$inquilino) {
-                    $this->dispatch('toast-error', message: 'Inquilino no encontrado');
+                    $this->dispatch('alerta', [
+                        'tipo' => 'error',
+                        'titulo' => 'Error',
+                        'mensaje' => 'Inquilino no encontrado',
+                    ]);
                     return;
                 }
 
@@ -126,17 +130,23 @@ class InquilinoForm extends Component
                     'observaciones' => $this->observaciones ?: null,
                 ]);
 
-                $this->dispatch('toast-success', message: 'Inquilino actualizado correctamente');
+                $mensaje = 'Inquilino actualizado correctamente';
             }
 
-            // Notificar al componente lista
-            $this->dispatch('inquilino-actualizado');
-
-            // Redirigir a la lista
-            return redirect()->route('inquilinos.index');
+            // Mostrar alerta SweetAlert y redirigir al cerrarla (listener en app.js)
+            $this->dispatch('alerta', [
+                'tipo' => 'success',
+                'titulo' => 'Éxito',
+                'mensaje' => $mensaje,
+            ]);
+            $this->dispatch('redirect-to', route('inquilinos.index'));
 
         } catch (\Exception $e) {
-            $this->dispatch('toast-error', message: 'Error al guardar: ' . $e->getMessage());
+            $this->dispatch('alerta', [
+                'tipo' => 'error',
+                'titulo' => 'Error',
+                'mensaje' => 'Error al guardar: ' . $e->getMessage(),
+            ]);
         }
     }
 

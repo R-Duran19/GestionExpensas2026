@@ -49,7 +49,7 @@
                                 </option>
                             @endforeach
                         </select>
-                        <div class="text-xs text-gray-500 mt-1">{{ $periodo->estado_label }}</div>
+                        <div class="text-xs text-gray-500 mt-1">{{ $periodo?->estado_label ?? '' }}</div>
                     </div>
                 </div>
             </div>
