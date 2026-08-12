@@ -88,9 +88,22 @@ class EgresoList extends Component
         $this->egresoAEliminar = null;
     }
 
-    public function verComprobante($ruta)
+    public function verComprobante($egresoId)
     {
-        $this->comprobanteUrl = Storage::url($ruta);
+        // [SEGURIDAD-09 / Fase 1.2] Recibe el ID del egreso (antes recibia la ruta).
+        // Usa la ruta protegida auth+admin+throttle en vez de Storage::url() publico.
+        $egreso = Egreso::findOrFail($egresoId);
+
+        if (!$egreso->comprobante_foto || !$egreso->tieneComprobante()) {
+            $this->dispatch('alerta', [
+                'tipo' => 'error',
+                'titulo' => 'Error',
+                'mensaje' => 'El comprobante no existe o no pudo ser localizado.',
+            ]);
+            return;
+        }
+
+        $this->comprobanteUrl = route('comprobante.egreso', $egreso);
         $this->mostrarModalComprobante = true;
     }
 

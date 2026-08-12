@@ -185,7 +185,8 @@
                             @if($comprobante_foto_actual)
                                 <div class="mt-2">
                                     <div class="border rounded-lg p-4">
-                                        <img src="{{ Storage::url($comprobante_foto_actual) }}"
+                                        {{-- [SEGURIDAD-09 / Fase 1.2] Ruta protegida auth+admin+throttle --}}
+                                        <img src="{{ route('comprobante.egreso', $egreso_id) }}"
                                              alt="Comprobante actual"
                                              class="max-h-48 mx-auto mb-2">
                                         <button type="button"
