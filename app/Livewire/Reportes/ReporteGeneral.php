@@ -168,17 +168,6 @@ class ReporteGeneral extends Component
     }
 
     /**
-     * Exportar a Excel
-     * Nota: Este método ya no se usa, la exportación se hace directamente desde el formulario HTML
-     */
-    public function exportarExcel()
-    {
-        // Método obsoleto - la exportación se hace ahora desde el formulario HTML
-        // Se mantiene por compatibilidad si es llamado desde otros lugares
-        $this->dispatch('notify', message: 'Use el botón Excel en la interfaz', type: 'info');
-    }
-
-    /**
      * Exportar a PDF
      */
     public function exportarPDF()
@@ -242,18 +231,6 @@ class ReporteGeneral extends Component
             // No se necesita transformar manualmente: el #[Computed] datosHorizontales
             // se recalcula automáticamente con el nuevo concepto.
         }
-    }
-
-    /**
-     * Helper para la vista: formatear monto o devolver "-" si es null
-     * (caso de unidades sin medidor cuando se muestra la columna de agua).
-     */
-    public function formatMonto($valor): string
-    {
-        if ($valor === null) {
-            return '-';
-        }
-        return 'Bs. ' . number_format((float) $valor, 2);
     }
 
     /**

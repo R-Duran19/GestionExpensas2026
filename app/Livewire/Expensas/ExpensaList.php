@@ -426,34 +426,6 @@ class ExpensaList extends Component
     }
 
     /**
-     * Obtener color según estado de deuda
-     */
-    public function getDeudaColor($expensa)
-    {
-        if ($expensa->estaPagada()) {
-            return 'bg-green-100 text-green-800';
-        } elseif ($expensa->tieneDeuda()) {
-            return 'bg-red-100 text-red-800';
-        } else {
-            return 'bg-yellow-100 text-yellow-800';
-        }
-    }
-
-    /**
-     * Obtener texto del estado de deuda
-     */
-    public function getDeudaTexto($expensa)
-    {
-        if ($expensa->estaPagada()) {
-            return 'Pagado';
-        } elseif ($expensa->tieneDeuda()) {
-            return 'Con deuda';
-        } else {
-            return 'Parcial';
-        }
-    }
-
-    /**
      * Obtener propietarios con sus unidades y expensas consolidadas
      */
     #[Computed]
@@ -731,17 +703,6 @@ class ExpensaList extends Component
     protected function formatoMoneda($monto): string
     {
         return number_format($monto, 2, ',', '.');
-    }
-
-    /**
-     * Obtener nombre del propietario
-     */
-    public function getPropietarioNombre($unidad): string
-    {
-        if ($unidad->propietarioActual) {
-            return trim($unidad->propietarioActual->nombre . ' ' . $unidad->propietarioActual->apellido);
-        }
-        return 'Sin propietario';
     }
 
     public function render()

@@ -322,17 +322,6 @@ class ExpensaUnidadDetalle extends Component
     }
 
     /**
-     * Obtener nombre del propietario
-     */
-    public function getPropietarioNombre(): string
-    {
-        if ($this->unidad->propietarioActual) {
-            return trim($this->unidad->propietarioActual->nombre . ' ' . $this->unidad->propietarioActual->apellido);
-        }
-        return 'Sin propietario';
-    }
-
-    /**
      * Formatear monto a moneda
      */
     protected function formatoMoneda($monto): string
