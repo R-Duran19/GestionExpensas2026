@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
+use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
 use Exception;
 use Carbon\Carbon;
 
@@ -23,7 +24,9 @@ class PagoExpensaService
 
     public function __construct()
     {
-        $this->imageManager = new ImageManager(new GdDriver());
+        // Usa Imagick si está disponible (mucho más rápido para WebP), si no GD como fallback.
+        $driver = extension_loaded('imagick') ? new ImagickDriver() : new GdDriver();
+        $this->imageManager = new ImageManager($driver);
     }
 
     /**
@@ -482,14 +485,15 @@ class PagoExpensaService
      */
     protected function procesarImagenWebP($archivo, string $tipo, Carbon $fecha): string
     {
+        $driverUsado = extension_loaded('imagick') ? 'imagick' : 'gd';
+        $path = method_exists($archivo, 'getRealPath') ? $archivo->getRealPath() : $archivo;
+
         try {
             // Leer la imagen (Intervention Image v4 usa read())
-            // Soporta: UploadedFile, string path, binary data, or resource
-            $path = method_exists($archivo, 'getRealPath') ? $archivo->getRealPath() : $archivo;
             $image = $this->imageManager->read($path);
 
-            // Redimensionar si es muy grande (max 1920x1080)
-            $image->scaleDown(1920, 1080);
+            // Redimensionar si es muy grande (max 1600x1200)
+            $image->scaleDown(1600, 1200);
 
             // Generar nombre único
             $nombre = uniqid('comprobante_') . '_' . time() . '.webp';
@@ -506,15 +510,25 @@ class PagoExpensaService
             // Crear directorio si no existe
             $directorio = storage_path('app/public/' . dirname($ruta));
             if (!file_exists($directorio)) {
-                mkdir($directorio, 0755, true);
+                mkdir($directorio, 0775, true);
             }
 
-            // Guardar como WebP
-            $image->save(storage_path('app/public/' . $ruta));
+            // Guardar como WebP con quality 70
+            $image->save(storage_path('app/public/' . $ruta), quality: 70);
 
             return $ruta;
         } catch (Exception $e) {
-            throw new Exception('Error al procesar la imagen: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error al procesar imagen WebP', [
+                'service' => 'PagoExpensaService',
+                'driver' => $driverUsado,
+                'tipo' => $tipo,
+                'archivo_path' => $path,
+                'archivo_existe' => $path ? file_exists($path) : false,
+                'archivo_tamano' => $path && file_exists($path) ? filesize($path) : null,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            throw new Exception('Error al procesar la imagen: ' . $e->getMessage(), 0, $e);
         }
     }
 

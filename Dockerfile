@@ -41,6 +41,17 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     zip \
     opcache
 
+# ImageMagick para procesamiento de imágenes más rápido (Intervention Image v4)
+# GD es 3-10× más lento que Imagick encodeando WebP
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libmagickwand-dev \
+        libmagickcore-dev \
+        libwebp-dev \
+        imagemagick \
+    && pecl install imagick \
+    && docker-php-ext-enable imagick \
+    && rm -rf /var/lib/apt/lists/*
+
 # Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

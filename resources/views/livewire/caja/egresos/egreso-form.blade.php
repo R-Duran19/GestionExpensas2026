@@ -236,10 +236,13 @@
                 {{-- Botones de acción --}}
                 <div class="mt-6 pt-6 border-t border-gray-200">
                     <div class="flex justify-between">
-                        <a href="{{ route('caja.egresos.index') }}"
-                           class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
-                            Cancelar
-                        </a>
+                        <button type="button"
+                                wire:click="cancelar"
+                                wire:loading.attr="disabled"
+                                class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition disabled:opacity-50">
+                            <span wire:loading.remove wire:target="cancelar">Cancelar</span>
+                            <span wire:loading wire:target="cancelar">Cancelando...</span>
+                        </button>
                         <button type="submit"
                                 class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg transition">
                             <i class="fas fa-save mr-1"></i>

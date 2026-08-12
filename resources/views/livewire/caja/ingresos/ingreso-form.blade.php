@@ -575,10 +575,13 @@
                 {{-- Botones de acción --}}
                 <div class="pt-6 border-t border-gray-200">
                     <div class="flex justify-between">
-                        <a href="{{ route('caja.ingresos.index') }}"
-                           class="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium">
-                            Cancelar
-                        </a>
+                        <button type="button"
+                                wire:click="cancelar"
+                                wire:loading.attr="disabled"
+                                class="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium disabled:opacity-50">
+                            <span wire:loading.remove wire:target="cancelar">Cancelar</span>
+                            <span wire:loading wire:target="cancelar">Cancelando...</span>
+                        </button>
                         @if($esCategoriaExpensas)
                             <button type="submit"
                                     @if($totalAPagar <= 0) disabled @endif

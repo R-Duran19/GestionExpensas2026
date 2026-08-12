@@ -1010,6 +1010,26 @@ class IngresoForm extends Component
         $this->comprobante_foto_actual = null;
     }
 
+    /**
+     * Cancelar el formulario: borra el archivo temporal subido (si existe) y vuelve al listado.
+     * Evita acumular temporales huérfanos en livewire-tmp cuando se cancela sin guardar.
+     */
+    public function cancelar()
+    {
+        if ($this->comprobante_foto) {
+            try {
+                $this->comprobante_foto->delete();
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::warning('No se pudo borrar el temporal al cancelar ingreso', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+            $this->comprobante_foto = null;
+        }
+
+        return $this->redirect(route('caja.ingresos.index'), navigate: true);
+    }
+
     public function abrirModalCategoria()
     {
         $this->mostrarModalCategoria = true;
