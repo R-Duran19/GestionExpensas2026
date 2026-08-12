@@ -8,6 +8,7 @@ use App\Models\CajaTotal;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
 use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
@@ -309,8 +310,9 @@ class IngresoService
             // Redimensionar si es muy grande (max 1600x1200 — suficiente para comprobantes)
             $image->scaleDown(1600, 1200);
 
-            // Generar nombre único
-            $nombre = uniqid('comprobante_') . '_' . time() . '.webp';
+            // Generar nombre único (aleatorio, no predecible)
+            // [SEGURIDAD-09 / Fase 1.6] uniqid() deriva de microtime del server -> predecible.
+            $nombre = Str::random(40) . '.webp';
 
             // Ruta organizada por año/mes
             $ruta = sprintf(
