@@ -77,3 +77,15 @@ skills-lock.json
 errores/
 expensas_temp.txt
 2026-*-local-command-caveat*.txt
+
+# --- Documentacion local de deploy / refactor (trabajo en progreso, no commitear) ---
+DEPLOYMENT-*.md
+DEPLOY-VPS-FINAL.md
+GUIA*.md
+REFACTORIZACION-*.md
+SISTEMA-EXPENSAS-DOCUMENTACION.md
+DOCKER_SETUP.md
+docs-capturas*.js
+
+# --- Notas de debugging locales ---
+errores deploy/
