@@ -12,10 +12,13 @@ use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
-    Route::get('register', [RegisteredUserController::class, 'create'])
-        ->name('register');
-
-    Route::post('register', [RegisteredUserController::class, 'store']);
+    // [SEGURIDAD-09 / Fase 1.1] Registro publico deshabilitado.
+    // El sistema es solo-admin: cualquier persona en internet podia crear usuarios.
+    // Para reabrir, descomentar estas dos rutas y restaurar tests/Feature/Auth/RegistrationTest.php.
+    // Route::get('register', [RegisteredUserController::class, 'create'])
+    //     ->name('register');
+    //
+    // Route::post('register', [RegisteredUserController::class, 'store']);
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
