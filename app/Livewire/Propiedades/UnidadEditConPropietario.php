@@ -71,11 +71,6 @@ class UnidadEditConPropietario extends Component
         $this->unidad_id = $unidad->id;
         $this->cargarDatosUnidad($unidad);
         $this->cargarPropietarioActual($unidad);
-
-        \Log::info('Montando UnidadEditConPropietario para unidad: ' . $unidad->codigo);
-        if ($this->propietario_actual) {
-            \Log::info('Propietario actual cargado: ' . $this->propietario_actual['nombre_completo']);
-        }
     }
 
     private function cargarDatosUnidad(Unidad $unidad)
@@ -197,8 +192,6 @@ class UnidadEditConPropietario extends Component
 
     public function seleccionarPropietario($propietarioId)
     {
-        \Log::info('Seleccionar propietario ID: ' . $propietarioId);
-
         $this->propietario_seleccionado_id = $propietarioId;
         $propietario = Propietario::find($propietarioId);
 
@@ -206,27 +199,22 @@ class UnidadEditConPropietario extends Component
             $this->busqueda_propietario = $propietario->nombre_completo;
             $this->propietarios_encontrados = [];
             $this->buscando_propietario = false;
-
-            \Log::info('Propietario seleccionado: ' . $propietario->nombre_completo);
         } else {
-            \Log::error('No se encontró propietario con ID: ' . $propietarioId);
+            \Log::warning('No se encontró propietario con ID: ' . $propietarioId, [
+                'unidad_id' => $this->unidad_id,
+            ]);
         }
     }
 
     public function vincularPropietario()
     {
-        \Log::info('Intentando vincular propietario. ID seleccionado: ' . $this->propietario_seleccionado_id);
-        \Log::info('Fecha inicio: ' . $this->fecha_inicio_propietario);
-
         // Validar manualmente con mensajes claros
         if (!$this->propietario_seleccionado_id) {
-            \Log::warning('No hay propietario seleccionado');
             $this->dispatch('toast-error', message: 'Debe seleccionar un propietario de la lista de búsqueda');
             return;
         }
 
         if (!$this->fecha_inicio_propietario) {
-            \Log::warning('No hay fecha de inicio');
             $this->dispatch('toast-error', message: 'La fecha de inicio es obligatoria');
             return;
         }
@@ -234,9 +222,6 @@ class UnidadEditConPropietario extends Component
         try {
             $unidad = Unidad::find($this->unidad_id);
             $propietario = Propietario::find($this->propietario_seleccionado_id);
-
-            \Log::info('Unidad: ' . ($unidad ? $unidad->codigo : 'No encontrada'));
-            \Log::info('Propietario: ' . ($propietario ? $propietario->nombre_completo : 'No encontrado'));
 
             if (!$unidad || !$propietario) {
                 $this->dispatch('toast-error', message: 'Unidad o propietario no encontrado');
@@ -255,15 +240,20 @@ class UnidadEditConPropietario extends Component
 
             $this->limpiarBusquedaPropietario();
 
-            \Log::info('Propietario asignado exitosamente');
-
             $this->dispatch('toast-success', message: sprintf(
                 'Propietario %s asignado correctamente',
                 $propietario->nombre_completo
             ));
 
         } catch (\Exception $e) {
-            \Log::error('Error al asignar propietario: ' . $e->getMessage());
+            \Log::error('Error al asignar propietario a unidad', [
+                'unidad_id' => $this->unidad_id,
+                'propietario_id' => $this->propietario_seleccionado_id,
+                'fecha_inicio' => $this->fecha_inicio_propietario,
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
 
             // Verificar si es un error de duplicado
             if (str_contains($e->getMessage(), 'ya está asignado como propietario actual')) {
@@ -280,19 +270,13 @@ class UnidadEditConPropietario extends Component
 
     public function confirmarDesvincularPropietario()
     {
-        \Log::info('confirmarDesvincularPropietario llamado');
         $this->mostrar_confirmacion_desvincular = true;
-        \Log::info('mostrar_confirmacion_desvincular: ' . ($this->mostrar_confirmacion_desvincular ? 'true' : 'false'));
     }
 
     public function desvincularPropietario()
     {
-        \Log::info('desvincularPropietario llamado');
-
         try {
             $unidad = Unidad::find($this->unidad_id);
-
-            \Log::info('Unidad: ' . ($unidad ? $unidad->codigo : 'No encontrada'));
 
             if (!$unidad || !$unidad->tienePropietarioActual()) {
                 $this->dispatch('toast-error', message: 'La unidad no tiene propietario actual');
@@ -301,8 +285,6 @@ class UnidadEditConPropietario extends Component
 
             $propietario = $unidad->propietarioActual;
             $nombrePropietario = $propietario->nombre_completo;
-
-            \Log::info('Desvinculando propietario: ' . $nombrePropietario);
 
             // Actualizar tabla pivot
             \DB::table('propietario_unidad')
@@ -321,24 +303,25 @@ class UnidadEditConPropietario extends Component
             $this->propietario_actual = null;
             $this->mostrar_confirmacion_desvincular = false;
 
-            \Log::info('Propietario desvinculado exitosamente');
-
             $this->dispatch('toast-success', message: sprintf(
                 'Propietario %s desvinculado. Unidad desactivada.',
                 $nombrePropietario
             ));
 
         } catch (\Exception $e) {
-            \Log::error('Error al desvincular: ' . $e->getMessage());
+            \Log::error('Error al desvincular propietario de unidad', [
+                'unidad_id' => $this->unidad_id,
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             $this->dispatch('toast-error', message: 'Error al desvincular: ' . $e->getMessage());
         }
     }
 
     public function cancelarDesvinculacion()
     {
-        \Log::info('cancelarDesvinculacion llamado');
         $this->mostrar_confirmacion_desvincular = false;
-        \Log::info('Modal cerrado');
     }
 
     public function limpiarBusquedaPropietario()
@@ -347,8 +330,6 @@ class UnidadEditConPropietario extends Component
         $this->fecha_inicio_propietario = now()->format('Y-m-d');
         $this->propietarios_encontrados = [];
         $this->buscando_propietario = false;
-
-        \Log::info('Búsqueda de propietario limpiada');
     }
 
     public function getTiposUnidadProperty(): array

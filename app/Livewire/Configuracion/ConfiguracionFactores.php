@@ -30,8 +30,6 @@ class ConfiguracionFactores extends Component
     public function abrirModalEdicion($categoria)
     {
         try {
-            Log::info('abrirModalEdicion llamado', ['categoria' => $categoria]);
-
             $factores = $this->factores;
 
             if (!isset($factores[$categoria]) || !$factores[$categoria]) {
@@ -48,16 +46,11 @@ class ConfiguracionFactores extends Component
             $this->nuevoFactor = '';
             $this->motivo = '';
             $this->showModal = true;
-
-            Log::info('Modal abierto', [
-                'categoria' => $this->categoriaSeleccionada,
-                'factorActual' => $this->factorActual,
-                'showModal' => $this->showModal
-            ]);
         } catch (\Exception $e) {
-            Log::error('Error en abrirModalEdicion', [
+            \Log::error('Error al abrir modal de edición de factor', [
+                'categoria' => $categoria,
+                'exception' => get_class($e),
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
             ]);
 
             $this->dispatch('alerta', [

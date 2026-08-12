@@ -177,8 +177,6 @@ class PropietarioEditConUnidades extends Component
 
     public function seleccionarUnidad($unidadId)
     {
-        \Log::info('Seleccionar unidad ID: ' . $unidadId);
-
         $this->unidad_seleccionada_id = $unidadId;
         $unidad = Unidad::find($unidadId);
 
@@ -186,27 +184,22 @@ class PropietarioEditConUnidades extends Component
             $this->busqueda_unidad = $unidad->codigo . ' - ' . $unidad->nombre_completo;
             $this->unidades_encontradas = [];
             $this->buscando_unidad = false;
-
-            \Log::info('Unidad seleccionada: ' . $unidad->codigo);
         } else {
-            \Log::error('No se encontró unidad con ID: ' . $unidadId);
+            \Log::warning('No se encontró unidad con ID: ' . $unidadId, [
+                'propietario_id' => $this->propietario_id,
+            ]);
         }
     }
 
     public function vincularUnidad()
     {
-        \Log::info('Intentando vincular unidad. ID seleccionado: ' . $this->unidad_seleccionada_id);
-        \Log::info('Fecha inicio: ' . $this->fecha_inicio_unidad);
-
         // Validar manualmente con mensajes claros
         if (!$this->unidad_seleccionada_id) {
-            \Log::warning('No hay unidad seleccionada');
             $this->dispatch('toast-error', message: 'Debe seleccionar una unidad de la lista de búsqueda');
             return;
         }
 
         if (!$this->fecha_inicio_unidad) {
-            \Log::warning('No hay fecha de inicio');
             $this->dispatch('toast-error', message: 'La fecha de inicio es obligatoria');
             return;
         }
@@ -214,9 +207,6 @@ class PropietarioEditConUnidades extends Component
         try {
             $propietario = Propietario::find($this->propietario_id);
             $unidad = Unidad::find($this->unidad_seleccionada_id);
-
-            \Log::info('Propietario: ' . ($propietario ? $propietario->nombre_completo : 'No encontrado'));
-            \Log::info('Unidad: ' . ($unidad ? $unidad->codigo : 'No encontrada'));
 
             if (!$propietario || !$unidad) {
                 $this->dispatch('toast-error', message: 'Propietario o unidad no encontrado');
@@ -233,8 +223,6 @@ class PropietarioEditConUnidades extends Component
             $this->cargarUnidadesActuales($propietario);
             $this->limpiarBusquedaUnidad();
 
-            \Log::info('Unidad vinculada exitosamente');
-
             $this->dispatch('toast-success', message: sprintf(
                 'Unidad %s asignada correctamente a %s',
                 $unidad->codigo,
@@ -242,7 +230,14 @@ class PropietarioEditConUnidades extends Component
             ));
 
         } catch (\Exception $e) {
-            \Log::error('Error al asignar unidad: ' . $e->getMessage());
+            \Log::error('Error al asignar unidad a propietario', [
+                'propietario_id' => $this->propietario_id,
+                'unidad_id' => $this->unidad_seleccionada_id,
+                'fecha_inicio' => $this->fecha_inicio_unidad,
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
 
             // Verificar si es un error de duplicado
             if (str_contains($e->getMessage(), 'ya está asignado como propietario actual')) {
@@ -308,6 +303,13 @@ class PropietarioEditConUnidades extends Component
             ));
 
         } catch (\Exception $e) {
+            \Log::error('Error al desvincular unidad de propietario', [
+                'propietario_id' => $this->propietario_id,
+                'unidad_id' => $this->unidad_a_desvincular_id,
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             $this->dispatch('toast-error', message: 'Error al desvincular: ' . $e->getMessage());
         }
     }
@@ -324,8 +326,6 @@ class PropietarioEditConUnidades extends Component
         $this->fecha_inicio_unidad = now()->format('Y-m-d');
         $this->unidades_encontradas = [];
         $this->buscando_unidad = false;
-
-        \Log::info('Búsqueda de unidad limpiada');
     }
 
     public function getTituloProperty(): string

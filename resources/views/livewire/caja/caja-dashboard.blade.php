@@ -357,55 +357,26 @@
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script>
             (function() {
-                console.log('🚀 Iniciando script del gráfico...');
-
                 const datos = @js($datos['ultimos_7_dias']);
-                console.log('✅ Datos recibidos:', datos);
-                console.log('📊 Total de días:', datos.length);
-
                 let chartInstance = null;
-                let interval = null;
 
                 function initChart() {
-                    console.log('🔍 Buscando canvas...');
                     const canvas = document.getElementById('grafico7Dias');
+                    if (!canvas) return false;
 
-                    if (!canvas) {
-                        console.log('❌ Canvas no encontrado, reintentando...');
-                        return false;
-                    }
-
-                    console.log('✅ Canvas encontrado!');
-                    console.log('📐 Canvas dimensions:', canvas.width, 'x', canvas.height);
-
-                    // Destruir gráfico anterior si existe
+                    // Destruir gráfico anterior si existe (evita fugas en re-renders Livewire)
                     if (chartInstance) {
-                        console.log('🗑️ Destruyendo gráfico anterior...');
                         chartInstance.destroy();
                         chartInstance = null;
                     }
 
                     const ctx = canvas.getContext('2d');
-                    if (!ctx) {
-                        console.log('❌ No se pudo obtener el contexto');
-                        return false;
-                    }
-
-                    console.log('✅ Contexto obtenido, creando gráfico...');
+                    if (!ctx) return false;
 
                     const fechas = datos.map(d => {
                         const fecha = new Date(d.fecha);
                         return fecha.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
                     });
-                    console.log('📅 Fechas:', fechas);
-
-                    const ingresosData = datos.map(d => d.ingresos);
-                    const egresosData = datos.map(d => d.egresos);
-                    const balanceData = datos.map(d => d.balance);
-
-                    console.log('💰 Ingresos:', ingresosData);
-                    console.log('💸 Egresos:', egresosData);
-                    console.log('⚖️ Balance:', balanceData);
 
                     try {
                         chartInstance = new Chart(ctx, {
@@ -415,7 +386,7 @@
                                 datasets: [
                                     {
                                         label: 'Ingresos',
-                                        data: ingresosData,
+                                        data: datos.map(d => d.ingresos),
                                         borderColor: '#10B981',
                                         backgroundColor: 'rgba(16, 185, 129, 0.1)',
                                         tension: 0.4,
@@ -423,7 +394,7 @@
                                     },
                                     {
                                         label: 'Egresos',
-                                        data: egresosData,
+                                        data: datos.map(d => d.egresos),
                                         borderColor: '#EF4444',
                                         backgroundColor: 'rgba(239, 68, 68, 0.1)',
                                         tension: 0.4,
@@ -431,7 +402,7 @@
                                     },
                                     {
                                         label: 'Balance',
-                                        data: balanceData,
+                                        data: datos.map(d => d.balance),
                                         borderColor: '#3B82F6',
                                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
                                         tension: 0.4,
@@ -443,16 +414,12 @@
                                 responsive: true,
                                 maintainAspectRatio: false,
                                 plugins: {
-                                    legend: {
-                                        position: 'top',
-                                    },
+                                    legend: { position: 'top' },
                                     tooltip: {
                                         callbacks: {
                                             label: function(context) {
                                                 let label = context.dataset.label || '';
-                                                if (label) {
-                                                    label += ': ';
-                                                }
+                                                if (label) label += ': ';
                                                 label += 'Bs' + context.parsed.y.toFixed(2);
                                                 return label;
                                             }
@@ -471,61 +438,29 @@
                                 }
                             }
                         });
-
-                        console.log('🎉 GRÁFICO CREADO EXITOSAMENTE!');
-                        console.log('📈 Chart instance:', chartInstance);
-
-                        // Limpiar el intervalo cuando se crea exitosamente
-                        if (interval) {
-                            console.log('🧹 Limpiando intervalo...');
-                            clearInterval(interval);
-                            interval = null;
-                        }
-
                         return true;
                     } catch (error) {
-                        console.error('❌ ERROR AL CREAR EL GRÁFICO:', error);
-                        console.error('Error stack:', error.stack);
+                        console.error('Error al renderizar gráfico de caja:', error);
                         return false;
                     }
                 }
 
-                // Intentar inmediatamente
-                console.log('📋 Document ready state:', document.readyState);
-                if (document.readyState === 'complete') {
-                    console.log('⚡ Document ya cargado, ejecutando en 100ms...');
-                    setTimeout(initChart, 100);
-                } else {
-                    console.log('⏳ Esperando DOMContentLoaded...');
-                    document.addEventListener('DOMContentLoaded', function() {
-                        console.log('✅ DOMContentLoaded ejecutado, esperando 100ms...');
-                        setTimeout(initChart, 100);
-                    });
+                // Inicializar tras carga inicial y tras cada navegación Livewire
+                function tryInit() {
+                    if (!initChart()) {
+                        // Reintento único a 200ms si el canvas aún no está disponible
+                        setTimeout(initChart, 200);
+                    }
                 }
 
-                // Reintentar si falla (máximo 5 intentos)
-                let attempts = 0;
-                const maxAttempts = 5;
-                console.log('🔄 Configurando reintentos (max ' + maxAttempts + ' intentos)...');
+                if (document.readyState === 'complete') {
+                    setTimeout(tryInit, 100);
+                } else {
+                    document.addEventListener('DOMContentLoaded', () => setTimeout(tryInit, 100));
+                }
 
-                interval = setInterval(function() {
-                    attempts++;
-                    console.log('🔄 Intento ' + attempts + '/' + maxAttempts);
-
-                    if (initChart() || attempts >= maxAttempts) {
-                        if (attempts >= maxAttempts) {
-                            console.log('❌ Máximo de intentos alcanzado');
-                        } else {
-                            console.log('✅ Gráfico creado en intento ' + attempts + ', limpiando intervalo');
-                        }
-                        if (interval) {
-                            clearInterval(interval);
-                            interval = null;
-                        }
-                    }
-                }, 500);
-
-                console.log('🚀 Script configurado correctamente');
+                // Re-render tras navegaciones Livewire subsiguientes
+                document.addEventListener('livewire:navigated', tryInit);
             })();
         </script>
     @endif
