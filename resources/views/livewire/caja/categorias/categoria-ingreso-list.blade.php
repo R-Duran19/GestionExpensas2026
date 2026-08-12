@@ -43,10 +43,8 @@
                 <div class="p-6">
                     <div class="flex items-start gap-4 mb-4">
                         <div class="flex-shrink-0">
-                            <div class="rounded-full flex items-center justify-center"
-                                 style="width: 50px; height: 50px; background-color: {{ $categoria->color }}20;">
-                                <i class="fas fa-{{ $categoria->icono }} text-lg"
-                                   style="color: {{ $categoria->color }};"></i>
+                            <div class="rounded-full flex items-center justify-center" style="width: 50px; height: 50px; background-color: {{ $categoria->color }}20;">
+                                <i class="fas fa-{{ $categoria->icono }} text-lg" style="color: {{ $categoria->color }};"></i>
                             </div>
                         </div>
                         <div class="flex-1 min-w-0">
@@ -84,19 +82,25 @@
                             @endif
                         </div>
                         <div class="flex gap-2">
-                            <button wire:click="editarCategoria({{ $categoria->id }})"
+                            <button wire:click="abrirModalEditar({{ $categoria->id }})"
                                     class="text-blue-600 hover:text-blue-900 p-2 rounded-lg hover:bg-blue-50 transition"
                                     title="Editar">
                                 <i class="fas fa-edit"></i>
                             </button>
+                            <button wire:click="verHistorial({{ $categoria->id }})"
+                                    class="text-purple-600 hover:text-purple-900 p-2 rounded-lg hover:bg-purple-50 transition"
+                                    title="Historial de cambios">
+                                <i class="fas fa-history"></i>
+                            </button>
                             @if($categoria->activo)
-                                <button wire:click="confirmarDesactivar({{ $categoria->id }})"
+                                <button wire:click="toggleActivo({{ $categoria->id }})"
+                                        wire:confirm="¿Desactivar la categoría '{{ $categoria->nombre }}'? Podrás reactivarla cuando quieras."
                                         class="text-orange-600 hover:text-orange-900 p-2 rounded-lg hover:bg-orange-50 transition"
                                         title="Desactivar">
                                     <i class="fas fa-eye-slash"></i>
                                 </button>
                             @else
-                                <button wire:click="activar({{ $categoria->id }})"
+                                <button wire:click="toggleActivo({{ $categoria->id }})"
                                         class="text-green-600 hover:text-green-900 p-2 rounded-lg hover:bg-green-50 transition"
                                         title="Activar">
                                     <i class="fas fa-eye"></i>
@@ -125,23 +129,27 @@
         @endforelse
     </div>
 
-    {{-- Modal Crear/Editar --}}
-    @if($mostrarModal)
+    <div class="mt-6">
+        {{ $categorias->links() }}
+    </div>
+
+    {{-- Modal Crear --}}
+    @if($mostrarModalCrear)
         <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
             <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-900">
                         <i class="fas fa-tag text-green-600 mr-2"></i>
-                        {{ $categoriaId ? 'Editar Categoría' : 'Nueva Categoría' }}
+                        Nueva Categoría
                     </h3>
-                    <button type="button" wire:click="cerrarModal" class="text-gray-400 hover:text-gray-600">
+                    <button type="button" wire:click="cerrarModalCrear" class="text-gray-400 hover:text-gray-600">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
                     </button>
                 </div>
 
-                <form wire:submit="guardarCategoria">
+                <form wire:submit="crear">
                     <div class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -157,9 +165,7 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Descripción
-                            </label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
                             <textarea class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                                       wire:model="descripcion"
                                       rows="3"
@@ -167,13 +173,11 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Color
-                            </label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Color</label>
                             <div class="flex gap-4">
                                 <input type="color"
                                        class="h-10 w-20 border rounded-lg @error('color') border-red-500 @enderror border-gray-300"
-                                       wire:model="color">
+                                       wire:model.live="color">
                                 <div class="flex-1">
                                     <input type="text"
                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
@@ -186,25 +190,21 @@
                             @enderror
                         </div>
 
-                        @if(!$categoriaId)
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Icono
-                                </label>
-                                <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                                        wire:model="icono">
-                                    <option value="dollar-sign">Dólar</option>
-                                    <option value="home">Casa</option>
-                                    <option value="building">Edificio</option>
-                                    <option value="calendar">Calendario</option>
-                                    <option value="star">Estrella</option>
-                                </select>
-                            </div>
-                        @endif
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Icono</label>
+                            <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                    wire:model="icono">
+                                <option value="dollar-sign">Dólar</option>
+                                <option value="home">Casa</option>
+                                <option value="building">Edificio</option>
+                                <option value="calendar">Calendario</option>
+                                <option value="star">Estrella</option>
+                            </select>
+                        </div>
 
                         <div class="flex justify-end gap-3 pt-4">
                             <button type="button"
-                                    wire:click="cerrarModal"
+                                    wire:click="cerrarModalCrear"
                                     class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
                                 Cancelar
                             </button>
@@ -220,39 +220,143 @@
         </div>
     @endif
 
-    {{-- Modal Confirmar Desactivar --}}
-    @if($mostrarModalDesactivar)
+    {{-- Modal Editar --}}
+    @if($mostrarModalEditar)
         <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                <div class="mt-3 text-center">
-                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-orange-100">
-                        <svg class="h-6 w-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165.791-1.914 2.163-2.915 2.911-.872.721-1.614 1.811-2.163 2.687-.5.979-.791-2.175-1.163-2.911-.415-.689-.791-1.455-.791-2.163 0-1.743 1.427-3.157 3.186-3.157.552 0 1.045.201 1.491.554 1.957.528.538.949 1.115 1.504 1.711.593.627 1.187 1.291 1.711 2.031.432.468.791 1.115 1.504 1.711.593.627 1.187 1.291 1.711 2.031.432.468.791 1.115 1.504 1.711 1.593.627.872.721 1.614 1.811 2.915 2.911.872.721 1.614 1.791 2.915 2.915z"/>
+            <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">
+                        <i class="fas fa-tag text-green-600 mr-2"></i>
+                        Editar Categoría
+                    </h3>
+                    <button type="button" wire:click="cerrarModalEditar" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
-                    </div>
-                    <h3 class="text-lg font-medium text-gray-900 mt-2">¿Desactivar categoría?</h3>
-                    @if($categoriaADesactivar)
-                        <div class="mt-2 px-7 py-3">
-                            <p class="text-sm text-gray-500">
-                                ¿Está seguro que desea desactivar la categoría <strong>{{ $categoriaADesactivar->nombre }}</strong>?
-                            </p>
-                            @if($categoriaADesactivar->tieneIngresos())
-                                <p class="text-xs text-orange-500 mt-2">
-                                    Esta categoría tiene {{ $categoriaADesactivar->conteoIngresosActivos() }} ingresos asociados.
-                                </p>
-                            @endif
+                    </button>
+                </div>
+
+                <form wire:submit="actualizar">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Nombre <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text"
+                                   class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 @error('nombre') border-red-500 @enderror border-gray-300"
+                                   wire:model="nombre">
+                            @error('nombre')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
                         </div>
-                    @endif
-                    <div class="flex justify-center gap-3 mt-4">
-                        <button wire:click="cancelarDesactivar"
-                                class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition">
-                            Cancelar
-                        </button>
-                        <button wire:click="desactivar"
-                                class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition">
-                            Desactivar
-                        </button>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                            <textarea class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                      wire:model="descripcion"
+                                      rows="3"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Color</label>
+                            <div class="flex gap-4">
+                                <input type="color"
+                                       class="h-10 w-20 border rounded-lg border-gray-300"
+                                       wire:model.live="color">
+                                <div class="flex-1">
+                                    <input type="text"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                                           value="{{ $color }}"
+                                           readonly>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Icono</label>
+                            <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                    wire:model="icono">
+                                <option value="dollar-sign">Dólar</option>
+                                <option value="home">Casa</option>
+                                <option value="building">Edificio</option>
+                                <option value="calendar">Calendario</option>
+                                <option value="star">Estrella</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Motivo de la edición <span class="text-red-500">*</span>
+                            </label>
+                            <textarea class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 @error('motivo_edicion') border-red-500 @enderror border-gray-300"
+                                      wire:model="motivo_edicion"
+                                      rows="2"
+                                      placeholder="¿Por qué se edita esta categoría?"></textarea>
+                            @error('motivo_edicion')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="flex justify-end gap-3 pt-4">
+                            <button type="button"
+                                    wire:click="cerrarModalEditar"
+                                    class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
+                                Cancelar
+                            </button>
+                            <button type="submit"
+                                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                                <i class="fas fa-save mr-1"></i>
+                                Guardar Cambios
+                            </button>
+                        </div>
                     </div>
+                </form>
+            </div>
+        </div>
+    @endif
+
+    {{-- Modal Historial --}}
+    @if($mostrarModalHistorial)
+        <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">
+                        <i class="fas fa-history text-purple-600 mr-2"></i>
+                        Historial de Cambios
+                        @if($categoriaSeleccionada)
+                            <span class="text-gray-500 font-normal text-sm">— {{ $categoriaSeleccionada->nombre }}</span>
+                        @endif
+                    </h3>
+                    <button type="button" wire:click="cerrarModalHistorial" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+
+                @forelse($historialCategoria as $registro)
+                    <div class="border-l-4 border-purple-400 pl-4 py-2 mb-3">
+                        <div class="text-sm font-medium text-gray-900">
+                            {{ $registro['campo'] ?? 'Categoría' }}: 
+                            <span class="text-red-500">{{ $registro['valor_anterior'] ?? '-' }}</span>
+                            →
+                            <span class="text-green-600">{{ $registro['valor_nuevo'] ?? '-' }}</span>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            {{ $registro['motivo'] ?? 'Sin motivo' }}
+                            @if(isset($registro['fecha'])) — {{ $registro['fecha'] }} @endif
+                        </div>
+                    </div>
+                @empty
+                    <p class="text-gray-500 text-center py-6">Sin cambios registrados.</p>
+                @endforelse
+
+                <div class="flex justify-end pt-4">
+                    <button type="button"
+                            wire:click="cerrarModalHistorial"
+                            class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition">
+                        Cerrar
+                    </button>
                 </div>
             </div>
         </div>

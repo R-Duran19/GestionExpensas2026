@@ -28,7 +28,7 @@ class CategoriaIngresoList extends Component
 
     public $motivo_edicion = '';
 
-    protected $paginationTheme = 'bootstrap';
+    protected $paginationTheme = 'tailwind';
 
     protected $rules = [
         'nombre' => 'required|string|max:100|unique:categorias_ingresos,nombre',
