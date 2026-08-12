@@ -201,30 +201,4 @@
     </div>
 </div>
 
-@push('scripts')
-<script>
-document.addEventListener('livewire:init', () => {
-    Livewire.on('toast-success', (e) => {
-        Swal.fire({
-            icon: 'success',
-            title: '¡Éxito!',
-            text: e.detail.message || e,
-            timer: 3000,
-            showConfirmButton: false,
-            toast: true,
-            position: 'top-end'
-        });
-    });
-
-    Livewire.on('toast-error', (e) => {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: e.detail.message || e,
-            confirmButtonColor: '#dc2626'
-        });
-    });
-});
-</script>
-@endpush
 

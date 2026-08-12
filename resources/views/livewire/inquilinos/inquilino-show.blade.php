@@ -167,9 +167,4 @@
             @this.call('desasignarUnidad', unidadId);
         }
     }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        @this.on('toast-success', (e) => alert(e.detail.message));
-        @this.on('toast-error', (e) => alert(e.detail.message));
-    });
 </script>

@@ -662,16 +662,4 @@
         </div>
     @endif
 
-    <!-- Script para alertas -->
-    <script>
-        @this.on('alerta', (data) => {
-            const tipo = data.tipo;
-            const titulo = data.titulo;
-            const mensaje = data.mensaje;
-
-            // Aquí puedes usar tu librería de notificaciones preferida
-            // Por ahora solo mostramos un alert nativo
-            alert(`${titulo}: ${mensaje}`);
-        });
-    </script>
 </div>

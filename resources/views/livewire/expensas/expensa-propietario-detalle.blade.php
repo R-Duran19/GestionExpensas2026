@@ -356,14 +356,4 @@
         </div>
     </div>
 
-    <!-- Script para alertas -->
-    <script>
-        @this.on('alerta', (data) => {
-            const tipo = data.tipo;
-            const titulo = data.titulo;
-            const mensaje = data.mensaje;
-
-            alert(`${titulo}: ${mensaje}`);
-        });
-    </script>
 </div>

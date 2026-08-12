@@ -286,16 +286,4 @@
         </div>
     @endif
 
-    {{-- Scripts para notificaciones --}}
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            @this.on('toast-success', (e) => {
-                alert(e.detail.message || 'Operación exitosa');
-            });
-
-            @this.on('toast-error', (e) => {
-                alert(e.detail.message || 'Error en la operación');
-            });
-        });
-    </script>
 </div>

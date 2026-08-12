@@ -771,12 +771,4 @@
             </div>
         </div>
     @endif
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            @this.on('ver-comprobante', (ruta) => {
-                console.log('Ver comprobante:', ruta);
-            });
-        });
-    </script>
 </div>

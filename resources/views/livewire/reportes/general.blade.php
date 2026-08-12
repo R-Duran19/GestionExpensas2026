@@ -641,14 +641,4 @@
         @endif
     </div>
 
-    {{-- Script para notificaciones --}}
-    <script>
-        document.addEventListener('livewire:init', () => {
-            Livewire.on('notify', ({ message, type }) => {
-                // Aquí puedes agregar tu sistema de notificaciones
-                // Por ahora, usamos alert simple
-                alert(message);
-            });
-        });
-    </script>
 </div>

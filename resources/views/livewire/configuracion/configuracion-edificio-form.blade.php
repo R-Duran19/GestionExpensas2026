@@ -137,10 +137,4 @@
             </button>
         </div>
     </form>
-
-    <script>
-        @this.on('alerta', (data) => {
-            alert(`${data.titulo}: ${data.mensaje}`);
-        });
-    </script>
 </div>

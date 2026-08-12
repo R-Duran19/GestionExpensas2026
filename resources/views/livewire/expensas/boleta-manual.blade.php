@@ -251,7 +251,7 @@
         </div>
     @endif
 
-    <!-- Script para abrir PDFs -->
+    <!-- Script para abrir PDFs (migrar en FASE 1.8 a ZIP server-side) -->
     <script>
         @this.on('abrirPDFs', (data) => {
             const urls = data.urls;
@@ -263,14 +263,6 @@
                     window.open(url, '_blank');
                 }, index * 300);
             });
-        });
-
-        @this.on('alerta', (data) => {
-            const tipo = data.tipo;
-            const titulo = data.titulo;
-            const mensaje = data.mensaje;
-
-            alert(`${titulo}: ${mensaje}`);
         });
     </script>
 </div>
