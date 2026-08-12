@@ -17,6 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Configurar proxies confiables para nginx-proxy-manager
         $middleware->trustProxies(at: '*');
 
+        // [SEGURIDAD-09 / Fase 2.2] Forzar esquema HTTPS en URLs generadas.
+        $middleware->append(\App\Http\Middleware\ForceHttps::class);
+
         // Registrar middleware aliases
         $middleware->alias([
             'admin' => \App\Http\Middleware\CheckAdmin::class,
