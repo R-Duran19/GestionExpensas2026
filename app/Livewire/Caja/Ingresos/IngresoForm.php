@@ -39,6 +39,9 @@ class IngresoForm extends Component
     #[Validate('nullable|string|max:255')]
     public $descripcion = '';
 
+    // [SEGURIDAD-09 / Fase 1.3] Validar tipo MIME y tamaño al subir comprobante.
+    // nullable (no required): pagos en efectivo no requieren comprobante (ver mostrarConfirmacion()).
+    #[Validate('nullable|image|mimes:jpg,jpeg,png,webp|max:4096')]
     public $comprobante_foto = null;
     public $comprobante_foto_actual = null;
 
