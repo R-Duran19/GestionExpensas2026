@@ -303,8 +303,8 @@ class IngresoService
         $path = method_exists($archivo, 'getRealPath') ? $archivo->getRealPath() : $archivo;
 
         try {
-            // Leer la imagen (Intervention Image v4 usa read())
-            $image = $this->imageManager->read($path);
+            // Leer la imagen (Intervention Image v4.0.0 usa decode(), no read())
+            $image = $this->imageManager->decode($path);
 
             // Redimensionar si es muy grande (max 1600x1200 — suficiente para comprobantes)
             $image->scaleDown(1600, 1200);
