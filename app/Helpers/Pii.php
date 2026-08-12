@@ -21,11 +21,23 @@ class Pii
 {
     /**
      * Cifra un valor usando el encrypt() de Laravel (OpenSSL + APP_KEY).
-     * Igual al cast 'encrypted' pero explicito, para usar antes del switch 3.C.
+     *
+     * IMPORTANTE: usa $serialize=false para evitar el formato PHP serialize
+     * (s:8:"...";). Trabajamos con strings crudos para tener control total.
      */
     public static function encrypt(string $value): string
     {
-        return encrypt($value);
+        return encrypt($value, false);
+    }
+
+    /**
+     * Descifra un valor usando el decrypt() de Laravel.
+     *
+     * Complemento de encrypt(): usa $unserialize=false.
+     */
+    public static function decrypt(string $value): string
+    {
+        return decrypt($value, false);
     }
 
     /**

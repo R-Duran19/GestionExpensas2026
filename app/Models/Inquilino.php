@@ -40,13 +40,11 @@ class Inquilino extends Model
     /**
      * Los atributos que deben ser casteados.
      *
-     * [SEGURIDAD-09 / Fase 3.C] Los _enc se cifran/descifran automaticamente.
+     * [SEGURIDAD-09 / Fase 3.C] NO usamos el cast 'encrypted' (rompe con
+     * accesores custom). Cifrado explicito via Pii::encrypt/decrypt.
      */
     protected $casts = [
         'activo' => 'boolean',
-        'ci_enc' => 'encrypted',
-        'telefono_enc' => 'encrypted',
-        'email_enc' => 'encrypted',
     ];
 
     /**
@@ -61,12 +59,12 @@ class Inquilino extends Model
         return "{$this->nombre} {$this->apellido}";
     }
 
-    // [SEGURIDAD-09 / Fase 3.C] Accesores PII (prefieren _enc, fallback a vieja).
+    // [SEGURIDAD-09 / Fase 3.C] Accesores PII (descifrado manual sin unserialize).
 
     public function getCiAttribute()
     {
         if (!empty($this->attributes['ci_enc'])) {
-            return $this->ci_enc;
+            return Pii::decrypt($this->attributes['ci_enc']);
         }
         return $this->attributes['ci'] ?? null;
     }
@@ -74,7 +72,7 @@ class Inquilino extends Model
     public function getTelefonoAttribute()
     {
         if (!empty($this->attributes['telefono_enc'])) {
-            return $this->telefono_enc;
+            return Pii::decrypt($this->attributes['telefono_enc']);
         }
         return $this->attributes['telefono'] ?? null;
     }
@@ -82,12 +80,12 @@ class Inquilino extends Model
     public function getEmailAttribute()
     {
         if (!empty($this->attributes['email_enc'])) {
-            return $this->email_enc;
+            return Pii::decrypt($this->attributes['email_enc']);
         }
         return $this->attributes['email'] ?? null;
     }
 
-    // [SEGURIDAD-09 / Fase 3.C] Mutadores PII (escriben _enc + ci_hash + vieja legacy).
+    // [SEGURIDAD-09 / Fase 3.C] Mutadores PII (cifrado manual sin serialize).
 
     public function setCiAttribute($value)
     {
@@ -97,7 +95,7 @@ class Inquilino extends Model
             $this->attributes['ci'] = null;
             return;
         }
-        $this->ci_enc = $value;
+        $this->attributes['ci_enc'] = Pii::encrypt((string) $value);
         $this->attributes['ci_hash'] = Pii::hash((string) $value);
         $this->attributes['ci'] = $value;
     }
@@ -109,7 +107,7 @@ class Inquilino extends Model
             $this->attributes['telefono'] = null;
             return;
         }
-        $this->telefono_enc = $value;
+        $this->attributes['telefono_enc'] = Pii::encrypt((string) $value);
         $this->attributes['telefono'] = $value;
     }
 
@@ -120,7 +118,7 @@ class Inquilino extends Model
             $this->attributes['email'] = null;
             return;
         }
-        $this->email_enc = $value;
+        $this->attributes['email_enc'] = Pii::encrypt((string) $value);
         $this->attributes['email'] = $value;
     }
 

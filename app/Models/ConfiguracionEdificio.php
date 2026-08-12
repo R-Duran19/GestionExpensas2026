@@ -43,23 +43,21 @@ class ConfiguracionEdificio extends Model
     /**
      * The attributes that should be cast.
      *
-     * [SEGURIDAD-09 / Fase 3.C] Los _enc se cifran/descifran automaticamente.
+     * [SEGURIDAD-09 / Fase 3.C] NO usamos el cast 'encrypted' (rompe con
+     * accesores custom). Cifrado explicito via Pii::encrypt/decrypt.
      *
      * @var array<string, string>
      */
     protected $casts = [
         'activo' => 'boolean',
-        'telefono_enc' => 'encrypted',
-        'email_enc' => 'encrypted',
-        'cuit_enc' => 'encrypted',
     ];
 
-    // [SEGURIDAD-09 / Fase 3.C] Accesores PII: prefieren _enc, fallback a vieja.
+    // [SEGURIDAD-09 / Fase 3.C] Accesores PII (descifrado manual sin unserialize).
 
     public function getTelefonoAttribute()
     {
         if (!empty($this->attributes['telefono_enc'])) {
-            return $this->telefono_enc;
+            return \App\Helpers\Pii::decrypt($this->attributes['telefono_enc']);
         }
         return $this->attributes['telefono'] ?? null;
     }
@@ -67,7 +65,7 @@ class ConfiguracionEdificio extends Model
     public function getEmailAttribute()
     {
         if (!empty($this->attributes['email_enc'])) {
-            return $this->email_enc;
+            return \App\Helpers\Pii::decrypt($this->attributes['email_enc']);
         }
         return $this->attributes['email'] ?? null;
     }
@@ -75,12 +73,12 @@ class ConfiguracionEdificio extends Model
     public function getCuitAttribute()
     {
         if (!empty($this->attributes['cuit_enc'])) {
-            return $this->cuit_enc;
+            return \App\Helpers\Pii::decrypt($this->attributes['cuit_enc']);
         }
         return $this->attributes['cuit'] ?? null;
     }
 
-    // [SEGURIDAD-09 / Fase 3.C] Mutadores PII (escriben _enc + vieja legacy).
+    // [SEGURIDAD-09 / Fase 3.C] Mutadores PII (cifrado manual sin serialize).
 
     public function setTelefonoAttribute($value)
     {
@@ -89,7 +87,7 @@ class ConfiguracionEdificio extends Model
             $this->attributes['telefono'] = null;
             return;
         }
-        $this->telefono_enc = $value;
+        $this->attributes['telefono_enc'] = \App\Helpers\Pii::encrypt((string) $value);
         $this->attributes['telefono'] = $value;
     }
 
@@ -100,7 +98,7 @@ class ConfiguracionEdificio extends Model
             $this->attributes['email'] = null;
             return;
         }
-        $this->email_enc = $value;
+        $this->attributes['email_enc'] = \App\Helpers\Pii::encrypt((string) $value);
         $this->attributes['email'] = $value;
     }
 
@@ -111,7 +109,7 @@ class ConfiguracionEdificio extends Model
             $this->attributes['cuit'] = null;
             return;
         }
-        $this->cuit_enc = $value;
+        $this->attributes['cuit_enc'] = \App\Helpers\Pii::encrypt((string) $value);
         $this->attributes['cuit'] = $value;
     }
 

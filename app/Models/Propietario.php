@@ -40,14 +40,13 @@ class Propietario extends Model
     /**
      * Los atributos que deben ser casteados.
      *
-     * [SEGURIDAD-09 / Fase 3.C] Los _enc se cifran/descifran automaticamente
-     * al leer/escribir. 'activo' sigue siendo boolean.
+     * [SEGURIDAD-09 / Fase 3.C] NO usamos el cast 'encrypted' de Laravel
+     * porque este aplica serialize/unserialize que rompe con accesores
+     * custom. En su lugar, ciframos/desciframos explicitamente en los
+     * accesores/mutadores con Pii::encrypt() / Pii::decrypt() (sin serialize).
      */
     protected $casts = [
         'activo' => 'boolean',
-        'ci_enc' => 'encrypted',
-        'telefono_enc' => 'encrypted',
-        'email_enc' => 'encrypted',
     ];
 
     /**
@@ -63,13 +62,13 @@ class Propietario extends Model
     }
 
     // [SEGURIDAD-09 / Fase 3.C] Accesores PII:
-    // Prefieren la columna _enc (cifrada, poblada por pii:encrypt).
-    // Fallback a columna vieja (legacy) si _enc esta vacia (registros no migrados).
+    // Descifran manualmente desde _enc (sin unserialize, sin cast).
+    // Fallback a columna vieja (legacy) si _enc esta vacia.
 
     public function getCiAttribute()
     {
         if (!empty($this->attributes['ci_enc'])) {
-            return $this->ci_enc; // cast 'encrypted' descifra automaticamente
+            return Pii::decrypt($this->attributes['ci_enc']);
         }
         return $this->attributes['ci'] ?? null;
     }
@@ -77,7 +76,7 @@ class Propietario extends Model
     public function getTelefonoAttribute()
     {
         if (!empty($this->attributes['telefono_enc'])) {
-            return $this->telefono_enc;
+            return Pii::decrypt($this->attributes['telefono_enc']);
         }
         return $this->attributes['telefono'] ?? null;
     }
@@ -85,15 +84,13 @@ class Propietario extends Model
     public function getEmailAttribute()
     {
         if (!empty($this->attributes['email_enc'])) {
-            return $this->email_enc;
+            return Pii::decrypt($this->attributes['email_enc']);
         }
         return $this->attributes['email'] ?? null;
     }
 
     // [SEGURIDAD-09 / Fase 3.C] Mutadores PII:
-    // Escriben en _enc (cifrado via cast) + ci_hash (HMAC para unicidad).
-    // Tambien mantienen la columna vieja legible hasta el drop futuro (3.D),
-    // para que rollback sea trivial.
+    // Cifran manualmente a _enc (sin serialize) + escriben ci_hash + columna vieja legacy.
 
     public function setCiAttribute($value)
     {
@@ -103,7 +100,7 @@ class Propietario extends Model
             $this->attributes['ci'] = null;
             return;
         }
-        $this->ci_enc = $value;             // cast 'encrypted' cifra al asignar
+        $this->attributes['ci_enc'] = Pii::encrypt((string) $value);
         $this->attributes['ci_hash'] = Pii::hash((string) $value);
         $this->attributes['ci'] = $value;   // legacy, hasta migration 3.D
     }
@@ -115,7 +112,7 @@ class Propietario extends Model
             $this->attributes['telefono'] = null;
             return;
         }
-        $this->telefono_enc = $value;
+        $this->attributes['telefono_enc'] = Pii::encrypt((string) $value);
         $this->attributes['telefono'] = $value;
     }
 
@@ -126,7 +123,7 @@ class Propietario extends Model
             $this->attributes['email'] = null;
             return;
         }
-        $this->email_enc = $value;
+        $this->attributes['email_enc'] = Pii::encrypt((string) $value);
         $this->attributes['email'] = $value;
     }
 
