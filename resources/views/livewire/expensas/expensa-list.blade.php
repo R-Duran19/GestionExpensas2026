@@ -122,6 +122,7 @@
 
                         <button
                             wire:click="recalcularExpensas"
+                            wire:confirm="¿Recalcular TODAS las expensas del período? Se eliminarán las actuales y se generarán nuevamente. Los pagos registrados no se ven afectados."
                             wire:loading.attr="disabled"
                             class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -148,6 +149,7 @@
                     @if($this->periodo->estado === 'abierto')
                         <button
                             wire:click="cerrarPeriodo"
+                            wire:confirm="¿Cerrar este período? Una vez cerrado NO se podrán modificar los montos de emisión. Para hacerlo tendrá que reabrirlo (queda registrado en auditoría)."
                             class="inline-flex items-center px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                         >
                             <svg class="-ml-1 mr-2 h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -157,7 +159,7 @@
                         </button>
                     @else
                         <button
-                            wire:click="reabrirPeriodo"
+                            wire:click="abrirModalReabrir"
                             class="inline-flex items-center px-4 py-2 border border-yellow-300 rounded-md shadow-sm text-sm font-medium text-yellow-700 bg-white hover:bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
                         >
                             <svg class="-ml-1 mr-2 h-4 w-4 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -659,6 +661,58 @@
             </svg>
             <h3 class="mt-2 text-sm font-medium text-gray-900">No hay período seleccionado</h3>
             <p class="mt-1 text-sm text-gray-500">Selecciona un período para ver las expensas</p>
+        </div>
+    @endif
+
+    {{-- Modal Reabrir Período (reemplaza prompt() nativo que no funcionaba en PHP) --}}
+    @if($mostrarModalReabrir)
+        <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" wire:click.self="cancelarReapertura">
+            <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">
+                        <i class="fas fa-unlock-alt text-yellow-600 mr-2"></i>
+                        Reabrir Período
+                    </h3>
+                    <button type="button" wire:click="cancelarReapertura" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="mb-4">
+                    <p class="text-sm text-gray-600">
+                        Está por reabrir el período <strong>{{ $this->periodo?->nombre ?? '?' }}</strong>.
+                        Esta acción queda registrada en la auditoría del sistema.
+                    </p>
+                </div>
+
+                <form wire:submit="confirmarReapertura">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Motivo de la reapertura <span class="text-gray-400 text-xs">(opcional)</span>
+                        </label>
+                        <textarea
+                            wire:model="motivoReapertura"
+                            rows="3"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                            placeholder="Ej: Error en el cálculo de agua del mes..."></textarea>
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-2">
+                        <button type="button"
+                                wire:click="cancelarReapertura"
+                                class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
+                            Cancelar
+                        </button>
+                        <button type="submit"
+                                class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition">
+                            <i class="fas fa-unlock-alt mr-1"></i>
+                            Reabrir Período
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     @endif
 

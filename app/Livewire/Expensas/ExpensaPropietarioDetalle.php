@@ -264,10 +264,6 @@ class ExpensaPropietarioDetalle extends Component
                 throw new \Exception('Solo se pueden generar expensas en períodos abiertos');
             }
 
-            if (!confirm('¿Está seguro de regenerar todas las expensas de este propietario?')) {
-                return;
-            }
-
             $this->generando = true;
 
             $exitosas = 0;

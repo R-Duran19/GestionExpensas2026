@@ -28,6 +28,10 @@ class ExpensaList extends Component
     public $propietarioIdRegenerando = null;
     public $generando = false;
 
+    // Modal de reapertura de período (antes usaba prompt() PHP que no funciona)
+    public $mostrarModalReabrir = false;
+    public $motivoReapertura = '';
+
     protected ExpensaService $expensaService;
 
     protected $queryString = ['periodoId', 'search', 'filtroEstado', 'filtroTipo', 'tabActivo'];
@@ -318,10 +322,6 @@ class ExpensaList extends Component
                 throw new \Exception('No se puede recalcular un período cerrado. Reabra el período primero.');
             }
 
-            if (!confirm('¿Está seguro de recalcular todas las expensas? Esto eliminará las expensas actuales y las generará nuevamente.')) {
-                return;
-            }
-
             $this->generando = true;
 
             $resultados = $this->expensaService->recalcularExpensas($this->periodoId);
@@ -329,7 +329,7 @@ class ExpensaList extends Component
             $this->dispatch('alerta', [
                 'tipo' => 'success',
                 'titulo' => 'Expensas recalculadas',
-                'mensaje' => "Se recalculon {$resultados['exitosas']} expensas correctamente",
+                'mensaje' => "Se recalcularon {$resultados['exitosas']} expensas correctamente",
             ]);
 
         } catch (\Exception $e) {
@@ -353,10 +353,6 @@ class ExpensaList extends Component
                 throw new \Exception('Debe seleccionar un período primero');
             }
 
-            if (!confirm('¿Está seguro de cerrar este período? Una vez cerrado, no se podrán modificar los montos de emisión.')) {
-                return;
-            }
-
             $this->expensaService->cerrarPeriodo($this->periodoId);
 
             $this->dispatch('alerta', [
@@ -375,27 +371,47 @@ class ExpensaList extends Component
     }
 
     /**
-     * Reabrir período
+     * Reabrir período: abre el modal para capturar el motivo.
+     * (Antes usaba prompt() nativo de JS dentro de PHP, lo cual NO funciona.)
      */
-    public function reabrirPeriodo()
+    public function abrirModalReabrir()
+    {
+        $this->motivoReapertura = '';
+        $this->mostrarModalReabrir = true;
+    }
+
+    public function confirmarReapertura()
     {
         try {
             if (!$this->periodoId) {
                 throw new \Exception('Debe seleccionar un período primero');
             }
 
-            $motivo = prompt('Motivo de la reapertura (opcional):');
-            if ($motivo === false) {
-                return;
-            }
-
-            $this->expensaService->reabrirPeriodo($this->periodoId, $motivo ?: null);
+            $this->expensaService->reabrirPeriodo($this->periodoId, $this->motivoReapertura ?: null);
 
             $this->dispatch('alerta', [
                 'tipo' => 'success',
                 'titulo' => 'Período reabierto',
                 'mensaje' => 'El período ha sido reabierto correctamente',
             ]);
+
+            $this->mostrarModalReabrir = false;
+            $this->motivoReapertura = '';
+
+        } catch (\Exception $e) {
+            $this->dispatch('alerta', [
+                'tipo' => 'error',
+                'titulo' => 'Error',
+                'mensaje' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function cancelarReapertura()
+    {
+        $this->mostrarModalReabrir = false;
+        $this->motivoReapertura = '';
+    }
 
         } catch (\Exception $e) {
             $this->dispatch('alerta', [
