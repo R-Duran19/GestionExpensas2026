@@ -300,17 +300,21 @@ Route::middleware(['auth', 'admin'])->group(function () {
     |--------------------------------------------------------------------------
     | MÓDULO DE USUARIOS
     |--------------------------------------------------------------------------
+    | [SEGURIDAD-09 / Fase 1.4] Deshabilitado: Route::view tiraba 500 porque
+    | no existe la vista 'usuarios.index'. Pendiente modulo real (Fase 4.2).
     */
-    Route::prefix('usuarios')->name('usuarios.')->group(function () {
-        Route::view('/', 'usuarios.index')->name('index');
-    });
+    // Route::prefix('usuarios')->name('usuarios.')->group(function () {
+    //     Route::view('/', 'usuarios.index')->name('index');
+    // });
 
     /*
     |--------------------------------------------------------------------------
     | ACTIVITY LOGS (AUDITORÍA)
     |--------------------------------------------------------------------------
+    | [SEGURIDAD-09 / Fase 1.4] Deshabilitado: Route::view tiraba 500 porque
+    | no existe la vista 'auditoria.index'. Pendiente modulo real (Fase 4.5).
     */
-    Route::prefix('auditoria')->name('auditoria.')->group(function () {
-        Route::view('/', 'auditoria.index')->name('index');
-    });
+    // Route::prefix('auditoria')->name('auditoria.')->group(function () {
+    //     Route::view('/', 'auditoria.index')->name('index');
+    // });
 });
