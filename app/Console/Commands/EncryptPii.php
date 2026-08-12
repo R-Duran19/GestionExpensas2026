@@ -60,7 +60,8 @@ class EncryptPii extends Command
             return self::FAILURE;
         }
 
-        foreach ($tablas as $tabla) {
+        // tablasAProcesar() devuelve [nombre => config]; iteramos las keys.
+        foreach (array_keys($tablas) as $tabla) {
             $this->procesarTabla($tabla);
         }
 
