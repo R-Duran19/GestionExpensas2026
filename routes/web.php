@@ -9,6 +9,7 @@ use App\Http\Controllers\BoletaExpensaPDFController;
 use App\Http\Controllers\ExpensaUnidadPDFController;
 use App\Http\Controllers\ReporteExcelController;
 use App\Http\Controllers\UnidadExportController;
+use App\Http\Controllers\ComprobanteController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -51,6 +52,20 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 */
 
 Route::middleware(['auth', 'admin'])->group(function () {
+
+    /*
+    |--------------------------------------------------------------------------
+    | COMPROBANTES (FASE 1.2 - SEGURIDAD)
+    |--------------------------------------------------------------------------
+    | Rutas para servir comprobantes desde disco privado (storage/app/private).
+    | Antes estaban en storage/app/public accesibles sin auth via /storage/*.
+    | Throttle 60/min para evitar abuso. Auth+admin requerido.
+    */
+    Route::prefix('comprobante')->name('comprobante.')->middleware('throttle:60,1')->group(function () {
+        Route::get('/ingreso/{ingreso}', [ComprobanteController::class, 'ingreso'])->name('ingreso');
+        Route::get('/egreso/{egreso}', [ComprobanteController::class, 'egreso'])->name('egreso');
+        Route::get('/pago/{ingreso}', [ComprobanteController::class, 'pago'])->name('pago');
+    });
 
     /*
     |--------------------------------------------------------------------------
