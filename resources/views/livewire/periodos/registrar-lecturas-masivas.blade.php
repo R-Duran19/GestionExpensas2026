@@ -19,7 +19,7 @@
             <!-- Filtros -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <input type="text"
-                       wire:model.live="search"
+                       wire:model.live.debounce.300ms="search"
                        placeholder="Buscar por código o nombre..."
                        class="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-base">
 

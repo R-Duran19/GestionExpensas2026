@@ -157,7 +157,7 @@
                                 <div class="flex gap-2">
                                     <input type="text"
                                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                           wire:model.live="busqueda"
+                                           wire:model.live.debounce.300ms="busqueda"
                                            placeholder="Nombre, CI o código de unidad..."
                                            wire:keydown.enter="buscarDeudas">
                                     <button type="button"

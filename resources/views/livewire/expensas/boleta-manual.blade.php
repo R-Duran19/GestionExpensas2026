@@ -74,7 +74,7 @@
             <div class="flex flex-col md:flex-row gap-4 mb-4">
                 <input
                     type="text"
-                    wire:model.live="search"
+                    wire:model.live.debounce.300ms="search"
                     placeholder="Buscar por código de unidad o propietario..."
                     class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 >

@@ -27,7 +27,7 @@
                 <div class="relative">
                     <input type="text"
                            id="buscarUnidad"
-                           wire:model.live="searchUnidad"
+                           wire:model.live.debounce.300ms="searchUnidad"
                            placeholder="Escribe código o nombre de unidad..."
                            class="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-base"
                            autocomplete="off">

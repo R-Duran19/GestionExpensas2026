@@ -18,7 +18,7 @@
         <!-- Filtros -->
         <div class="mt-4 flex space-x-4">
             <input type="text"
-                   wire:model.live="search"
+                   wire:model.live.debounce.300ms="search"
                    placeholder="Buscar por nombre..."
                    class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
 

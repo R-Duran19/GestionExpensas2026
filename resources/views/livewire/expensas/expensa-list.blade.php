@@ -184,7 +184,7 @@
                 <div class="flex flex-col md:flex-row gap-4">
                     <input
                         type="text"
-                        wire:model.live="search"
+                        wire:model.live.debounce.300ms="search"
                         placeholder="Buscar por código de unidad, propietario o inquilino..."
                         class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     >
@@ -456,7 +456,7 @@
             <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
                 <input
                     type="text"
-                    wire:model.live="search"
+                    wire:model.live.debounce.300ms="search"
                     placeholder="Buscar por nombre o CI del propietario..."
                     class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 >

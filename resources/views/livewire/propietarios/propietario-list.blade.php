@@ -43,7 +43,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <input type="text"
-                       wire:model.live="busqueda"
+                       wire:model.live.debounce.300ms="busqueda"
                        placeholder="Buscar por nombre, CI o email..."
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
             </div>
