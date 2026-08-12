@@ -48,6 +48,12 @@ class IngresoList extends Component
         }
     }
 
+    public function resetFilters()
+    {
+        $this->reset(['buscar', 'filtro_categoria', 'filtro_metodo', 'filtro_fecha_desde', 'filtro_fecha_hasta']);
+        $this->resetPage();
+    }
+
     public function confirmarEliminar(Ingreso $ingreso)
     {
         $this->ingresoAEliminar = $ingreso;

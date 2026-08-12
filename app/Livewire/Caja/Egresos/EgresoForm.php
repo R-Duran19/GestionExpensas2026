@@ -35,7 +35,7 @@ class EgresoForm extends Component
     #[Validate('nullable|string')]
     public $descripcion = '';
 
-    #[Validate('required|image|max:10240')] // Max 10MB
+    #[Validate('nullable|image|mimes:jpg,jpeg,png,webp|max:10240')] // Max 10MB
     public $comprobante_foto = null;
 
     public $comprobante_foto_actual = null;
@@ -60,8 +60,8 @@ class EgresoForm extends Component
         'importe.required' => 'El importe es obligatorio',
         'importe.numeric' => 'El importe debe ser un número',
         'importe.min' => 'El importe debe ser mayor a 0',
-        'comprobante_foto.required' => 'El comprobante es obligatorio',
         'comprobante_foto.image' => 'El comprobante debe ser una imagen',
+        'comprobante_foto.mimes' => 'El comprobante debe ser un archivo JPG, PNG o WebP',
         'comprobante_foto.max' => 'El comprobante no puede ser mayor a 10MB',
         'fecha.required' => 'La fecha es obligatoria',
         'fecha.date' => 'La fecha debe ser válida',

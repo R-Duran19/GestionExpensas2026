@@ -28,7 +28,7 @@ class EgresoList extends Component
     public $mostrarModalComprobante = false;
     public $comprobanteUrl = null;
 
-    protected $paginationTheme = 'bootstrap';
+    protected $paginationTheme = 'tailwind';
 
     protected $queryString = [
         'buscar' => ['except' => ''],
@@ -46,6 +46,12 @@ class EgresoList extends Component
             $this->sortField = $field;
             $this->sortDirection = 'asc';
         }
+    }
+
+    public function resetFilters()
+    {
+        $this->reset(['buscar', 'filtro_categoria', 'filtro_proveedor', 'filtro_fecha_desde', 'filtro_fecha_hasta']);
+        $this->resetPage();
     }
 
     public function confirmarEliminar(Egreso $egreso)
