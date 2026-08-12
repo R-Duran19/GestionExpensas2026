@@ -413,15 +413,6 @@ class ExpensaList extends Component
         $this->motivoReapertura = '';
     }
 
-        } catch (\Exception $e) {
-            $this->dispatch('alerta', [
-                'tipo' => 'error',
-                'titulo' => 'Error',
-                'mensaje' => $e->getMessage(),
-            ]);
-        }
-    }
-
     /**
      * Ir al formulario de pago de una unidad
      */
