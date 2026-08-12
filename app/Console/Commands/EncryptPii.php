@@ -7,6 +7,7 @@ use App\Models\ConfiguracionEdificio;
 use App\Models\Inquilino;
 use App\Models\Propietario;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -15,26 +16,31 @@ use Illuminate\Support\Facades\Log;
  * Idempotente y reanudable: solo procesa filas donde _enc ES null.
  * Se puede correr varias veces si falla a mitad sin perder trabajo.
  *
+ * IMPORTANTE (post-switch 3.C): los modelos tienen cast 'encrypted' sobre
+ * las columnas _enc. Si escribieramos via \$model->ci_enc = X, Laravel
+ * cifraria dos veces. Por eso este comando escribe directo en la BD via
+ * DB::table()->update() y lee con getRawOriginal() (sin accessor ni cast).
+ *
  * Uso:
- *   php artisan pii:encrypt            # procesa todas las tablas
+ *   php artisan pii:encrypt                          # procesa pendientes
  *   php artisan pii:encrypt --only=propietarios
- *   php artisan pii:encrypt --only=inquilinos
- *   php artisan pii:encrypt --only=configuracion
- *   php artisan pii:encrypt --dry-run  # solo reporta, no escribe
- *   php artisan pii:encrypt --rehash   # recalcular ci_hash (sin tocar _enc)
+ *   php artisan pii:encrypt --dry-run                # solo reporta
+ *   php artisan pii:encrypt --force                  # re-procesa TODO
+ *   php artisan pii:encrypt --rehash                 # solo recalcular ci_hash
  *
- * Debe correrse DESPUES de la migration 3.A (columnas _enc existen)
- * y ANTES del switch 3.C (modelos todavia no usan los casts).
+ * Orden recomendado post-deploy:
+ *   1. php artisan pii:encrypt --dry-run    (ver cuantos hay)
+ *   2. php artisan pii:encrypt              (migrar pendientes)
  *
- * Si algo sale mal a mitad: reanudar con el mismo comando, retoma donde
- * quedo (procesa solo los _enc null). Las columnas viejas (ci, telefono,
- * email, cuit) NO se tocan, siguen legibles como antes.
+ * Recuperacion de datos mal migrados (doble-cifrado u otro problema):
+ *   php artisan pii:encrypt --force          (re-cifra TODO desde columnas viejas)
  */
 class EncryptPii extends Command
 {
     protected $signature = 'pii:encrypt
                             {--only= : Limitar a una tabla: propietarios|inquilinos|configuracion}
                             {--dry-run : Solo reportar, no escribir en BD}
+                            {--force : Re-procesar TODAS las filas (ignora idempotencia)}
                             {--rehash : Solo recalcular ci_hash (tras rotar PII_HASH_KEY)}';
 
     protected $description = 'Cifra PII (CI, telefono, email, cuit) en columnas _enc y calcula _hash. Idempotente.';
@@ -51,6 +57,9 @@ class EncryptPii extends Command
         if ($this->option('dry-run')) {
             $this->warn('MODO DRY-RUN: no se escribira en la BD.');
         }
+        if ($this->option('force')) {
+            $this->warn('MODO FORCE: se re-procesan TODAS las filas desde las columnas viejas.');
+        }
 
         $only = $this->option('only');
         $tablas = $this->tablasAProcesar($only);
@@ -60,7 +69,6 @@ class EncryptPii extends Command
             return self::FAILURE;
         }
 
-        // tablasAProcesar() devuelve [nombre => config]; iteramos las keys.
         foreach (array_keys($tablas) as $tabla) {
             $this->procesarTabla($tabla);
         }
@@ -105,27 +113,27 @@ class EncryptPii extends Command
     /**
      * Procesa una tabla completa con cursor (memoria constante).
      */
-    private function procesarTabla(string $nombreTabla): void
+    private function procesarTabla(string $nombreLogico): void
     {
-        $config = $this->tablasAProcesar($nombreTabla)[$nombreTabla];
+        $config = $this->tablasAProcesar($nombreLogico)[$nombreLogico];
         $modelClass = $config['model'];
+        $tabla = (new $modelClass)->getTable(); // nombre real en BD
 
         $this->newLine();
-        $this->info("-- Procesando: {$nombreTabla}");
+        $this->info("-- Procesando: {$nombreLogico} (tabla: {$tabla})");
 
-        // Query base: filas pendientes (con primer _enc null).
-        // En --rehash se procesan todas las filas sin filtrar.
+        // Construir query base
         $primerEncField = reset($config['fields']); // ej: ci_enc
-        $query = $modelClass::query();
+        $query = $modelClass::query()->select('*'); // select * explícito para tener todas las columnas crudas
 
-        if (!$this->option('rehash')) {
-            // Idempotencia normal: solo filas con _enc null
+        // Filtrar por pendientes a menos que sea --force o --rehash
+        if (!$this->option('force') && !$this->option('rehash')) {
             $query->whereNull($primerEncField);
         }
 
         $total = (clone $query)->count();
         if ($total === 0) {
-            $this->line("   (nada para procesar, todas las filas ya tienen {$primerEncField} poblado)");
+            $this->line("   (nada para procesar)");
             return;
         }
 
@@ -136,18 +144,18 @@ class EncryptPii extends Command
 
         foreach ($query->cursor() as $registro) {
             try {
-                $this->procesarRegistro($registro, $config);
+                $this->procesarRegistro($registro, $config, $tabla);
                 $this->procesados++;
             } catch (\Throwable $e) {
                 $this->errores++;
                 $this->saltados++;
                 Log::error('EncryptPii: error procesando registro', [
-                    'tabla' => $nombreTabla,
+                    'tabla' => $tabla,
                     'id' => $registro->id ?? null,
                     'error' => $e->getMessage(),
                 ]);
                 $bar->clear();
-                $this->error("   ERROR en {$nombreTabla} id={$registro->id}: {$e->getMessage()}");
+                $this->error("   ERROR en {$tabla} id={$registro->id}: {$e->getMessage()}");
                 $bar->display();
             }
             $bar->advance();
@@ -159,70 +167,84 @@ class EncryptPii extends Command
 
     /**
      * Cifra y/o hashea un registro individual.
+     *
+     * IMPORTANTE: lee via getRawOriginal() (sin accessor ni cast) y escribe
+     * via DB::table()->update() (sin pasar por el modelo). Esto evita que
+     * el cast 'encrypted' sobre las columnas _enc produzca doble-cifrado.
      */
-    private function procesarRegistro(object $registro, array $config): void
+    private function procesarRegistro(object $registro, array $config, string $tabla): void
     {
         $dryRun = (bool) $this->option('dry-run');
         $rehash = (bool) $this->option('rehash');
+        $force = (bool) $this->option('force');
 
         // --- MODO REHASH: solo recalcular _hash ---
         if ($rehash && !empty($config['hash_field'])) {
+            // Priorizar columna vieja original (sin cifrar). Si no existe (post-drop 3.D),
+            // descifrar de _enc.
             $source = $config['hash_source'];
-            $valorOriginal = $registro->{$source} ?? $registro->{$config['fields'][$source]} ?? null;
-            // Si la columna vieja sigue existiendo (pre-drop), usar esa.
-            // Sino, usar la descifrada de _enc.
+            $valorOriginal = $registro->getRawOriginal($source);
 
-            if ($valorOriginal === null) {
-                // intentar descifrar del _enc
+            if (($valorOriginal === null || $valorOriginal === '') && !empty($config['fields'][$source])) {
                 $encField = $config['fields'][$source];
-                if (!empty($registro->{$encField})) {
+                $encValue = $registro->getRawOriginal($encField);
+                if ($encValue !== null && $encValue !== '') {
                     try {
-                        $valorOriginal = decrypt($registro->{$encField});
+                        $valorOriginal = decrypt($encValue);
                     } catch (\Throwable $e) {
                         $valorOriginal = null;
                     }
                 }
             }
 
-            if (!$dryRun) {
-                $registro->{$config['hash_field']} = Pii::hash($valorOriginal ? (string) $valorOriginal : null);
-                $registro->save();
+            if ($dryRun) {
+                return;
             }
+
+            DB::table($tabla)
+                ->where('id', $registro->id)
+                ->update([
+                    $config['hash_field'] => Pii::hash($valorOriginal !== null && $valorOriginal !== '' ? (string) $valorOriginal : null),
+                ]);
             return;
         }
 
         // --- MODO NORMAL: cifrar _enc + calcular _hash ---
-        $dirty = false;
-        foreach ($config['fields'] as $campoViejo => $campoEnc) {
-            $valor = $registro->{$campoViejo};
+        $update = [];
 
-            // Skip si el _enc ya esta poblado (idempotencia por fila)
-            if (!empty($registro->{$campoEnc})) {
+        foreach ($config['fields'] as $campoViejo => $campoEnc) {
+            // Idempotencia por fila (salvo --force)
+            if (!$force && !empty($registro->getRawOriginal($campoEnc))) {
                 continue;
             }
 
+            // Leer columna vieja ORIGINAL (sin accessor, sin cast)
+            $valor = $registro->getRawOriginal($campoViejo);
+
             if ($valor === null || $valor === '') {
-                // Marcar como procesado con string vacio cifrado para que no se reprocese
-                $registro->{$campoEnc} = null;
+                $update[$campoEnc] = null;
             } else {
-                $registro->{$campoEnc} = Pii::encrypt((string) $valor);
+                // Cifrar UNA sola vez. NO pasar por el modelo (evita doble-cifrado).
+                $update[$campoEnc] = Pii::encrypt((string) $valor);
             }
-            $dirty = true;
         }
 
         // Hash de CI (solo propietarios e inquilinos)
-        if (!empty($config['hash_field']) && empty($registro->{$config['hash_field']})) {
-            $ci = $registro->{$config['hash_source']};
-            $registro->{$config['hash_field']} = Pii::hash($ci !== null && $ci !== '' ? (string) $ci : null);
-            $dirty = true;
+        if (!empty($config['hash_field'])) {
+            if ($force || empty($registro->getRawOriginal($config['hash_field']))) {
+                $ci = $registro->getRawOriginal($config['hash_source']);
+                $update[$config['hash_field']] = Pii::hash($ci !== null && $ci !== '' ? (string) $ci : null);
+            }
         }
 
-        if ($dirty && !$dryRun) {
-            // saveQuietly: no dispara eventos (evita logging, observadores, etc.)
-            // que podrian interferir con la migracion masiva.
-            $registro->saveQuietly();
-        } elseif (!$dirty) {
+        if (empty($update)) {
             $this->saltados++;
+            return;
+        }
+
+        if (!$dryRun) {
+            // Escribir directo en BD, sin pasar por el modelo.
+            DB::table($tabla)->where('id', $registro->id)->update($update);
         }
     }
 
@@ -237,6 +259,8 @@ class EncryptPii extends Command
 
         if ($this->option('dry-run')) {
             $this->warn('DRY-RUN: no se escribio en la BD.');
+        } elseif ($this->option('force')) {
+            $this->info('FORCE: todas las filas re-procesadas desde columnas viejas.');
         } elseif ($this->errores === 0 && $this->procesados > 0) {
             $this->info('OK. Verifica con: php artisan pii:encrypt --dry-run');
         } elseif ($this->errores > 0) {
