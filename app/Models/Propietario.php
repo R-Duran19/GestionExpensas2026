@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Helpers\Pii;
 use App\Traits\Loggable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,9 @@ class Propietario extends Model
 
     /**
      * Los atributos que son asignables masivamente.
+     *
+     * [SEGURIDAD-09 / Fase 3.C] CI/telefono/email siguen en fillable para
+     * compatibilidad; los mutadores redirigen la escritura a _enc + _hash.
      */
     protected $fillable = [
         'nombre',
@@ -25,12 +29,21 @@ class Propietario extends Model
         'ci',
         'telefono',
         'email',
+        'ci_enc',
+        'telefono_enc',
+        'email_enc',
+        'ci_hash',
         'activo',
         'observaciones',
     ];
 
     /**
      * Los atributos que deben ser casteados.
+     *
+     * [SEGURIDAD-09 / Fase 3.C] NO usamos el cast 'encrypted' de Laravel
+     * porque este aplica serialize/unserialize que rompe con accesores
+     * custom. En su lugar, ciframos/desciframos explicitamente en los
+     * accesores/mutadores con Pii::encrypt() / Pii::decrypt() (sin serialize).
      */
     protected $casts = [
         'activo' => 'boolean',
@@ -46,6 +59,72 @@ class Propietario extends Model
     public function getNombreCompletoAttribute(): string
     {
         return "{$this->nombre} {$this->apellido}";
+    }
+
+    // [SEGURIDAD-09 / Fase 3.C] Accesores PII:
+    // Descifran manualmente desde _enc (sin unserialize, sin cast).
+    // Fallback a columna vieja (legacy) si _enc esta vacia.
+
+    public function getCiAttribute()
+    {
+        if (!empty($this->attributes['ci_enc'])) {
+            return Pii::decrypt($this->attributes['ci_enc']);
+        }
+        return $this->attributes['ci'] ?? null;
+    }
+
+    public function getTelefonoAttribute()
+    {
+        if (!empty($this->attributes['telefono_enc'])) {
+            return Pii::decrypt($this->attributes['telefono_enc']);
+        }
+        return $this->attributes['telefono'] ?? null;
+    }
+
+    public function getEmailAttribute()
+    {
+        if (!empty($this->attributes['email_enc'])) {
+            return Pii::decrypt($this->attributes['email_enc']);
+        }
+        return $this->attributes['email'] ?? null;
+    }
+
+    // [SEGURIDAD-09 / Fase 3.C] Mutadores PII:
+    // Cifran manualmente a _enc (sin serialize) + escriben ci_hash + columna vieja legacy.
+
+    public function setCiAttribute($value)
+    {
+        if ($value === null || $value === '') {
+            $this->attributes['ci_enc'] = null;
+            $this->attributes['ci_hash'] = null;
+            $this->attributes['ci'] = null;
+            return;
+        }
+        $this->attributes['ci_enc'] = Pii::encrypt((string) $value);
+        $this->attributes['ci_hash'] = Pii::hash((string) $value);
+        $this->attributes['ci'] = $value;   // legacy, hasta migration 3.D
+    }
+
+    public function setTelefonoAttribute($value)
+    {
+        if ($value === null || $value === '') {
+            $this->attributes['telefono_enc'] = null;
+            $this->attributes['telefono'] = null;
+            return;
+        }
+        $this->attributes['telefono_enc'] = Pii::encrypt((string) $value);
+        $this->attributes['telefono'] = $value;
+    }
+
+    public function setEmailAttribute($value)
+    {
+        if ($value === null || $value === '') {
+            $this->attributes['email_enc'] = null;
+            $this->attributes['email'] = null;
+            return;
+        }
+        $this->attributes['email_enc'] = Pii::encrypt((string) $value);
+        $this->attributes['email'] = $value;
     }
 
     /**
@@ -69,11 +148,16 @@ class Propietario extends Model
     }
 
     /**
-     * Scope para buscar por CI
+     * [SEGURIDAD-09 / Fase 3.C] Buscar por CI EXACTO via hash.
+     * Reemplaza el LIKE viejo que rompia con columnas cifradas.
+     * Solo permite igualdad (no LIKE), pero preserva unicidad de CI.
      */
     public function scopeBuscarPorCI($query, $ci)
     {
-        return $query->where('ci', 'like', "%{$ci}%");
+        if ($ci === null || $ci === '') {
+            return $query;
+        }
+        return $query->where('ci_hash', Pii::hash($ci));
     }
 
     /**
@@ -86,9 +170,12 @@ class Propietario extends Model
     }
 
     /**
-     * Scope para búsqueda general
-     * Busca por CI, nombre, apellido y email
-     * Maneja múltiples palabras (ej: "Maria Perez" busca Maria en nombre Y Perez en apellido, o viceversa)
+     * Scope para búsqueda general.
+     *
+     * [SEGURIDAD-09 / Fase 3.C] Antes buscaba por CI/email con LIKE, lo cual
+     * rompe con columnas cifradas. Ahora busca SOLO por nombre y apellido.
+     * Para busqueda exacta por CI, usar scopeBuscarPorCI (via hash).
+     * Maneja múltiples palabras (ej: "Maria Perez").
      */
     public function scopeBuscar($query, $termino)
     {
@@ -102,27 +189,22 @@ class Propietario extends Model
         $palabras = preg_split('/\s+/', $termino, -1, PREG_SPLIT_NO_EMPTY);
         $palabras = array_filter($palabras, fn($p) => !empty(trim($p)));
 
-        // Si es una sola palabra, búsqueda simple en cualquier campo
+        // Si es una sola palabra, búsqueda simple en nombre/apellido
         if (count($palabras) === 1) {
             $termino = $palabras[0];
             return $query->where(function ($q) use ($termino) {
-                $q->where('ci', 'like', "%{$termino}%")
-                  ->orWhere('nombre', 'like', "%{$termino}%")
-                  ->orWhere('apellido', 'like', "%{$termino}%")
-                  ->orWhere('email', 'like', "%{$termino}%");
+                $q->where('nombre', 'like', "%{$termino}%")
+                  ->orWhere('apellido', 'like', "%{$termino}%");
             });
         }
 
-        // Si son múltiples palabras, buscar combinaciones:
-        // 1. Todas las palabras deben aparecer (en nombre o apellido, en cualquier orden)
+        // Múltiples palabras: buscar combinaciones en nombre/apellido
         return $query->where(function ($q) use ($palabras) {
             foreach ($palabras as $index => $palabra) {
                 $method = $index === 0 ? 'where' : 'orWhere';
                 $q->$method(function ($subQ) use ($palabra) {
                     $subQ->where('nombre', 'like', "%{$palabra}%")
-                         ->orWhere('apellido', 'like', "%{$palabra}%")
-                         ->orWhere('ci', 'like', "%{$palabra}%")
-                         ->orWhere('email', 'like', "%{$palabra}%");
+                         ->orWhere('apellido', 'like', "%{$palabra}%");
                 });
             }
         });

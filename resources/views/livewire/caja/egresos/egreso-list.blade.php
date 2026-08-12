@@ -157,7 +157,7 @@
                             <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-center text-sm">
                                 <div class="flex justify-center gap-1 sm:gap-2">
                                     @if($egreso->comprobante_foto)
-                                        <button wire:click="verComprobante('{{ $egreso->comprobante_foto }}')"
+                                        <button wire:click="verComprobante('{{ $egreso->id }}')"
                                                 class="text-indigo-600 hover:text-indigo-900 p-1"
                                                 title="Ver comprobante">
                                             <i class="fas fa-image text-sm"></i>

@@ -9,6 +9,7 @@ use App\Http\Controllers\BoletaExpensaPDFController;
 use App\Http\Controllers\ExpensaUnidadPDFController;
 use App\Http\Controllers\ReporteExcelController;
 use App\Http\Controllers\UnidadExportController;
+use App\Http\Controllers\ComprobanteController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -51,6 +52,20 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 */
 
 Route::middleware(['auth', 'admin'])->group(function () {
+
+    /*
+    |--------------------------------------------------------------------------
+    | COMPROBANTES (FASE 1.2 - SEGURIDAD)
+    |--------------------------------------------------------------------------
+    | Rutas para servir comprobantes desde disco privado (storage/app/private).
+    | Antes estaban en storage/app/public accesibles sin auth via /storage/*.
+    | Throttle 60/min para evitar abuso. Auth+admin requerido.
+    */
+    Route::prefix('comprobante')->name('comprobante.')->middleware('throttle:60,1')->group(function () {
+        Route::get('/ingreso/{ingreso}', [ComprobanteController::class, 'ingreso'])->name('ingreso');
+        Route::get('/egreso/{egreso}', [ComprobanteController::class, 'egreso'])->name('egreso');
+        Route::get('/pago/{ingreso}', [ComprobanteController::class, 'pago'])->name('pago');
+    });
 
     /*
     |--------------------------------------------------------------------------
@@ -300,17 +315,21 @@ Route::middleware(['auth', 'admin'])->group(function () {
     |--------------------------------------------------------------------------
     | MÓDULO DE USUARIOS
     |--------------------------------------------------------------------------
+    | [SEGURIDAD-09 / Fase 1.4] Deshabilitado: Route::view tiraba 500 porque
+    | no existe la vista 'usuarios.index'. Pendiente modulo real (Fase 4.2).
     */
-    Route::prefix('usuarios')->name('usuarios.')->group(function () {
-        Route::view('/', 'usuarios.index')->name('index');
-    });
+    // Route::prefix('usuarios')->name('usuarios.')->group(function () {
+    //     Route::view('/', 'usuarios.index')->name('index');
+    // });
 
     /*
     |--------------------------------------------------------------------------
     | ACTIVITY LOGS (AUDITORÍA)
     |--------------------------------------------------------------------------
+    | [SEGURIDAD-09 / Fase 1.4] Deshabilitado: Route::view tiraba 500 porque
+    | no existe la vista 'auditoria.index'. Pendiente modulo real (Fase 4.5).
     */
-    Route::prefix('auditoria')->name('auditoria.')->group(function () {
-        Route::view('/', 'auditoria.index')->name('index');
-    });
+    // Route::prefix('auditoria')->name('auditoria.')->group(function () {
+    //     Route::view('/', 'auditoria.index')->name('index');
+    // });
 });

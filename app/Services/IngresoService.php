@@ -5,9 +5,11 @@ namespace App\Services;
 use App\Models\Ingreso;
 use App\Models\SecuenciaCaja;
 use App\Models\CajaTotal;
+use App\Traits\ComprobanteStorage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
 use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
@@ -15,6 +17,10 @@ use Exception;
 
 class IngresoService
 {
+    // [SEGURIDAD-09 / Fase 1.2] Helpers para borrar/verificar comprobantes
+    // en disco privado (local) con fallback a publico (public).
+    use ComprobanteStorage;
+
     protected ImageManager $imageManager;
 
     public function __construct()
@@ -93,10 +99,8 @@ class IngresoService
 
             // Procesar nuevo comprobante si se proporciona
             if ($archivoComprobante) {
-                // Eliminar comprobante anterior si existe
-                if ($ingreso->comprobante_foto && Storage::exists($ingreso->comprobante_foto)) {
-                    Storage::delete($ingreso->comprobante_foto);
-                }
+                // Eliminar comprobante anterior si existe (private o public)
+                $this->borrarComprobante($ingreso->comprobante_foto);
 
                 $fecha = \Carbon\Carbon::parse($datos['fecha']);
                 $datos['comprobante_foto'] = $this->procesarImagenWebP($archivoComprobante, 'ingresos', $fecha);
@@ -143,10 +147,8 @@ class IngresoService
             $esPagoExpensaLegacy = !is_null($ingreso->expensa_total_id);
             $expensaTotalId = $ingreso->expensa_total_id;
 
-            // Eliminar archivo de comprobante si existe
-            if ($ingreso->comprobante_foto && Storage::exists($ingreso->comprobante_foto)) {
-                Storage::delete($ingreso->comprobante_foto);
-            }
+            // Eliminar archivo de comprobante si existe (private o public)
+            $this->borrarComprobante($ingreso->comprobante_foto);
 
             // Soft delete
             $ingreso->delete();
@@ -309,8 +311,9 @@ class IngresoService
             // Redimensionar si es muy grande (max 1600x1200 — suficiente para comprobantes)
             $image->scaleDown(1600, 1200);
 
-            // Generar nombre único
-            $nombre = uniqid('comprobante_') . '_' . time() . '.webp';
+            // Generar nombre único (aleatorio, no predecible)
+            // [SEGURIDAD-09 / Fase 1.6] uniqid() deriva de microtime del server -> predecible.
+            $nombre = Str::random(40) . '.webp';
 
             // Ruta organizada por año/mes
             $ruta = sprintf(
@@ -322,13 +325,14 @@ class IngresoService
             );
 
             // Crear directorio si no existe
-            $directorio = storage_path('app/public/' . dirname($ruta));
+            // [SEGURIDAD-09 / Fase 1.2] Escribir a disco privado (storage/app/private)
+            $directorio = storage_path('app/private/' . dirname($ruta));
             if (!file_exists($directorio)) {
                 mkdir($directorio, 0775, true);
             }
 
             // Guardar como WebP con quality 70 (buen balance calidad/tamaño para comprobantes)
-            $image->save(storage_path('app/public/' . $ruta), quality: 70);
+            $image->save(storage_path('app/private/' . $ruta), quality: 70);
 
             return $ruta;
         } catch (Exception $e) {

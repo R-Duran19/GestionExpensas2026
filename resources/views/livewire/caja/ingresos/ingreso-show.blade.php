@@ -355,7 +355,8 @@
             </div>
             <div class="p-6">
                 <div class="bg-gray-100 rounded-lg p-4 text-center">
-                    <img src="{{ asset('storage/' . $ingreso->comprobante_foto) }}"
+                    {{-- [SEGURIDAD-09 / Fase 1.2] Ruta protegida auth+admin+throttle --}}
+                    <img src="{{ route('comprobante.ingreso', $ingreso) }}"
                          alt="Comprobante"
                          class="max-h-96 mx-auto rounded-lg shadow-lg">
                 </div>

@@ -153,22 +153,34 @@ class Ingreso extends Model
     }
 
     /**
-     * Accessor para obtener la URL completa del comprobante
+     * Accessor para obtener la URL completa del comprobante.
+     *
+     * [SEGURIDAD-09 / Fase 1.2] Antes devolvia Storage::url() que servia el
+     * archivo publicamente via /storage/*. Ahora devuelve la ruta protegida
+     * que requiere auth+admin+throttle.
      */
     public function getComprobanteFotoUrlAttribute()
     {
         if ($this->comprobante_foto) {
-            return Storage::url($this->comprobante_foto);
+            return route('comprobante.ingreso', $this);
         }
         return null;
     }
 
     /**
-     * Verifica si el ingreso tiene comprobante
+     * Verifica si el ingreso tiene comprobante.
+     *
+     * [SEGURIDAD-09 / Fase 1.2] Busca en ambos discos (private + public)
+     * para cubrir uploads viejos y nuevos.
      */
     public function tieneComprobante(): bool
     {
-        return !empty($this->comprobante_foto) && Storage::exists($this->comprobante_foto);
+        if (empty($this->comprobante_foto)) {
+            return false;
+        }
+
+        return Storage::disk('local')->exists($this->comprobante_foto)
+            || Storage::disk('public')->exists($this->comprobante_foto);
     }
 
     /**

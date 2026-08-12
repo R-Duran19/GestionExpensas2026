@@ -16,6 +16,9 @@ class ConfiguracionEdificio extends Model
     /**
      * The attributes that are mass assignable.
      *
+     * [SEGURIDAD-09 / Fase 3.C] telefono/email/cuit siguen en fillable para
+     * compatibilidad; los mutadores redirigen a _enc.
+     *
      * @var array<int, string>
      */
     protected $fillable = [
@@ -24,6 +27,9 @@ class ConfiguracionEdificio extends Model
         'telefono',
         'email',
         'cuit',
+        'telefono_enc',
+        'email_enc',
+        'cuit_enc',
         'logo_path',
         'ciudad',
         'provincia',
@@ -37,11 +43,75 @@ class ConfiguracionEdificio extends Model
     /**
      * The attributes that should be cast.
      *
+     * [SEGURIDAD-09 / Fase 3.C] NO usamos el cast 'encrypted' (rompe con
+     * accesores custom). Cifrado explicito via Pii::encrypt/decrypt.
+     *
      * @var array<string, string>
      */
     protected $casts = [
         'activo' => 'boolean',
     ];
+
+    // [SEGURIDAD-09 / Fase 3.C] Accesores PII (descifrado manual sin unserialize).
+
+    public function getTelefonoAttribute()
+    {
+        if (!empty($this->attributes['telefono_enc'])) {
+            return \App\Helpers\Pii::decrypt($this->attributes['telefono_enc']);
+        }
+        return $this->attributes['telefono'] ?? null;
+    }
+
+    public function getEmailAttribute()
+    {
+        if (!empty($this->attributes['email_enc'])) {
+            return \App\Helpers\Pii::decrypt($this->attributes['email_enc']);
+        }
+        return $this->attributes['email'] ?? null;
+    }
+
+    public function getCuitAttribute()
+    {
+        if (!empty($this->attributes['cuit_enc'])) {
+            return \App\Helpers\Pii::decrypt($this->attributes['cuit_enc']);
+        }
+        return $this->attributes['cuit'] ?? null;
+    }
+
+    // [SEGURIDAD-09 / Fase 3.C] Mutadores PII (cifrado manual sin serialize).
+
+    public function setTelefonoAttribute($value)
+    {
+        if ($value === null || $value === '') {
+            $this->attributes['telefono_enc'] = null;
+            $this->attributes['telefono'] = null;
+            return;
+        }
+        $this->attributes['telefono_enc'] = \App\Helpers\Pii::encrypt((string) $value);
+        $this->attributes['telefono'] = $value;
+    }
+
+    public function setEmailAttribute($value)
+    {
+        if ($value === null || $value === '') {
+            $this->attributes['email_enc'] = null;
+            $this->attributes['email'] = null;
+            return;
+        }
+        $this->attributes['email_enc'] = \App\Helpers\Pii::encrypt((string) $value);
+        $this->attributes['email'] = $value;
+    }
+
+    public function setCuitAttribute($value)
+    {
+        if ($value === null || $value === '') {
+            $this->attributes['cuit_enc'] = null;
+            $this->attributes['cuit'] = null;
+            return;
+        }
+        $this->attributes['cuit_enc'] = \App\Helpers\Pii::encrypt((string) $value);
+        $this->attributes['cuit'] = $value;
+    }
 
     /**
      * Relación con el usuario que creó la configuración

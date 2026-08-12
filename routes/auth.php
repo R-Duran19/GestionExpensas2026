@@ -12,26 +12,34 @@ use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
-    Route::get('register', [RegisteredUserController::class, 'create'])
-        ->name('register');
-
-    Route::post('register', [RegisteredUserController::class, 'store']);
+    // [SEGURIDAD-09 / Fase 1.1] Registro publico deshabilitado.
+    // El sistema es solo-admin: cualquier persona en internet podia crear usuarios.
+    // Para reabrir, descomentar estas dos rutas y restaurar tests/Feature/Auth/RegistrationTest.php.
+    // Route::get('register', [RegisteredUserController::class, 'create'])
+    //     ->name('register');
+    //
+    // Route::post('register', [RegisteredUserController::class, 'store']);
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
 
-    Route::post('login', [AuthenticatedSessionController::class, 'store']);
+    // [SEGURIDAD-09 / Fase 2.5] Throttle 5 req/min por IP en POST sensibles.
+    // Complementa el RateLimiter interno de LoginRequest (5 intentos fallidos por email+IP).
+    Route::post('login', [AuthenticatedSessionController::class, 'store'])
+        ->middleware('throttle:5,1');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
 
     Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
+        ->middleware('throttle:5,1')
         ->name('password.email');
 
     Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])
         ->name('password.reset');
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
+        ->middleware('throttle:5,1')
         ->name('password.store');
 });
 

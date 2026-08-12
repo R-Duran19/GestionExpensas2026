@@ -101,8 +101,9 @@ class IngresoList extends Component
             return;
         }
 
-        // Verificar que el archivo exista en el disco 'public'
-        if (!Storage::disk('public')->exists($ingreso->comprobante_foto)) {
+        // [SEGURIDAD-09 / Fase 1.2] Usar ruta protegida (auth+admin+throttle)
+        // en vez de Storage::disk('public')->url() que servia publicamente.
+        if (!$ingreso->tieneComprobante()) {
             $this->dispatch('alerta', [
                 'tipo' => 'error',
                 'titulo' => 'Error',
@@ -111,8 +112,8 @@ class IngresoList extends Component
             return;
         }
 
-        // Generar URL usando el disco 'public'
-        $this->comprobanteUrl = Storage::disk('public')->url($ingreso->comprobante_foto);
+        // Generar URL via la ruta protegida (busca en private + public con fallback)
+        $this->comprobanteUrl = route('comprobante.ingreso', $ingreso);
         $this->mostrarModalComprobante = true;
     }
 
