@@ -16,6 +16,9 @@ class ConfiguracionEdificio extends Model
     /**
      * The attributes that are mass assignable.
      *
+     * [SEGURIDAD-09 / Fase 3.C] telefono/email/cuit siguen en fillable para
+     * compatibilidad; los mutadores redirigen a _enc.
+     *
      * @var array<int, string>
      */
     protected $fillable = [
@@ -24,6 +27,9 @@ class ConfiguracionEdificio extends Model
         'telefono',
         'email',
         'cuit',
+        'telefono_enc',
+        'email_enc',
+        'cuit_enc',
         'logo_path',
         'ciudad',
         'provincia',
@@ -37,11 +43,77 @@ class ConfiguracionEdificio extends Model
     /**
      * The attributes that should be cast.
      *
+     * [SEGURIDAD-09 / Fase 3.C] Los _enc se cifran/descifran automaticamente.
+     *
      * @var array<string, string>
      */
     protected $casts = [
         'activo' => 'boolean',
+        'telefono_enc' => 'encrypted',
+        'email_enc' => 'encrypted',
+        'cuit_enc' => 'encrypted',
     ];
+
+    // [SEGURIDAD-09 / Fase 3.C] Accesores PII: prefieren _enc, fallback a vieja.
+
+    public function getTelefonoAttribute()
+    {
+        if (!empty($this->attributes['telefono_enc'])) {
+            return $this->telefono_enc;
+        }
+        return $this->attributes['telefono'] ?? null;
+    }
+
+    public function getEmailAttribute()
+    {
+        if (!empty($this->attributes['email_enc'])) {
+            return $this->email_enc;
+        }
+        return $this->attributes['email'] ?? null;
+    }
+
+    public function getCuitAttribute()
+    {
+        if (!empty($this->attributes['cuit_enc'])) {
+            return $this->cuit_enc;
+        }
+        return $this->attributes['cuit'] ?? null;
+    }
+
+    // [SEGURIDAD-09 / Fase 3.C] Mutadores PII (escriben _enc + vieja legacy).
+
+    public function setTelefonoAttribute($value)
+    {
+        if ($value === null || $value === '') {
+            $this->attributes['telefono_enc'] = null;
+            $this->attributes['telefono'] = null;
+            return;
+        }
+        $this->telefono_enc = $value;
+        $this->attributes['telefono'] = $value;
+    }
+
+    public function setEmailAttribute($value)
+    {
+        if ($value === null || $value === '') {
+            $this->attributes['email_enc'] = null;
+            $this->attributes['email'] = null;
+            return;
+        }
+        $this->email_enc = $value;
+        $this->attributes['email'] = $value;
+    }
+
+    public function setCuitAttribute($value)
+    {
+        if ($value === null || $value === '') {
+            $this->attributes['cuit_enc'] = null;
+            $this->attributes['cuit'] = null;
+            return;
+        }
+        $this->cuit_enc = $value;
+        $this->attributes['cuit'] = $value;
+    }
 
     /**
      * Relación con el usuario que creó la configuración

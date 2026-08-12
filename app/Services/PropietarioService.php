@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\Pii;
 use App\Models\ActivityLog;
 use App\Models\Propietario;
 use App\Models\Unidad;
@@ -10,19 +11,27 @@ use Illuminate\Support\Facades\Auth;
 class PropietarioService
 {
     /**
-     * Buscar propietario por CI
+     * [SEGURIDAD-09 / Fase 3.C] Buscar propietario por CI EXACTO via hash.
+     * Antes usaba WHERE ci = $ci que rompe con columnas cifradas.
      */
     public function buscarPorCI(string $ci): ?Propietario
     {
-        return Propietario::where('ci', $ci)->first();
+        if ($ci === '') {
+            return null;
+        }
+        return Propietario::where('ci_hash', Pii::hash($ci))->first();
     }
 
     /**
-     * Verificar si CI existe
+     * [SEGURIDAD-09 / Fase 3.C] Verificar si CI existe via hash exacto.
+     * Preserva unicidad de CI sin exponer el valor real.
      */
     public function ciExiste(string $ci, ?int $excluirId = null): bool
     {
-        $query = Propietario::where('ci', $ci);
+        if ($ci === '') {
+            return false;
+        }
+        $query = Propietario::where('ci_hash', Pii::hash($ci));
 
         if ($excluirId) {
             $query->where('id', '!=', $excluirId);
