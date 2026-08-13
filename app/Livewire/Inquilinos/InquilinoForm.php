@@ -13,11 +13,17 @@ class InquilinoForm extends Component
 
     // Datos del formulario
     public $inquilino_id = null;
+
     public $nombre = '';
+
     public $apellido = '';
+
     public $ci = '';
+
     public $telefono = '';
+
     public $email = '';
+
     public $observaciones = '';
 
     // Para validación de CI único
@@ -30,7 +36,7 @@ class InquilinoForm extends Component
         'nombre' => 'required|string|max:100',
         'apellido' => 'required|string|max:100',
         'ci' => 'required|string|max:20|unique:inquilinos,ci',
-        'telefono' => 'required|string|max:20',
+        'telefono' => 'nullable|string|max:20',
         'email' => 'nullable|email|max:100|unique:inquilinos,email',
         'observaciones' => 'nullable|string|max:500',
     ];
@@ -82,8 +88,8 @@ class InquilinoForm extends Component
         $this->observaciones = $inquilino->observaciones ?? '';
 
         // Actualizar reglas para edición
-        $this->rules['ci'] = 'required|string|max:20|unique:inquilinos,ci,' . $this->inquilino_id;
-        $this->rules['email'] = 'nullable|email|max:100|unique:inquilinos,email,' . $this->inquilino_id;
+        $this->rules['ci'] = 'required|string|max:20|unique:inquilinos,ci,'.$this->inquilino_id;
+        $this->rules['email'] = 'nullable|email|max:100|unique:inquilinos,email,'.$this->inquilino_id;
     }
 
     /**
@@ -112,8 +118,9 @@ class InquilinoForm extends Component
                 // Actualizar inquilino existente
                 $inquilino = Inquilino::find($this->inquilino_id);
 
-                if (!$inquilino) {
+                if (! $inquilino) {
                     $this->dispatch('toast-error', message: 'Inquilino no encontrado');
+
                     return;
                 }
 
@@ -136,7 +143,7 @@ class InquilinoForm extends Component
             return redirect()->route('inquilinos.index');
 
         } catch (\Exception $e) {
-            $this->dispatch('toast-error', message: 'Error al guardar: ' . $e->getMessage());
+            $this->dispatch('toast-error', message: 'Error al guardar: '.$e->getMessage());
         }
     }
 
@@ -169,7 +176,7 @@ class InquilinoForm extends Component
      */
     public function getNombreCompletoProperty(): string
     {
-        return trim($this->nombre . ' ' . $this->apellido);
+        return trim($this->nombre.' '.$this->apellido);
     }
 
     public function render()

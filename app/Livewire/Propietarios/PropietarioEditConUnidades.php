@@ -10,26 +10,38 @@ use Livewire\Component;
 
 class PropietarioEditConUnidades extends Component
 {
-    #[Locked] public $propietario_id;
+    #[Locked]
+    public $propietario_id;
 
     // Datos del propietario
     public $nombre = '';
+
     public $apellido = '';
+
     public $ci = '';
+
     public $telefono = '';
+
     public $email = '';
+
     public $observaciones = '';
 
     // Gestión de unidades
     public $unidades_actuales = [];
+
     public $busqueda_unidad = '';
+
     public $buscando_unidad = false;
+
     public $unidades_encontradas = [];
+
     public $unidad_seleccionada_id = null;
+
     public $fecha_inicio_unidad = '';
 
     // UI state
     public $mostrar_confirmacion_desvincular = false;
+
     public $unidad_a_desvincular_id = null;
 
     protected UnidadService $unidadService;
@@ -39,7 +51,7 @@ class PropietarioEditConUnidades extends Component
         'nombre' => 'required|string|max:100',
         'apellido' => 'required|string|max:100',
         'ci' => 'required|string|max:20',
-        'telefono' => 'required|string|max:20',
+        'telefono' => 'nullable|string|max:20',
         'email' => 'nullable|email|max:100',
         'observaciones' => 'nullable|string|max:500',
     ];
@@ -114,8 +126,9 @@ class PropietarioEditConUnidades extends Component
         try {
             $propietario = Propietario::find($this->propietario_id);
 
-            if (!$propietario) {
+            if (! $propietario) {
                 $this->dispatch('toast-error', message: 'Propietario no encontrado');
+
                 return;
             }
 
@@ -131,7 +144,7 @@ class PropietarioEditConUnidades extends Component
             $this->dispatch('toast-success', message: 'Propietario actualizado correctamente');
 
         } catch (\Exception $e) {
-            $this->dispatch('toast-error', message: 'Error al actualizar: ' . $e->getMessage());
+            $this->dispatch('toast-error', message: 'Error al actualizar: '.$e->getMessage());
         }
     }
 
@@ -143,6 +156,7 @@ class PropietarioEditConUnidades extends Component
         if (strlen($valor) < 2) {
             $this->unidades_encontradas = [];
             $this->buscando_unidad = false;
+
             return;
         }
 
@@ -177,37 +191,39 @@ class PropietarioEditConUnidades extends Component
 
     public function seleccionarUnidad($unidadId)
     {
-        \Log::info('Seleccionar unidad ID: ' . $unidadId);
+        \Log::info('Seleccionar unidad ID: '.$unidadId);
 
         $this->unidad_seleccionada_id = $unidadId;
         $unidad = Unidad::find($unidadId);
 
         if ($unidad) {
-            $this->busqueda_unidad = $unidad->codigo . ' - ' . $unidad->nombre_completo;
+            $this->busqueda_unidad = $unidad->codigo.' - '.$unidad->nombre_completo;
             $this->unidades_encontradas = [];
             $this->buscando_unidad = false;
 
-            \Log::info('Unidad seleccionada: ' . $unidad->codigo);
+            \Log::info('Unidad seleccionada: '.$unidad->codigo);
         } else {
-            \Log::error('No se encontró unidad con ID: ' . $unidadId);
+            \Log::error('No se encontró unidad con ID: '.$unidadId);
         }
     }
 
     public function vincularUnidad()
     {
-        \Log::info('Intentando vincular unidad. ID seleccionado: ' . $this->unidad_seleccionada_id);
-        \Log::info('Fecha inicio: ' . $this->fecha_inicio_unidad);
+        \Log::info('Intentando vincular unidad. ID seleccionado: '.$this->unidad_seleccionada_id);
+        \Log::info('Fecha inicio: '.$this->fecha_inicio_unidad);
 
         // Validar manualmente con mensajes claros
-        if (!$this->unidad_seleccionada_id) {
+        if (! $this->unidad_seleccionada_id) {
             \Log::warning('No hay unidad seleccionada');
             $this->dispatch('toast-error', message: 'Debe seleccionar una unidad de la lista de búsqueda');
+
             return;
         }
 
-        if (!$this->fecha_inicio_unidad) {
+        if (! $this->fecha_inicio_unidad) {
             \Log::warning('No hay fecha de inicio');
             $this->dispatch('toast-error', message: 'La fecha de inicio es obligatoria');
+
             return;
         }
 
@@ -215,11 +231,12 @@ class PropietarioEditConUnidades extends Component
             $propietario = Propietario::find($this->propietario_id);
             $unidad = Unidad::find($this->unidad_seleccionada_id);
 
-            \Log::info('Propietario: ' . ($propietario ? $propietario->nombre_completo : 'No encontrado'));
-            \Log::info('Unidad: ' . ($unidad ? $unidad->codigo : 'No encontrada'));
+            \Log::info('Propietario: '.($propietario ? $propietario->nombre_completo : 'No encontrado'));
+            \Log::info('Unidad: '.($unidad ? $unidad->codigo : 'No encontrada'));
 
-            if (!$propietario || !$unidad) {
+            if (! $propietario || ! $unidad) {
                 $this->dispatch('toast-error', message: 'Propietario o unidad no encontrado');
+
                 return;
             }
 
@@ -242,7 +259,7 @@ class PropietarioEditConUnidades extends Component
             ));
 
         } catch (\Exception $e) {
-            \Log::error('Error al asignar unidad: ' . $e->getMessage());
+            \Log::error('Error al asignar unidad: '.$e->getMessage());
 
             // Verificar si es un error de duplicado
             if (str_contains($e->getMessage(), 'ya está asignado como propietario actual')) {
@@ -252,7 +269,7 @@ class PropietarioEditConUnidades extends Component
             } elseif (str_contains($e->getMessage(), 'Duplicate entry')) {
                 $this->dispatch('toast-error', message: 'Esta unidad ya está asignada a este propietario con esa fecha de inicio');
             } else {
-                $this->dispatch('toast-error', message: 'Error al asignar unidad: ' . $e->getMessage());
+                $this->dispatch('toast-error', message: 'Error al asignar unidad: '.$e->getMessage());
             }
         }
     }
@@ -269,14 +286,16 @@ class PropietarioEditConUnidades extends Component
             $unidad = Unidad::find($this->unidad_a_desvincular_id);
             $propietario = Propietario::find($this->propietario_id);
 
-            if (!$unidad || !$propietario) {
+            if (! $unidad || ! $propietario) {
                 $this->dispatch('toast-error', message: 'Unidad o propietario no encontrado');
+
                 return;
             }
 
             // Verificar que el propietario sea el actual de esta unidad
-            if (!$unidad->propietarioActual()->where('propietarios.id', $propietario->id)->exists()) {
+            if (! $unidad->propietarioActual()->where('propietarios.id', $propietario->id)->exists()) {
                 $this->dispatch('toast-error', message: 'Este propietario no es el actual de esta unidad');
+
                 return;
             }
 
@@ -308,7 +327,7 @@ class PropietarioEditConUnidades extends Component
             ));
 
         } catch (\Exception $e) {
-            $this->dispatch('toast-error', message: 'Error al desvincular: ' . $e->getMessage());
+            $this->dispatch('toast-error', message: 'Error al desvincular: '.$e->getMessage());
         }
     }
 
@@ -335,7 +354,7 @@ class PropietarioEditConUnidades extends Component
 
     public function getNombreCompletoProperty(): string
     {
-        return trim($this->nombre . ' ' . $this->apellido);
+        return trim($this->nombre.' '.$this->apellido);
     }
 
     public function render()

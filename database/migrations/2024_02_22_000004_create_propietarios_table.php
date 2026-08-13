@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('nombre')->comment('Nombre del propietario');
             $table->string('apellido')->comment('Apellido del propietario');
             $table->string('ci', 20)->unique()->comment('Cédula de Identidad única');
-            $table->string('telefono', 20)->comment('Teléfono de contacto');
+            $table->string('telefono', 20)->nullable()->comment('Teléfono de contacto');
             $table->string('email')->nullable()->comment('Email opcional');
             $table->boolean('activo')->default(true)->comment('¿Está activo?');
             $table->text('observaciones')->nullable();

@@ -13,11 +13,17 @@ class PropietarioForm extends Component
 
     // Datos del formulario
     public $propietario_id = null;
+
     public $nombre = '';
+
     public $apellido = '';
+
     public $ci = '';
+
     public $telefono = '';
+
     public $email = '';
+
     public $observaciones = '';
 
     // Para validación de CI único
@@ -30,7 +36,7 @@ class PropietarioForm extends Component
         'nombre' => 'required|string|max:100',
         'apellido' => 'required|string|max:100',
         'ci' => 'required|string|max:20|unique:propietarios,ci',
-        'telefono' => 'required|string|max:20',
+        'telefono' => 'nullable|string|max:20',
         'email' => 'nullable|email|max:100|unique:propietarios,email',
         'observaciones' => 'nullable|string|max:500',
     ];
@@ -82,8 +88,8 @@ class PropietarioForm extends Component
         $this->observaciones = $propietario->observaciones ?? '';
 
         // Actualizar reglas para edición
-        $this->rules['ci'] = 'required|string|max:20|unique:propietarios,ci,' . $this->propietario_id;
-        $this->rules['email'] = 'nullable|email|max:100|unique:propietarios,email,' . $this->propietario_id;
+        $this->rules['ci'] = 'required|string|max:20|unique:propietarios,ci,'.$this->propietario_id;
+        $this->rules['email'] = 'nullable|email|max:100|unique:propietarios,email,'.$this->propietario_id;
     }
 
     /**
@@ -112,8 +118,9 @@ class PropietarioForm extends Component
                 // Actualizar propietario existente
                 $propietario = Propietario::find($this->propietario_id);
 
-                if (!$propietario) {
+                if (! $propietario) {
                     $this->dispatch('toast-error', message: 'Propietario no encontrado');
+
                     return;
                 }
 
@@ -136,7 +143,7 @@ class PropietarioForm extends Component
             return redirect()->route('propietarios.index');
 
         } catch (\Exception $e) {
-            $this->dispatch('toast-error', message: 'Error al guardar: ' . $e->getMessage());
+            $this->dispatch('toast-error', message: 'Error al guardar: '.$e->getMessage());
         }
     }
 
@@ -169,7 +176,7 @@ class PropietarioForm extends Component
      */
     public function getNombreCompletoProperty(): string
     {
-        return trim($this->nombre . ' ' . $this->apellido);
+        return trim($this->nombre.' '.$this->apellido);
     }
 
     public function render()
