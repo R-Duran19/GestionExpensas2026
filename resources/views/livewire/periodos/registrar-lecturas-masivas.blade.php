@@ -89,14 +89,27 @@
 
                     <!-- Formulario de lectura -->
                     <div class="p-3 sm:p-4">
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3"
+                             x-data="{
+                                anterior: {{ number_format((float) $unidad['lectura_anterior'], 2, '.', '') }},
+                                actual: '',
+                                init() {
+                                    const inp = this.$refs.actualInput;
+                                    if (inp) this.actual = inp.value;
+                                },
+                                get consumo() {
+                                    const v = parseFloat(String(this.actual).replace(',', '.'));
+                                    if (isNaN(v)) return null;
+                                    return v - this.anterior;
+                                }
+                             }">
                             <!-- Lectura Anterior -->
                             <div>
                                 <label class="block text-xs font-medium text-gray-700 mb-1">
                                     Anterior (M³)
                                 </label>
                                 <input type="text"
-                                       :value="{{ number_format($unidad['lectura_anterior'], 2) }}"
+                                       value="{{ number_format((float) $unidad['lectura_anterior'], 2, '.', '') }}"
                                        readonly
                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 text-sm">
                             </div>
@@ -108,21 +121,30 @@
                                 </label>
                                 <input type="number"
                                        wire:model.live="lecturas.{{ $unidad['id'] }}.lectura_actual"
+                                       x-ref="actualInput"
+                                       x-on:input="actual = $event.target.value"
                                        step="0.01"
                                        min="0"
                                        placeholder="0.00"
                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-base">
                             </div>
 
-                            <!-- Observaciones -->
+                            <!-- Consumo (Calculadora en tiempo real) -->
                             <div>
                                 <label class="block text-xs font-medium text-gray-700 mb-1">
-                                    Obs. (opcional)
+                                    Consumo (M³)
                                 </label>
-                                <input type="text"
-                                       wire:model.live="lecturas.{{ $unidad['id'] }}.observaciones"
-                                       placeholder="Observaciones..."
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm">
+                                <div class="w-full px-3 py-2 border rounded-lg text-sm font-bold flex items-center justify-center"
+                                     style="min-height: 38px;"
+                                     :class="consumo === null
+                                         ? 'border-gray-200 bg-gray-50 text-gray-400'
+                                         : (consumo < 0
+                                             ? 'border-red-300 bg-red-50 text-red-600'
+                                             : (consumo === 0
+                                                 ? 'border-blue-300 bg-blue-50 text-blue-700'
+                                                 : 'border-green-300 bg-green-50 text-green-700'))">
+                                    <span x-text="consumo === null ? '—' : (consumo.toFixed(2) + ' M³')"></span>
+                                </div>
                             </div>
                         </div>
 
