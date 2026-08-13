@@ -5,8 +5,8 @@ namespace App\Livewire\Periodos;
 use App\Models\MedidorGrupo;
 use App\Models\PeriodoExpensa;
 use App\Services\MedidorService;
-use Livewire\Component;
 use Livewire\Attributes\Computed;
+use Livewire\Component;
 
 class RegistrarLecturaCompartida extends Component
 {
@@ -42,9 +42,10 @@ class RegistrarLecturaCompartida extends Component
 
     public function updatedGrupoId($value)
     {
-        if (!$value) {
+        if (! $value) {
             $this->lecturaAnterior = 0;
             $this->distribucion = [];
+
             return;
         }
 
@@ -71,16 +72,16 @@ class RegistrarLecturaCompartida extends Component
      */
     public function recalcularDistribucionEquitativa()
     {
-        if (!$this->grupoId || $this->lecturaActual === null || $this->lecturaActual === '' || !is_numeric($this->lecturaActual)) {
+        if (! $this->grupoId || $this->lecturaActual === null || $this->lecturaActual === '' || ! is_numeric($this->lecturaActual)) {
             return;
         }
 
-        if ((float) $this->lecturaActual < $this->lecturaAnterior) {
+        if ((float) $this->lecturaActual < (float) $this->lecturaAnterior) {
             return;
         }
 
         $grupo = $this->grupoSeleccionado;
-        if (!$grupo) {
+        if (! $grupo) {
             return;
         }
 
@@ -124,7 +125,7 @@ class RegistrarLecturaCompartida extends Component
             });
 
             // Si todos los campos están vacíos, pasar array vacío para distribución equitativa
-            $distribucionFinal = !empty($distribucion) ? $distribucion : [];
+            $distribucionFinal = ! empty($distribucion) ? $distribucion : [];
 
             $this->medidorService->registrarLecturaCompartida(
                 $this->periodoId,
@@ -167,13 +168,13 @@ class RegistrarLecturaCompartida extends Component
                 $q->where('activo', true);
             }])
             ->get()
-            ->filter(fn($grupo) => $grupo->unidades->count() > 0)
+            ->filter(fn ($grupo) => $grupo->unidades->count() > 0)
             ->map(function ($grupo) {
                 return [
                     'id' => $grupo->id,
                     'nombre' => $grupo->nombre,
                     'unidades_count' => $grupo->unidades->count(),
-                    'unidades' => $grupo->unidades->map(fn($u) => $u->nombre_completo)->implode(', '),
+                    'unidades' => $grupo->unidades->map(fn ($u) => $u->nombre_completo)->implode(', '),
                 ];
             });
     }
@@ -181,7 +182,7 @@ class RegistrarLecturaCompartida extends Component
     #[Computed]
     public function grupoSeleccionado()
     {
-        if (!$this->grupoId) {
+        if (! $this->grupoId) {
             return null;
         }
 
@@ -189,7 +190,7 @@ class RegistrarLecturaCompartida extends Component
             $q->where('activo', true)->with(['propietarios']);
         }])->find($this->grupoId);
 
-        if (!$grupo) {
+        if (! $grupo) {
             return null;
         }
 
@@ -199,11 +200,13 @@ class RegistrarLecturaCompartida extends Component
             'unidades_count' => $grupo->unidades->count(),
             'unidades' => $grupo->unidades->map(function ($unidad) {
                 $propietario = $unidad->propietarioActual;
+
                 return [
                     'id' => $unidad->id,
                     'nombre' => $unidad->nombre_completo,
                     'codigo' => $unidad->codigo,
-                    'propietario' => $propietario?->nombre . ' ' . $propietario?->apellido,
+                    'propietario' => $propietario?->nombre.' '.$propietario?->apellido,
+                    'categoria' => $unidad->categoria_unidad->value,
                 ];
             }),
         ];
@@ -216,7 +219,7 @@ class RegistrarLecturaCompartida extends Component
     public function sumaDistribucion()
     {
         return collect($this->distribucion)
-            ->map(fn($v) => is_numeric($v) ? (float) $v : 0)
+            ->map(fn ($v) => is_numeric($v) ? (float) $v : 0)
             ->sum();
     }
 
@@ -226,10 +229,18 @@ class RegistrarLecturaCompartida extends Component
     #[Computed]
     public function consumoTotal()
     {
-        if ($this->lecturaActual === null || $this->lecturaActual === '' || $this->lecturaActual < $this->lecturaAnterior) {
+        if ($this->lecturaActual === null || $this->lecturaActual === '' || ! is_numeric($this->lecturaActual)) {
             return 0;
         }
-        return round((float) $this->lecturaActual - (float) $this->lecturaAnterior, 2);
+
+        $actual = (float) $this->lecturaActual;
+        $anterior = (float) $this->lecturaAnterior;
+
+        if ($actual < $anterior) {
+            return 0;
+        }
+
+        return round($actual - $anterior, 2);
     }
 
     /**
@@ -239,6 +250,84 @@ class RegistrarLecturaCompartida extends Component
     public function diferenciaDistribucion()
     {
         return round($this->consumoTotal - $this->sumaDistribucion, 2);
+    }
+
+    /**
+     * Factores de agua del período (Bs/M³). Solo si ya fueron calculados
+     * a partir de las 3 facturas registradas (2 domiciliarias + 1 comercial).
+     */
+    #[Computed]
+    public function factoresAgua()
+    {
+        $periodo = PeriodoExpensa::find($this->periodoId);
+
+        if (! $periodo || ! $periodo->tiene_factores_calculados) {
+            return null;
+        }
+
+        return [
+            'domiciliario' => (float) $periodo->factor_domiciliario,
+            'comercial' => (float) $periodo->factor_comercial,
+        ];
+    }
+
+    /**
+     * Factor de agua (Bs/M³) correspondiente a una categoría de unidad.
+     */
+    public function factorParaCategoria($categoria)
+    {
+        $factores = $this->factoresAgua;
+
+        if (! $factores) {
+            return 0;
+        }
+
+        return $categoria === 'comercial' ? $factores['comercial'] : $factores['domiciliario'];
+    }
+
+    /**
+     * Monto estimado en Bs para un consumo y categoría, usando el factor del
+     * período y el redondeo monetario real (igual que al calcular expensas).
+     * Devuelve null si no hay factores o el consumo no es válido.
+     */
+    public function montoEstimadoBs($consumo, $categoria)
+    {
+        $factores = $this->factoresAgua;
+
+        if (! $factores || $consumo === null || $consumo === '' || ! is_numeric($consumo)) {
+            return null;
+        }
+
+        $factor = $categoria === 'comercial' ? $factores['comercial'] : $factores['domiciliario'];
+
+        return $this->medidorService->calcularMontoAgua((float) $consumo, $factor);
+    }
+
+    /**
+     * Suma de los montos estimados de todas las unidades del grupo.
+     */
+    #[Computed]
+    public function montoTotalEstimado()
+    {
+        if (! $this->factoresAgua) {
+            return null;
+        }
+
+        $grupo = $this->grupoSeleccionado;
+        if (! $grupo) {
+            return null;
+        }
+
+        $total = 0;
+        foreach ($grupo['unidades'] as $unidad) {
+            $consumo = $this->distribucion[$unidad['id']] ?? null;
+            $monto = $this->montoEstimadoBs($consumo, $unidad['categoria']);
+            if ($monto !== null) {
+                $total += $monto;
+            }
+        }
+
+        return $total;
     }
 
     public function render()

@@ -61,7 +61,8 @@
                                 Lectura Anterior
                             </label>
                             <input type="text"
-                                   :value="number_format($lecturaAnterior, 2) . ' M³'"
+                                   value="{{ number_format($lecturaAnterior, 2, '.', '') }} M³"
+                                   data-lectura-anterior="{{ number_format($lecturaAnterior, 2, '.', '') }}"
                                    readonly
                                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600">
                             <p class="mt-1 text-xs text-gray-500">
@@ -133,6 +134,9 @@
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unidad</th>
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">Propietario</th>
                                         <th class="px-4 py-2 text-right text-xs font-medium text-purple-700 uppercase">Consumo (M³)</th>
+                                        @if($this->factoresAgua)
+                                            <th class="px-4 py-2 text-right text-xs font-medium text-emerald-700 uppercase">Monto Estimado (Bs)</th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200">
@@ -151,8 +155,20 @@
                                                        min="0"
                                                        wire:model="distribucion.{{ $unidad['id'] }}"
                                                        data-consumo-input
+                                                       data-factor="{{ $this->factorParaCategoria($unidad['categoria']) }}"
                                                        class="block w-full sm:w-32 sm:ml-auto px-2 py-1.5 text-right border border-purple-300 rounded-md text-sm focus:ring-purple-500 focus:border-purple-500">
                                             </td>
+                                            @if($this->factoresAgua)
+                                                @php
+                                                    $montoEstimado = $this->montoEstimadoBs($this->distribucion[$unidad['id']] ?? null, $unidad['categoria']);
+                                                @endphp
+                                                <td class="px-4 py-2 text-right">
+                                                    <span data-monto-cell
+                                                          class="text-sm font-semibold text-emerald-700">
+                                                        {{ $montoEstimado !== null ? number_format($montoEstimado, 2).' Bs' : '—' }}
+                                                    </span>
+                                                </td>
+                                            @endif
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -162,6 +178,11 @@
                                         <td class="px-4 py-2 text-sm font-bold text-right text-purple-700" id="suma-nueva">
                                             {{ number_format($this->sumaDistribucion, 2) }}
                                         </td>
+                                        @if($this->factoresAgua)
+                                            <td class="px-4 py-2 text-sm font-bold text-right text-emerald-700" id="monto-total">
+                                                {{ $this->montoTotalEstimado !== null ? number_format($this->montoTotalEstimado, 2).' Bs' : '—' }}
+                                            </td>
+                                        @endif
                                     </tr>
                                 </tfoot>
                             </table>
@@ -198,7 +219,7 @@
                     Cancelar
                 </a>
                 <button type="submit"
-                        :disabled="!$grupoId || !$lecturaActual"
+                        @disabled(!$this->grupoId || !$this->lecturaActual)
                         class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">
                     Registrar y Distribuir
                 </button>
@@ -217,11 +238,9 @@
         }
 
         function leerLecturaAnteriorRLC() {
-            const el = document.querySelector('input[readonly]');
+            const el = document.querySelector('[data-lectura-anterior]');
             if (!el) return 0;
-            const match = el.value.match(/[\d.,]+/);
-            if (!match) return 0;
-            return parseFloat(match[0].replace(/\./g, '').replace(',', '.')) || 0;
+            return parseFloat(el.getAttribute('data-lectura-anterior')) || 0;
         }
 
         function sumaDistribucionRLC() {
@@ -232,6 +251,35 @@
                 if (!isNaN(v)) suma += v;
             });
             return suma;
+        }
+
+        // Replica del redondeo monetario de MedidorService::calcularMontoAgua
+        function montoAguaRLC(consumo, factor) {
+            const monto = consumo * factor;
+            const decimal = monto - Math.floor(monto);
+            return decimal < 0.50 ? Math.floor(monto) : Math.ceil(monto);
+        }
+
+        function actualizarMontosRLC() {
+            const inputs = document.querySelectorAll('input[data-consumo-input]');
+            if (inputs.length === 0) return;
+            let totalMonto = 0;
+            inputs.forEach(input => {
+                const factor = parseFloat(input.getAttribute('data-factor')) || 0;
+                const td = input.closest('td');
+                const siguiente = td ? td.nextElementSibling : null;
+                const celdaMonto = siguiente ? siguiente.querySelector('[data-monto-cell]') : null;
+                const consumo = parseFloat(input.value);
+                if (!celdaMonto || factor <= 0 || isNaN(consumo) || consumo <= 0) {
+                    if (celdaMonto) celdaMonto.textContent = '—';
+                    return;
+                }
+                const monto = montoAguaRLC(consumo, factor);
+                totalMonto += monto;
+                celdaMonto.textContent = monto.toFixed(DECIMALES_RLC) + ' Bs';
+            });
+            const celdaTotalMonto = document.getElementById('monto-total');
+            if (celdaTotalMonto) celdaTotalMonto.textContent = totalMonto.toFixed(DECIMALES_RLC) + ' Bs';
         }
 
         function actualizarVistaRLC() {
@@ -249,6 +297,8 @@
 
             const celdaTotal = document.getElementById('total-grupo-texto');
             if (celdaTotal) celdaTotal.textContent = total.toFixed(DECIMALES_RLC);
+
+            actualizarMontosRLC();
 
             const indicador = document.getElementById('indicador-diferencia');
             if (indicador) {
