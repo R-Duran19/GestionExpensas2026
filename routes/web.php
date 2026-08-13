@@ -1,15 +1,16 @@
 <?php
 
+use App\Http\Controllers\BoletaExpensaPDFController;
+use App\Http\Controllers\ComprobanteController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EgresoPDFController;
+use App\Http\Controllers\ExpensaUnidadPDFController;
+use App\Http\Controllers\LecturaPeriodoExportController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PropietarioExportController;
 use App\Http\Controllers\ReciboPDFController;
-use App\Http\Controllers\EgresoPDFController;
-use App\Http\Controllers\BoletaExpensaPDFController;
-use App\Http\Controllers\ExpensaUnidadPDFController;
 use App\Http\Controllers\ReporteExcelController;
 use App\Http\Controllers\UnidadExportController;
-use App\Http\Controllers\ComprobanteController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -22,6 +23,7 @@ Route::get('/', function () {
     if (auth()->check()) {
         return redirect()->route('dashboard');
     }
+
     return redirect()->route('login');
 })->name('home');
 
@@ -177,8 +179,9 @@ Route::middleware(['auth', 'admin'])->group(function () {
         Route::get('/pago/{unidad}', \App\Livewire\Caja\Ingresos\IngresoForm::class)->name('pago');
 
         // Detalle de expensa individual (redirige a la vista por unidad)
-        Route::get('/{expensa}', function($expensa) {
+        Route::get('/{expensa}', function ($expensa) {
             $expensa = \App\Models\Expensa::findOrFail($expensa);
+
             return redirect()->route('expensas.unidad.detalle', [
                 'unidad' => $expensa->unidad_id,
                 'periodoId' => $expensa->periodo_id,
@@ -217,6 +220,10 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
         // Lecturas de medidor por período
         Route::get('/{periodo}/lecturas', \App\Livewire\Periodos\LecturaMedidorList::class)->name('lecturas');
+
+        // Exportar lecturas del período a Excel
+        Route::get('/{periodo}/lecturas/exportar-excel', [LecturaPeriodoExportController::class, 'lecturas'])
+            ->name('lecturas.exportar-excel');
 
         // Lecturas masivas por período
         Route::get('/{periodo}/lecturas-masivas', \App\Livewire\Periodos\RegistrarLecturasMasivas::class)->name('lecturas-masivas');

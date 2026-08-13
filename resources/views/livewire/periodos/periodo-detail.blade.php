@@ -168,6 +168,15 @@
                         <p class="text-sm text-gray-500 mt-1">Registro de lecturas del período (solo unidades con medidor)</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-3">
+                        <!-- Exportar a Excel -->
+                        <a href="{{ route('periodos.lecturas.exportar-excel', $periodo->id) }}"
+                           class="inline-flex items-center justify-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            Exportar Excel
+                        </a>
+
                         <!-- Filtro por tipo de unidad -->
                         <select wire:model.live="filtroTipo"
                                 class="block w-full sm:w-auto rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
