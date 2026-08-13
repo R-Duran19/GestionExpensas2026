@@ -46,5 +46,38 @@
         </div>
 
         @stack('scripts')
+
+        {{-- Indicador global de carga Livewire: barra azul arriba cuando hay request en curso --}}
+        <div wire:loading.delay
+             style="position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#4F46E5,#6366F1);z-index:9998;animation:pulse 1.5s ease-in-out infinite;">
+        </div>
+        <style>
+            @keyframes pulse {
+                0%, 100% { opacity: 0.7; }
+                50% { opacity: 1; }
+            }
+        </style>
+
+        {{-- Flash messages: se muestran como SweetAlert2 tras una redirección.
+            Usar: return redirect()->route('...')->with('swal', ['tipo' => 'success', 'titulo' => '...', 'mensaje' => '...']); --}}
+        @if(session()->has('swal'))
+            <script>
+                window.addEventListener('DOMContentLoaded', () => {
+                    if (window.Swal) {
+                        const data = @json(session('swal'));
+                        const icono = data.tipo || 'info';
+                        Swal.fire({
+                            icon: ['success', 'error', 'warning', 'info'].includes(icono) ? icono : 'info',
+                            title: data.titulo || '',
+                            text: data.mensaje || '',
+                            timer: icono === 'success' ? 3000 : null,
+                            timerProgressBar: icono === 'success',
+                            showConfirmButton: icono !== 'success',
+                            confirmButtonColor: '#4F46E5',
+                        });
+                    }
+                });
+            </script>
+        @endif
     </body>
 </html>

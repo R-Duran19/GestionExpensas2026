@@ -133,13 +133,14 @@ class InquilinoForm extends Component
                 $mensaje = 'Inquilino actualizado correctamente';
             }
 
-            // Mostrar alerta SweetAlert y redirigir al cerrarla (listener en app.js)
-            $this->dispatch('alerta', [
+            // Redirect nativo + flash session: la alerta SweetAlert se muestra
+            // en la página destino vía layout/app.blade.php (más robusto que
+            // dispatch + listener JS).
+            return redirect()->route('inquilinos.index')->with('swal', [
                 'tipo' => 'success',
                 'titulo' => 'Éxito',
                 'mensaje' => $mensaje,
             ]);
-            $this->dispatch('redirect-to', route('inquilinos.index'));
 
         } catch (\Exception $e) {
             $this->dispatch('alerta', [

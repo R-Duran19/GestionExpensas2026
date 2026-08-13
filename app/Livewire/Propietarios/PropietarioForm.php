@@ -133,13 +133,14 @@ class PropietarioForm extends Component
                 $mensaje = 'Propietario actualizado correctamente';
             }
 
-            // Mostrar alerta SweetAlert y redirigir al cerrarla (listener en app.js)
-            $this->dispatch('alerta', [
+            // Redirect nativo + flash session: la alerta SweetAlert se muestra
+            // en la página destino vía layout/app.blade.php (más robusto que
+            // dispatch + listener JS).
+            return redirect()->route('propietarios.index')->with('swal', [
                 'tipo' => 'success',
                 'titulo' => 'Éxito',
                 'mensaje' => $mensaje,
             ]);
-            $this->dispatch('redirect-to', route('propietarios.index'));
 
         } catch (\Exception $e) {
             $this->dispatch('alerta', [

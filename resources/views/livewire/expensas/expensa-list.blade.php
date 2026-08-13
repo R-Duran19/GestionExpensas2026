@@ -100,7 +100,7 @@
             <!-- Botones de Acción -->
             <div class="mt-4 flex flex-wrap gap-2 justify-between">
                 <div class="flex gap-2">
-                    @if($this->periodo->estado === 'abierto')
+                    @if($periodoEstado === 'abierto')
                         <button
                             wire:click="generarTodasExpensas"
                             wire:loading.attr="disabled"
@@ -146,10 +146,9 @@
                 </div>
 
                 <div class="flex gap-2">
-                    @if($this->periodo->estado === 'abierto')
+                    @if($periodoEstado === 'abierto')
                         <button
-                            wire:click="cerrarPeriodo"
-                            wire:confirm="¿Cerrar este período? Una vez cerrado NO se podrán modificar los montos de emisión. Para hacerlo tendrá que reabrirlo (queda registrado en auditoría)."
+                            wire:click="abrirModalCerrar"
                             class="inline-flex items-center px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                         >
                             <svg class="-ml-1 mr-2 h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -398,7 +397,7 @@
                                         @endif
 
                                         <!-- Generar expensa individual -->
-                                        @if($this->periodo->estado === 'abierto')
+                                        @if($periodoEstado === 'abierto')
                                             <button
                                                 wire:click="generarExpensaIndividual({{ $unidad->id }})"
                                                 wire:loading.attr="disabled"
@@ -610,7 +609,7 @@
                                         </a>
 
                                         <!-- Regenerar expensas (todas las unidades) -->
-                                        @if($this->periodo->estado === 'abierto')
+                                        @if($periodoEstado === 'abierto')
                                             <button
                                                 wire:click="regenerarExpensasPropietario({{ $propietario->id }}, '{{ $propietario->tipo ?? 'propietario' }}')"
                                                 wire:loading.attr="disabled"
@@ -664,6 +663,88 @@
         </div>
     @endif
 
+    {{-- Modal Cerrar Período (mismo patrón que /periodos, con transiciones Alpine + spinner) --}}
+    @if($mostrarModalCerrar)
+    <div x-data
+         x-transition:enter="ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-50 overflow-y-auto"
+         aria-labelledby="modal-title"
+         role="dialog"
+         aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div x-transition:enter="ease-out duration-300"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="ease-in duration-200"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+                 @click="$wire.cancelarCierre()"></div>
+
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+
+            <div x-transition:enter="ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave="ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                            </svg>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                                Cerrar Período
+                            </h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500">
+                                    ¿Está seguro que desea cerrar el período <strong>{{ $this->periodo?->nombre ?? '?' }}</strong>?
+                                    Una vez cerrado, no se podrán modificar los montos de emisión.
+                                </p>
+                                <div class="mt-2 p-2 bg-yellow-50 border-l-4 border-yellow-400 rounded text-xs text-yellow-800">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Para modificarlo nuevamente deberá reabrirlo (queda registrado en auditoría).
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button wire:click="confirmarCierre"
+                            wire:loading.attr="disabled"
+                            wire:target="confirmarCierre"
+                            type="button"
+                            class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span wire:loading.remove>Cerrar Período</span>
+                        <span wire:loading class="flex items-center">
+                            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 0014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Cerrando...
+                        </span>
+                    </button>
+                    <button type="button"
+                            wire:click="cancelarCierre"
+                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- Modal Reabrir Período (reemplaza prompt() nativo que no funcionaba en PHP) --}}
     @if($mostrarModalReabrir)
         <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" wire:click.self="cancelarReapertura">
@@ -706,9 +787,20 @@
                             Cancelar
                         </button>
                         <button type="submit"
-                                class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition">
-                            <i class="fas fa-unlock-alt mr-1"></i>
-                            Reabrir Período
+                                wire:loading.attr="disabled"
+                                wire:target="confirmarReapertura"
+                                class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center">
+                            <span wire:loading.remove wire:target="confirmarReapertura">
+                                <i class="fas fa-unlock-alt mr-1"></i>
+                                Reabrir Período
+                            </span>
+                            <span wire:loading wire:target="confirmarReapertura" class="flex items-center">
+                                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 0014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Reabriendo...
+                            </span>
                         </button>
                     </div>
                 </form>

@@ -20,6 +20,11 @@ class ExpensaList extends Component
     public $filtroEstado = '';
     public $filtroTipo = '';
 
+    // Estado del período reflejado en una prop plana para que la vista
+    // siempre lo vea fresco tras una acción (el #[Computed] periodo() se
+    // cachea entre requests y unset() no siempre lo invalida en LW4).
+    public $periodoEstado = null;
+
     // Tab activo: 'unidades' o 'propietarios'
     public $tabActivo = 'unidades';
 
@@ -31,6 +36,9 @@ class ExpensaList extends Component
     // Modal de reapertura de período (antes usaba prompt() PHP que no funciona)
     public $mostrarModalReabrir = false;
     public $motivoReapertura = '';
+
+    // Modal de cierre de período (antes usaba wire:confirm con alert nativo)
+    public $mostrarModalCerrar = false;
 
     protected ExpensaService $expensaService;
 
@@ -56,6 +64,30 @@ class ExpensaList extends Component
                 $this->periodoId = $periodoAbierto->id;
             }
         }
+
+        $this->sincronizarEstadoPeriodo();
+    }
+
+    /**
+     * Refrescar el estado del período desde la BD a la prop plana $periodoEstado.
+     * Llamar después de cualquier acción que cambie el estado del período
+     * (cerrar/reabrir) para que la vista refleje el cambio sin depender del
+     * cache del #[Computed] periodo().
+     */
+    protected function sincronizarEstadoPeriodo()
+    {
+        $this->periodoEstado = $this->periodoId
+            ? PeriodoExpensa::find($this->periodoId)?->estado
+            : null;
+    }
+
+    /**
+     * Cuando cambia el período seleccionado desde el <select>, refrescar estado.
+     */
+    public function updatedPeriodoId()
+    {
+        $this->sincronizarEstadoPeriodo();
+        $this->resetPage();
     }
 
     /**
@@ -346,7 +378,17 @@ class ExpensaList extends Component
     /**
      * Cerrar período
      */
-    public function cerrarPeriodo()
+    public function abrirModalCerrar()
+    {
+        $this->mostrarModalCerrar = true;
+    }
+
+    public function cancelarCierre()
+    {
+        $this->mostrarModalCerrar = false;
+    }
+
+    public function confirmarCierre()
     {
         try {
             if (!$this->periodoId) {
@@ -355,7 +397,13 @@ class ExpensaList extends Component
 
             $this->expensaService->cerrarPeriodo($this->periodoId);
 
-            $this->dispatch('alerta', [
+            // Recarga completa con flash session: la alerta se muestra en la
+            // página destino vía layout/app.blade.php. Esto garantiza estado
+            // 100% fresco (sin depender de cache de Livewire 4).
+            return redirect()->route('expensas.index', [
+                'periodoId' => $this->periodoId,
+                'tabActivo' => $this->tabActivo,
+            ])->with('swal', [
                 'tipo' => 'success',
                 'titulo' => 'Período cerrado',
                 'mensaje' => 'El período ha sido cerrado correctamente',
@@ -389,14 +437,15 @@ class ExpensaList extends Component
 
             $this->expensaService->reabrirPeriodo($this->periodoId, $this->motivoReapertura ?: null);
 
-            $this->dispatch('alerta', [
+            // Recarga completa con flash session: garantiza estado fresco.
+            return redirect()->route('expensas.index', [
+                'periodoId' => $this->periodoId,
+                'tabActivo' => $this->tabActivo,
+            ])->with('swal', [
                 'tipo' => 'success',
                 'titulo' => 'Período reabierto',
                 'mensaje' => 'El período ha sido reabierto correctamente',
             ]);
-
-            $this->mostrarModalReabrir = false;
-            $this->motivoReapertura = '';
 
         } catch (\Exception $e) {
             $this->dispatch('alerta', [
