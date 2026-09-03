@@ -93,16 +93,13 @@
                              x-data="{
                                 anterior: {{ number_format((float) $unidad['lectura_anterior'], 2, '.', '') }},
                                 actual: '',
-                                init() {
-                                    const inp = this.$refs.actualInput;
-                                    if (inp) this.actual = inp.value;
-                                },
                                 get consumo() {
                                     const v = parseFloat(String(this.actual).replace(',', '.'));
                                     if (isNaN(v)) return null;
                                     return v - this.anterior;
                                 }
-                             }">
+                             }"
+                             x-on:input.capture="if ($event.target.matches('input[type=number]')) actual = $event.target.value">
                             <!-- Lectura Anterior -->
                             <div>
                                 <label class="block text-xs font-medium text-gray-700 mb-1">
@@ -121,8 +118,6 @@
                                 </label>
                                 <input type="number"
                                        wire:model.live="lecturas.{{ $unidad['id'] }}.lectura_actual"
-                                       x-ref="actualInput"
-                                       x-on:input="actual = $event.target.value"
                                        step="0.01"
                                        min="0"
                                        placeholder="0.00"
