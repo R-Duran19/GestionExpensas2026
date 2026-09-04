@@ -89,17 +89,7 @@
 
                     <!-- Formulario de lectura -->
                     <div class="p-3 sm:p-4">
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3"
-                             x-data="{
-                                anterior: {{ number_format((float) $unidad['lectura_anterior'], 2, '.', '') }},
-                                actual: '',
-                                get consumo() {
-                                    const v = parseFloat(String(this.actual).replace(',', '.'));
-                                    if (isNaN(v)) return null;
-                                    return v - this.anterior;
-                                }
-                             }"
-                             x-on:input.capture="if ($event.target.matches('input[type=number]')) actual = $event.target.value">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <!-- Lectura Anterior -->
                             <div>
                                 <label class="block text-xs font-medium text-gray-700 mb-1">
@@ -118,27 +108,38 @@
                                 </label>
                                 <input type="number"
                                        wire:model.live="lecturas.{{ $unidad['id'] }}.lectura_actual"
+                                       data-lectura-input
                                        step="0.01"
                                        min="0"
                                        placeholder="0.00"
                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-base">
                             </div>
 
-                            <!-- Consumo (Calculadora en tiempo real) -->
+                            <!-- Consumo (Calculadora: server render + JS instantaneo) -->
                             <div>
                                 <label class="block text-xs font-medium text-gray-700 mb-1">
                                     Consumo (M³)
                                 </label>
-                                <div class="w-full px-3 py-2 border rounded-lg text-sm font-bold flex items-center justify-center"
+                                @php
+                                    $valorActualRM = $this->lecturas[$unidad['id']]['lectura_actual'] ?? null;
+                                    $anteriorRM = (float) $unidad['lectura_anterior'];
+                                    $consumoRM = is_numeric($valorActualRM)
+                                        ? round((float) $valorActualRM - $anteriorRM, 2)
+                                        : null;
+                                    $estadoRM = $consumoRM === null ? 'vacio'
+                                        : ($consumoRM < 0 ? 'negativo' : ($consumoRM == 0.0 ? 'cero' : 'positivo'));
+                                    $coloresRM = [
+                                        'vacio' => 'border-gray-200 bg-gray-50 text-gray-400',
+                                        'negativo' => 'border-red-300 bg-red-50 text-red-600',
+                                        'cero' => 'border-blue-300 bg-blue-50 text-blue-700',
+                                        'positivo' => 'border-green-300 bg-green-50 text-green-700',
+                                    ];
+                                @endphp
+                                <div data-consumo-cell
+                                     data-anterior="{{ number_format($anteriorRM, 2, '.', '') }}"
                                      style="min-height: 38px;"
-                                     :class="consumo === null
-                                         ? 'border-gray-200 bg-gray-50 text-gray-400'
-                                         : (consumo < 0
-                                             ? 'border-red-300 bg-red-50 text-red-600'
-                                             : (consumo === 0
-                                                 ? 'border-blue-300 bg-blue-50 text-blue-700'
-                                                 : 'border-green-300 bg-green-50 text-green-700'))">
-                                    <span x-text="consumo === null ? '—' : (consumo.toFixed(2) + ' M³')"></span>
+                                     class="w-full px-3 py-2 border rounded-lg text-sm font-bold flex items-center justify-center {{ $coloresRM[$estadoRM] }}">
+                                    {{ $consumoRM !== null ? number_format($consumoRM, 2, '.', '') . ' M³' : '—' }}
                                 </div>
                             </div>
                         </div>
@@ -217,4 +218,61 @@
 
     <!-- Espacio extra para el botón sticky -->
     <div class="h-20"></div>
+
+    <script>
+        // Calculadora de consumo en tiempo real (JS vanilla, sin Alpine)
+        // Mismo patrón que registrar-lectura-compartida: NO interferir con wire:model.
+        function consumoClasesRM(estado) {
+            const base = 'w-full px-3 py-2 border rounded-lg text-sm font-bold flex items-center justify-center';
+            const colores = {
+                vacio: 'border-gray-200 bg-gray-50 text-gray-400',
+                negativo: 'border-red-300 bg-red-50 text-red-600',
+                cero: 'border-blue-300 bg-blue-50 text-blue-700',
+                positivo: 'border-green-300 bg-green-50 text-green-700'
+            };
+            return base + ' ' + (colores[estado] || colores.vacio);
+        }
+
+        function actualizarConsumosRM() {
+            document.querySelectorAll('[data-consumo-cell]').forEach(cell => {
+                const grid = cell.closest('div.grid');
+                const input = grid ? grid.querySelector('input[data-lectura-input]') : null;
+                const anterior = parseFloat(cell.getAttribute('data-anterior')) || 0;
+                const valor = input ? parseFloat(input.value) : NaN;
+
+                if (input && input.value !== '' && !isNaN(valor)) {
+                    const consumo = Math.round((valor - anterior) * 100) / 100;
+                    cell.className = consumoClasesRM(consumo < 0 ? 'negativo' : (consumo === 0 ? 'cero' : 'positivo'));
+                    cell.textContent = consumo.toFixed(2) + ' M³';
+                } else {
+                    cell.className = consumoClasesRM('vacio');
+                    cell.textContent = '—';
+                }
+            });
+        }
+
+        document.addEventListener('input', (e) => {
+            if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-lectura-input')) {
+                actualizarConsumosRM();
+            }
+        });
+        document.addEventListener('change', actualizarConsumosRM);
+        document.addEventListener('DOMContentLoaded', actualizarConsumosRM);
+        window.addEventListener('load', actualizarConsumosRM);
+        document.addEventListener('livewire:load', actualizarConsumosRM);
+        document.addEventListener('livewire:initialized', actualizarConsumosRM);
+        document.addEventListener('livewire:navigated', actualizarConsumosRM);
+
+        // Recalcular después de cada round-trip de Livewire (el morph revierte el HTML
+        // al estado server; con reintento porque Livewire puede cargar después del script)
+        function registrarHooksRM() {
+            if (window.Livewire && window.Livewire.hook) {
+                Livewire.hook('morphed', actualizarConsumosRM);
+                Livewire.hook('commit', () => setTimeout(actualizarConsumosRM, 0));
+            } else {
+                setTimeout(registrarHooksRM, 50);
+            }
+        }
+        registrarHooksRM();
+    </script>
 </div>
