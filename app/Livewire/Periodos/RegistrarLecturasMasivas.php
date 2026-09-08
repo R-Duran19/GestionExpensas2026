@@ -58,6 +58,13 @@ class RegistrarLecturasMasivas extends Component
             ->where('tipo_medidor', 'individual') // Solo medidores individuales (excluye grupales)
             ->whereNotIn('id', $unidadesConLectura) // Excluir unidades con lectura registrada
             ->with(['propietarios'])
+            // Orden: planta mas alta primero (30, 29, 28... 1), sótanos al final.
+            // "Planta 28-29" y "Planta 25 Terraza" toman su primer numero.
+            ->orderByRaw(
+                "CASE WHEN piso LIKE 'Sotano%' OR piso LIKE 'Sótano%'" .
+                " THEN 1000 + CAST(REGEXP_SUBSTR(piso, '[0-9]+') AS SIGNED)" .
+                " ELSE -CAST(REGEXP_SUBSTR(piso, '[0-9]+') AS SIGNED) END ASC"
+            )
             ->orderByRaw(Unidad::ordenPorTipoUnidadRaw('tipo_unidad'))
             ->orderByRaw(Unidad::ordenPorCodigoRaw('codigo', 'ASC'));
 
@@ -147,29 +154,41 @@ class RegistrarLecturasMasivas extends Component
 
     public function guardarTodo()
     {
-        $unidades = $this->unidades;
+        // Recorre TODAS las lecturas diligenciadas (incluye otras páginas de la
+        // paginación) y solo limpia las que se guardaron, para no perder datos.
+        $pendientes = array_filter(
+            $this->lecturas,
+            fn($l) => $l['lectura_actual'] !== null && $l['lectura_actual'] !== ''
+        );
+
+        if (empty($pendientes)) {
+            $this->dispatch('alerta', [
+                'tipo' => 'warning',
+                'titulo' => 'Sin lecturas',
+                'mensaje' => 'No hay lecturas diligenciadas para guardar',
+            ]);
+            return;
+        }
+
+        $unidades = Unidad::whereIn('id', array_keys($pendientes))->get()->keyBy('id');
+
         $guardadas = 0;
         $errors = [];
 
-        foreach ($unidades->items() as $unidad) {
-            $unidadId = $unidad['id'];
+        foreach ($pendientes as $unidadId => $lectura) {
+            $unidad = $unidades->get($unidadId);
 
-            // Solo procesar si tiene lectura actual diligenciada
-            if (isset($this->lecturas[$unidadId]) &&
-                $this->lecturas[$unidadId]['lectura_actual'] !== null &&
-                $this->lecturas[$unidadId]['lectura_actual'] !== '') {
-
-                try {
-                    $this->medidorService->registrarLecturaIndividual(
-                        $this->periodoId,
-                        $unidadId,
-                        $this->lecturas[$unidadId]['lectura_actual'],
-                        $this->lecturas[$unidadId]['observaciones'] ?? null
-                    );
-                    $guardadas++;
-                } catch (\Exception $e) {
-                    $errors[] = "{$unidad['codigo']}: " . $e->getMessage();
-                }
+            try {
+                $this->medidorService->registrarLecturaIndividual(
+                    $this->periodoId,
+                    $unidadId,
+                    $lectura['lectura_actual'],
+                    $lectura['observaciones'] ?? null
+                );
+                $guardadas++;
+                unset($this->lecturas[$unidadId]);
+            } catch (\Exception $e) {
+                $errors[] = ($unidad?->codigo ?? "Unidad {$unidadId}") . ': ' . $e->getMessage();
             }
         }
 
@@ -182,20 +201,12 @@ class RegistrarLecturasMasivas extends Component
                     : 'Las unidades guardadas ya no aparecerán en la lista',
             ]);
 
-            // Limpiar el array de lecturas y recargar página
-            $this->lecturas = [];
             $this->resetPage();
         } elseif (count($errors) > 0) {
             $this->dispatch('alerta', [
                 'tipo' => 'error',
                 'titulo' => 'Error al guardar',
                 'mensaje' => implode(', ', $errors),
-            ]);
-        } else {
-            $this->dispatch('alerta', [
-                'tipo' => 'warning',
-                'titulo' => 'Sin lecturas',
-                'mensaje' => 'No hay lecturas diligenciadas para guardar',
             ]);
         }
     }
@@ -221,10 +232,15 @@ class RegistrarLecturasMasivas extends Component
                 $this->lecturas[$unidadId]['observaciones'] ?? null
             );
 
+            $unidad = Unidad::find($unidadId);
+
             $this->dispatch('alerta', [
                 'tipo' => 'success',
                 'titulo' => 'Lectura guardada',
-                'mensaje' => 'La unidad ya no aparecerá en la lista',
+                'mensaje' => 'Se guardó correctamente la lectura de ' . ($unidad?->codigo ?? "unidad {$unidadId}")
+                    . (($unidad && $unidad->nombre_completo && $unidad->nombre_completo !== $unidad->codigo)
+                        ? ' (' . $unidad->nombre_completo . ')' : '')
+                    . '. La unidad ya no aparecerá en la lista.',
             ]);
 
             // Limpiar y recargar

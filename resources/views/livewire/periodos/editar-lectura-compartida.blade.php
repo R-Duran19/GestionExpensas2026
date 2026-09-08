@@ -53,7 +53,7 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Lectura Anterior</label>
                         <input type="text"
-                               :value="number_format($lecturaAnterior, 2) . ' M³'"
+                               value="{{ number_format($lecturaAnterior, 2) }} M³"
                                readonly
                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600">
                         <p class="mt-1 text-xs text-gray-500">(Automática del período anterior)</p>

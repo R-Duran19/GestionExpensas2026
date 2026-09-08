@@ -47,7 +47,11 @@ class EditarLecturaIndividual extends Component
 
         $this->lecturaId = $lecturaModel->id;
         $this->periodoId = $lecturaModel->periodo_id;
-        $this->lecturaAnterior = (float) $lecturaModel->lectura_anterior;
+        // Lectura anterior del registro; si es NULL (registros viejos), se recalcula
+        // con la lectura del período anterior de la misma unidad.
+        $this->lecturaAnterior = (float) ($lecturaModel->lectura_anterior
+            ?? $this->medidorService->obtenerLecturaAnterior($lecturaModel->unidad_id, $lecturaModel->periodo_id)?->lectura_actual
+            ?? 0);
         $this->lecturaActual = (float) $lecturaModel->lectura_actual;
         $this->observaciones = $lecturaModel->observaciones;
 

@@ -106,11 +106,11 @@
                                 <label class="block text-xs font-medium text-gray-700 mb-1">
                                     Actual (M³) <span class="text-red-500">*</span>
                                 </label>
-                                <input type="number"
+                                <input type="text"
                                        wire:model.live="lecturas.{{ $unidad['id'] }}.lectura_actual"
                                        data-lectura-input
-                                       step="0.01"
-                                       min="0"
+                                       inputmode="decimal"
+                                       autocomplete="off"
                                        placeholder="0.00"
                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-base">
                             </div>
@@ -212,7 +212,7 @@
             <!-- Contador de lectura -->
             <div class="mt-2 sm:mt-0 sm:float-right text-sm text-gray-600 text-center sm:text-right">
                 <span class="font-medium text-blue-600">{{ count(array_filter($this->lecturas, fn($l) => !empty($l['lectura_actual']))) }}</span>
-                de <span>{{ $this->unidades->count() }}</span> listas para guardar
+                de <span>{{ $this->unidades->total() }}</span> listas para guardar
             </div>
 
             <div class="clearfix"></div>
@@ -253,6 +253,17 @@
                 }
             });
         }
+
+        // Normalizar coma decimal -> punto (teclado numerico) y conservar tal cual
+        // lo escrito (ej: 0.80 se mantiene 0.80). Se re-dispara 'input' sintetico
+        // para que Livewire sincronice el valor corregido.
+        document.addEventListener('input', (e) => {
+            const el = e.target;
+            if (el && el.hasAttribute && el.hasAttribute('data-lectura-input') && el.value.includes(',')) {
+                el.value = el.value.replace(/,/g, '.');
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
 
         document.addEventListener('input', (e) => {
             if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-lectura-input')) {

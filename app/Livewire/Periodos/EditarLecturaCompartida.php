@@ -55,7 +55,11 @@ class EditarLecturaCompartida extends Component
         $this->lecturaGrupoId = $lecturaGrupoModel->id;
         $this->periodoId = $lecturaGrupoModel->periodo_id;
         $this->grupoId = $lecturaGrupoModel->medidor_grupo_id;
-        $this->lecturaAnterior = (float) $lecturaGrupoModel->lectura_anterior;
+        // Lectura anterior del registro; si es NULL (registros viejos), se recalcula
+        // con la lectura compartida del período anterior del mismo grupo.
+        $this->lecturaAnterior = (float) ($lecturaGrupoModel->lectura_anterior
+            ?? $this->medidorService->obtenerLecturaAnteriorCompartida($this->grupoId, $this->periodoId)?->lectura_actual
+            ?? 0);
         $this->lecturaActual = (float) $lecturaGrupoModel->lectura_actual;
         $this->observaciones = $lecturaGrupoModel->observaciones;
         $this->grupoNombre = $lecturaGrupoModel->medidorGrupo?->nombre;
