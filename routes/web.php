@@ -230,6 +230,9 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
         // Calcular expensas por período
         Route::get('/{periodo}/calcular', \App\Livewire\Periodos\CalcularExpensas::class)->name('calcular');
+
+        // TEMPORAL: sobreescritura manual de montos (quitar cuando ya no se use)
+        Route::get('/{periodo}/ajuste-temporal', \App\Livewire\Periodos\AjusteTemporalMontos::class)->name('ajuste-temporal');
     });
 
     /*
