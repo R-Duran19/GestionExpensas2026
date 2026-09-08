@@ -163,7 +163,10 @@
             </div>
         @endif
     @else
-        @if($this->unidades->total() === 0 && \App\Models\LecturaMedidor::where('periodo_id', $periodoId)->where('tipo', 'individual')->count() > 0)
+        @php($lecturasIndividualesRM = \App\Models\LecturaMedidor::where('periodo_id', $periodoId)
+            ->whereHas('unidad', fn($q) => $q->where('tipo_medidor', 'individual'))
+            ->count())
+        @if($this->unidades->total() === 0 && $lecturasIndividualesRM > 0)
             <!-- Todas las lecturas están completas -->
             <div class="px-4 sm:px-6 lg:px-8 py-16 text-center">
                 <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-100 mb-6">
@@ -173,7 +176,7 @@
                 </div>
                 <h3 class="text-xl font-bold text-gray-900 mb-2">¡Todas las lecturas están registradas!</h3>
                 <p class="text-gray-600 mb-6 max-w-md mx-auto">
-                    Se han registrado {{ \App\Models\LecturaMedidor::where('periodo_id', $periodoId)->where('tipo', 'individual')->count() }} lecturas individuales en este período.
+                    Se han registrado {{ $lecturasIndividualesRM }} lecturas individuales en este período.
                 </p>
                 <a href="{{ route('periodos.lecturas', $periodoId) }}"
                    class="inline-flex items-center px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors">
