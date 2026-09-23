@@ -465,15 +465,20 @@ class ExpensaList extends Component
 
         $responsables = collect();
 
+        // Cargar TODAS las expensas del período UNA vez (evita 1 query por responsable)
+        $expensasPorUnidad = Expensa::where('periodo_id', $this->periodoId)
+            ->get()
+            ->keyBy('unidad_id');
+
         // 1. Obtener PROPIETARIOS con unidades activas (solo unidades SIN inquilino actual)
         $propietarios = \App\Models\Propietario::whereHas('unidadesActuales', function ($q) {
             $q->where('activo', true);
         })
         ->with(['unidadesActuales' => function ($q) {
-            $q->where('activo', true);
+            $q->where('activo', true)->with('inquilinoActual');
         }])
         ->get()
-        ->map(function ($propietario) {
+        ->map(function ($propietario) use ($expensasPorUnidad) {
             // Solo unidades que NO tienen inquilino actual
             $unidades = $propietario->unidadesActuales
                 ->filter(fn($u) => $u->activo && !$u->tieneInquilinoActual());
@@ -482,12 +487,8 @@ class ExpensaList extends Component
                 return null;
             }
 
-            // Cargar expensas del período para estas unidades
-            $unidadIds = $unidades->pluck('id');
-            $expensas = Expensa::where('periodo_id', $this->periodoId)
-                ->whereIn('unidad_id', $unidadIds)
-                ->get()
-                ->keyBy('unidad_id');
+            // Expensas ya cargadas en lote (sin query por propietario)
+            $expensas = $expensasPorUnidad->only($unidades->pluck('id')->all());
 
             // Calcular totales
             $totalUnidades = $unidades->count();
@@ -548,22 +549,18 @@ class ExpensaList extends Component
             $q->where('activo', true);
         })
         ->with(['unidadesActuales' => function ($q) {
-            $q->where('activo', true);
+            $q->where('activo', true)->with('inquilinoActual');
         }])
         ->get()
-        ->map(function ($inquilino) {
+        ->map(function ($inquilino) use ($expensasPorUnidad) {
             $unidades = $inquilino->unidadesActuales;
 
             if ($unidades->isEmpty()) {
                 return null;
             }
 
-            // Cargar expensas del período para estas unidades
-            $unidadIds = $unidades->pluck('id');
-            $expensas = Expensa::where('periodo_id', $this->periodoId)
-                ->whereIn('unidad_id', $unidadIds)
-                ->get()
-                ->keyBy('unidad_id');
+            // Expensas ya cargadas en lote (sin query por inquilino)
+            $expensas = $expensasPorUnidad->only($unidades->pluck('id')->all());
 
             // Calcular totales
             $totalUnidades = $unidades->count();
