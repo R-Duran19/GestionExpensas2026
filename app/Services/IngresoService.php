@@ -79,6 +79,8 @@ class IngresoService
             // Registrar en Activity Log
             $this->registrarActividad('ingreso.creado', $ingreso);
 
+            app(ReporteService::class)->invalidarCacheReportes();
+
             return $ingreso;
         });
     }
@@ -125,6 +127,8 @@ class IngresoService
             // Registrar en Activity Log
             $this->registrarActividad('ingreso.actualizado', $ingreso);
 
+            app(ReporteService::class)->invalidarCacheReportes();
+
             return $ingreso->fresh();
         });
     }
@@ -163,6 +167,8 @@ class IngresoService
 
             // Registrar en Activity Log
             $this->registrarActividad('ingreso.eliminado', $ingreso);
+
+            app(ReporteService::class)->invalidarCacheReportes();
 
             return true;
         });
@@ -234,6 +240,8 @@ class IngresoService
 
             // Registrar en Activity Log
             $this->registrarActividad('ingreso.restaurado', $ingreso);
+
+            app(ReporteService::class)->invalidarCacheReportes();
 
             return $ingreso;
         });

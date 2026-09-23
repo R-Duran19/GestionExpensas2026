@@ -67,6 +67,8 @@ class PeriodoService
                 'usuario' => auth()->user()?->id,
             ]);
 
+            $this->invalidarCacheReportes();
+
             return $periodo;
         });
     }
@@ -118,6 +120,8 @@ class PeriodoService
                 'expensas_count' => $expensasCount,
             ]);
 
+            $this->invalidarCacheReportes();
+
             return $periodo->fresh();
         });
     }
@@ -167,8 +171,18 @@ class PeriodoService
                 'motivo' => $motivo,
             ]);
 
+            $this->invalidarCacheReportes();
+
             return $periodo->fresh();
         });
+    }
+
+    /**
+     * Invalida el cache de reportes (los listados de períodos/años se cachean)
+     */
+    private function invalidarCacheReportes(): void
+    {
+        app(ReporteService::class)->invalidarCacheReportes();
     }
 
     /**

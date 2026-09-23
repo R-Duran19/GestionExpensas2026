@@ -5,7 +5,6 @@ namespace App\Livewire\Reportes;
 use App\Services\ReporteService;
 use App\Models\PeriodoExpensa;
 use App\Models\Unidad;
-use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -332,7 +331,7 @@ class ReporteGeneral extends Component
     #[Computed(persist: true)]
     public function periodos()
     {
-        return Cache::remember('reportes.periodos', 7200, function () {
+        return $this->reporteService->rememberReporte('reportes.periodos', 7200, function () {
             return PeriodoExpensa::orderByDesc('año')
                 ->orderByDesc('mes')
                 ->get(['id', 'año', 'mes'])
@@ -369,7 +368,7 @@ class ReporteGeneral extends Component
     #[Computed(persist: true)]
     public function unidades()
     {
-        return Cache::remember('reportes.unidades', 7200, function () {
+        return $this->reporteService->rememberReporte('reportes.unidades', 7200, function () {
             return Unidad::orderByRaw(Unidad::ordenPorTipoUnidadRaw('tipo_unidad'))
                 ->orderByRaw(Unidad::ordenPorCodigoRaw('codigo', 'ASC'))
                 ->get(['id', 'codigo', 'tipo_unidad'])
@@ -471,7 +470,7 @@ class ReporteGeneral extends Component
     #[Computed(persist: true)]
     public function añosDisponibles()
     {
-        return Cache::remember('reportes.años_disponibles', 7200, function () {
+        return $this->reporteService->rememberReporte('reportes.años_disponibles', 7200, function () {
             return $this->reporteService->obtenerAñosDisponibles();
         });
     }
@@ -486,7 +485,7 @@ class ReporteGeneral extends Component
         $año = $this->filtroAño;
         $cacheKey = 'reportes.periodos.' . ($año ?? 'all');
 
-        return Cache::remember($cacheKey, 7200, function () use ($año) {
+        return $this->reporteService->rememberReporte($cacheKey, 7200, function () use ($año) {
             return $this->reporteService->obtenerPeriodosDisponibles($año);
         });
     }
