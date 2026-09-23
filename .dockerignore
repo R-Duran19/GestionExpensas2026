@@ -97,6 +97,11 @@ nul
 .skills/
 skills-lock.json
 
+# --- Datos sensibles (nunca dentro de la imagen) ---
+EXCELS/
+*.xlsx
+*.xls
+
 # --- Archivos temporales / basura del repo ---
 *.tmp
 *.bak

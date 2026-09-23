@@ -70,6 +70,11 @@ nul
 /.skills
 skills-lock.json
 
+# --- Datos sensibles (financieros, seeders los leen de disco local) ---
+*.xlsx
+*.xls
+EXCELS/
+
 # --- Temporales y basura ---
 *.tmp
 *.bak
