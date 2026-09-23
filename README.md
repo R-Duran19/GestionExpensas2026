@@ -64,7 +64,7 @@ Antes de este sistema el cálculo era manual, propenso a errores y difícil de a
 
 ## Arquitectura
 
-Patrón **Service Layer**: la lógica de negocio vive en servicios (~22), no en controladores. La UI son componentes Livewire (~39) y hay ~32 modelos Eloquent con relaciones, softDeletes, scopes y enums.
+Patrón **Service Layer**: la lógica de negocio vive en servicios (21), no en controladores. La UI son componentes Livewire (~39) y hay 30 modelos Eloquent con relaciones, softDeletes, scopes y enums.
 
 Servicios principales: `ExpensaService`, `CajaService`, `IngresoService`, `EgresoService`, `PagoExpensaService`, `FacturaAguaService`, `MedidorService`, `ReporteService`, `PropietarioService`, `InquilinoService`.
 
