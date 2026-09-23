@@ -294,6 +294,11 @@ class Unidad extends Model
      */
     public function tieneInquilinoActual(): bool
     {
+        // Si la relación ya fue eager-loaded, NO pegar a la BD por cada unidad
+        if ($this->relationLoaded('inquilinoActual')) {
+            return $this->inquilinoActual->isNotEmpty();
+        }
+
         return $this->inquilinoActual()->exists();
     }
 

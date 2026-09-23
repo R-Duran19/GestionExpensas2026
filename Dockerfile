@@ -96,6 +96,7 @@ COPY docker/nginx/default.conf /etc/nginx/sites-available/default
 COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # Límites PHP para uploads (imágenes/PDFs). Se carga automáticamente por php-fpm.
 COPY docker/php/uploads.ini /usr/local/etc/php/conf.d/zz-uploads.ini
+COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/zz-opcache.ini
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
