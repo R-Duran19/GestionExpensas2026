@@ -7,6 +7,7 @@ use App\Models\Unidad;
 use App\Models\PeriodoExpensa;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class ReporteService
 {
@@ -25,7 +26,12 @@ class ReporteService
         // Registrar la clave para invalidación posterior
         $this->registrarCacheKey($cacheKey);
 
-        return Cache::remember($cacheKey, 300, function() use ($filtros, $agruparPorPeriodo) {
+        $cacheado = Cache::get($cacheKey);
+        if ($cacheado !== null) {
+            return $cacheado;
+        }
+
+        $valor = (function () use ($filtros, $agruparPorPeriodo) {
             $resumido = $this->obtenerReporteResumido($filtros, $agruparPorPeriodo);
             $detallado = $this->obtenerReporteDetallado($filtros, $agruparPorPeriodo);
             $totales = $this->calcularTotalesGenerales($resumido, $detallado);
@@ -35,7 +41,33 @@ class ReporteService
                 'detallado' => $detallado,
                 'totales' => $totales,
             ];
-        });
+        })();
+
+        $this->guardarEnCacheSiCabe($cacheKey, 300, $valor);
+
+        return $valor;
+    }
+
+    /**
+     * Guarda en cache solo si el payload serializado no supera el límite.
+     * Evita un INSERT fallido por max_allowed_packet en CACHE_STORE=database
+     * (rompería la request con 500). Si excede: log + se devuelve sin cachear.
+     */
+    protected function guardarEnCacheSiCabe(string $key, int $ttl, mixed $valor, int $limiteBytes = 2097152): void
+    {
+        $tamaño = strlen(serialize($valor));
+
+        if ($tamaño > $limiteBytes) {
+            Log::warning('Reporte supera el límite de cache — se devuelve sin cachear', [
+                'key' => $key,
+                'bytes' => $tamaño,
+                'limite_bytes' => $limiteBytes,
+            ]);
+
+            return;
+        }
+
+        Cache::put($key, $valor, $ttl);
     }
 
     /**
