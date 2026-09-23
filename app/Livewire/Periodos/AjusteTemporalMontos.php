@@ -205,6 +205,8 @@ class AjusteTemporalMontos extends Component
             ],
         ]);
 
+        app(\App\Services\ReporteService::class)->invalidarCacheReportes();
+
         return ['codigo' => $unidad?->codigo ?? "unidad {$expensa->unidad_id}"];
     }
 

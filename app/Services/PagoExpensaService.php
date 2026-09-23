@@ -131,6 +131,8 @@ class PagoExpensaService
             // 10. Registrar en Activity Log
             $this->registrarActividad('pago.expensa.procesado', $ingreso, $detalles);
 
+            app(ReporteService::class)->invalidarCacheReportes();
+
             return [
                 'ingreso' => $ingreso,
                 'detalles' => $detalles,
@@ -233,6 +235,8 @@ class PagoExpensaService
 
             // 10. Registrar en Activity Log
             $this->registrarActividad('pago.expensa.actualizado', $ingreso, $detalles);
+
+            app(ReporteService::class)->invalidarCacheReportes();
 
             return [
                 'ingreso' => $ingreso,

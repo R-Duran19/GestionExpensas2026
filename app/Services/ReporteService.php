@@ -48,17 +48,30 @@ class ReporteService
     }
 
     /**
-     * Invalidar cache de reportes cuando se modifican expensas
+     * Cache::remember que además registra la clave para poder invalidarla después.
+     * Usar para TODAS las claves 'reportes.*' del módulo de reportes.
+     */
+    public function rememberReporte(string $key, int $ttl, \Closure $callback): mixed
+    {
+        $this->registrarCacheKey($key);
+
+        return Cache::remember($key, $ttl, $callback);
+    }
+
+    /**
+     * Invalidar cache de reportes cuando se modifican expensas, pagos o períodos
      */
     public function invalidarCacheReportes(): void
     {
-        // Eliminar todas las claves de cache de reportes
-        // Como no podemos usar tags, limpiamos el cache completo de reportes
+        // Claves estáticas del módulo de reportes
         Cache::forget('reportes.periodos');
         Cache::forget('reportes.unidades');
+        Cache::forget('reportes.años_disponibles');
 
-        // Invalidar reportes cacheados por prefijo
+        // Invalidar claves registradas por prefijo (funciona con cualquier store:
+        // file, database, redis... gracias al registro en 'reportes_keys')
         $this->invalidarCachePorPrefijo('reporte_consolidado:');
+        $this->invalidarCachePorPrefijo('reportes.periodos.');
     }
 
     /**
@@ -66,17 +79,12 @@ class ReporteService
      */
     protected function invalidarCachePorPrefijo(string $prefijo): void
     {
-        // Para database cache, necesitamos usar una estrategia diferente
-        // Podríamos mantener un registro de las claves activas
-        if (Cache::getStore() instanceof \Illuminate\Cache\DatabaseStore) {
-            // Estrategia para database: eliminar por prefijo
-            $cacheKey = 'reportes_keys';
-            $keys = Cache::get($cacheKey, []);
+        $cacheKey = 'reportes_keys';
+        $keys = Cache::get($cacheKey, []);
 
-            foreach ($keys as $key) {
-                if (str_starts_with($key, $prefijo)) {
-                    Cache::forget($key);
-                }
+        foreach ($keys as $key) {
+            if (str_starts_with($key, $prefijo)) {
+                Cache::forget($key);
             }
         }
     }

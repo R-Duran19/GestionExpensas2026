@@ -69,6 +69,8 @@ class ExpensaService
             throw $e;
         }
 
+        $this->invalidarCacheReportes();
+
         return $resultados;
     }
 
@@ -367,6 +369,8 @@ class ExpensaService
                 'cerrado_por' => auth()->id(),
             ]);
         });
+
+        $this->invalidarCacheReportes();
     }
 
     /**
@@ -402,6 +406,16 @@ class ExpensaService
                 'motivo' => $motivo,
             ]);
         });
+
+        $this->invalidarCacheReportes();
+    }
+
+    /**
+     * Invalida el cache de reportes (cálculos afectan Generado/Deuda)
+     */
+    private function invalidarCacheReportes(): void
+    {
+        app(ReporteService::class)->invalidarCacheReportes();
     }
 
     /**
