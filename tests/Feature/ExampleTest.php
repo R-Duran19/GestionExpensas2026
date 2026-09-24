@@ -9,11 +9,14 @@ class ExampleTest extends TestCase
 {
     /**
      * A basic test example.
+     *
+     * [PORTAL] '/' redirige: a login si es invitado, al dashboard/portal si
+     * está autenticado. Nunca responde 200 directo.
      */
     public function test_the_application_returns_a_successful_response(): void
     {
         $response = $this->get('/');
 
-        $response->assertStatus(200);
+        $response->assertRedirect(route('login', absolute: false));
     }
 }

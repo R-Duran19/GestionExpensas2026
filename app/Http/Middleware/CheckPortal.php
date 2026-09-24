@@ -35,8 +35,9 @@ class CheckPortal
             abort(403, 'No tienes permiso para acceder al portal.');
         }
 
-        // Cambio de contraseña forzado (credencial temporal del admin)
-        if ($user->must_change_password && !$request->routeIs('portal.*')) {
+        // Cambio de contraseña forzado (credencial temporal del admin).
+        // Solo se permite navegar a portal.perfil (donde se cambia).
+        if ($user->must_change_password && !$request->routeIs('portal.perfil')) {
             return redirect()->route('portal.perfil')
                 ->with('aviso', 'Debes cambiar tu contraseña temporal antes de continuar.');
         }

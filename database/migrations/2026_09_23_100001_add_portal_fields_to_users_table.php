@@ -20,6 +20,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
+            // [PORTAL] Los usuarios del portal NO tienen email (login por CI).
+            $table->string('email')->nullable()->change();
+
             $table->enum('tipo', ['admin', 'propietario', 'inquilino'])
                   ->default('admin')
                   ->after('id')
@@ -62,6 +65,7 @@ return new class extends Migration
                 'must_change_password',
                 'last_login_at',
             ]);
+            $table->string('email')->nullable(false)->change();
         });
     }
 };
