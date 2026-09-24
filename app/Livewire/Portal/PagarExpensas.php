@@ -84,6 +84,13 @@ class PagarExpensas extends Component
         if ($activo) {
             $this->qrActivoId = $activo->id;
         }
+
+        // Si el QR activo YA fue pagado (ej. pagó desde el celular y volvió
+        // a entrar), mostrar directamente la pantalla de éxito con el recibo.
+        if ($activo && $activo->estado === PagoQr::ESTADO_PAGADO) {
+            $this->pagoExitoso = true;
+            $this->ingresoId = $activo->ingreso_id;
+        }
     }
 
     protected function service(): PagoQrService
@@ -276,9 +283,12 @@ class PagarExpensas extends Component
     }
 
     /**
-     * Verificar estado en el banco (polling 15s + botón manual).
+     * Verificar estado en el banco.
+     *
+     * Polling automático (15s): usa cache de 5s en el service.
+     * Botón manual "Verificar ahora": fuerza consulta real al banco.
      */
-    public function verificar(): void
+    public function verificar(bool $forzar = false): void
     {
         $qr = $this->qrActivo;
 
@@ -287,7 +297,7 @@ class PagarExpensas extends Component
         }
 
         try {
-            $resultado = $this->service()->verificarYAcreditar($qr);
+            $resultado = $this->service()->verificarYAcreditar($qr, $forzar);
         } catch (\Throwable $e) {
             // Banco caído: el fallback mantiene el estado local (como tickets)
             report($e);

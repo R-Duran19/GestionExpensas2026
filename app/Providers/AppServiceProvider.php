@@ -5,6 +5,9 @@ namespace App\Providers;
 use App\Services\QrBanco\FakeQrDriver;
 use App\Services\QrBanco\Mc4QrDriver;
 use App\Services\QrBanco\QrBancoDriver;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -33,6 +36,21 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        /*
+         * [PORTAL / Fase 5.1] Rate limiting POR USUARIO (no por IP: 150
+         * usuarios detrás de un mismo NAT compartirían el cupo).
+         */
+        RateLimiter::for('portal', function (Request $request) {
+            return [
+                Limit::perMinute(120)->by($request->user()?->id ?: $request->ip()),
+            ];
+        });
+
+        // DomPDF es pesado (100-200MB por render): 5 PDFs/min por usuario.
+        RateLimiter::for('portal-pdf', function (Request $request) {
+            return [
+                Limit::perMinute(5)->by($request->user()?->id ?: $request->ip()),
+            ];
+        });
     }
 }

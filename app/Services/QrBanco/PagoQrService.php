@@ -118,9 +118,11 @@ class PagoQrService
      *
      * Usado por: polling del portal (wire:poll), webhook y conciliación.
      *
+     * @param  bool  $forzarBanco  true = ignora el cache de 5s (botón manual
+     *                             "Verificar ahora"); el polling usa cache.
      * @return array{estado: string, pago_procesado: bool}
      */
-    public function verificarYAcreditar(PagoQr $pagoQr): array
+    public function verificarYAcreditar(PagoQr $pagoQr, bool $forzarBanco = false): array
     {
         // Estado local final: nada que hacer
         if (in_array($pagoQr->estado, [PagoQr::ESTADO_PAGADO, PagoQr::ESTADO_DIVERGENTE], true)) {
@@ -131,12 +133,16 @@ class PagoQrService
             return ['estado' => $pagoQr->estado, 'pago_procesado' => false];
         }
 
-        // Consultar al banco con cache corto (evita martillar por polling)
-        $estadoBanco = Cache::remember(
-            "qr_estado_{$pagoQr->alias}",
-            now()->addSeconds(5),
-            fn () => $this->driver->verificarEstado($pagoQr->alias)
-        );
+        // Consultar al banco. Con cache corto para el polling automático
+        // (evita martillar el banco cada 15s × N usuarios); sin cache cuando
+        // el usuario presiona "Verificar ahora".
+        $consultarBanco = function () use ($pagoQr) {
+            return $this->driver->verificarEstado($pagoQr->alias);
+        };
+
+        $estadoBanco = $forzarBanco
+            ? $consultarBanco()
+            : Cache::remember("qr_estado_{$pagoQr->alias}", now()->addSeconds(5), $consultarBanco);
 
         if (strtoupper($estadoBanco) !== 'PAGADO') {
             // Conciliación pasiva: si ya venció localmente, marcar expirado

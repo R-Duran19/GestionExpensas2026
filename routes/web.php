@@ -380,7 +380,7 @@ Route::post('/webhook/qr', \App\Http\Controllers\WebhookQrController::class)
 |
 | Throttle global 60/min por usuario (Livewire genera muchas requests).
 */
-Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal', 'throttle:60,1'])->group(function () {
+Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal', 'throttle:portal'])->group(function () {
 
     Route::get('/', \App\Livewire\Portal\PortalDashboard::class)->name('dashboard');
 
@@ -403,7 +403,7 @@ Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal', 'throttl
     | ANTI-IDOR: PortalPdfController verifica propiedad antes de generar.
     */
     Route::get('/boleta/{periodoId}', [\App\Http\Controllers\Portal\PortalPdfController::class, 'boleta'])
-        ->name('boleta')->middleware('throttle:5,1');
+        ->name('boleta')->middleware('throttle:portal-pdf');
     Route::get('/recibo/{ingresoId}', [\App\Http\Controllers\Portal\PortalPdfController::class, 'recibo'])
-        ->name('recibo')->middleware('throttle:5,1');
+        ->name('recibo')->middleware('throttle:portal-pdf');
 });

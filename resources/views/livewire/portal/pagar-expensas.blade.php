@@ -25,7 +25,6 @@
                 </a>
             </div>
         </div>
-    @endif
 
     {{-- QR ACTIVO EN CURSO --}}
     @elseif ($qr = $this->qrActivo)
@@ -68,7 +67,7 @@
                     </div>
 
                     <div class="flex gap-2">
-                        <button wire:click="verificar"
+                        <button wire:click="verificar(true)"
                                 wire:loading.attr="disabled"
                                 class="flex-1 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50">
                             <span wire:loading wire:target="verificar"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i></span>
@@ -83,7 +82,6 @@
                 </div>
             </div>
         </div>
-    @endif
 
     {{-- FORMULARIO DE PAGO --}}
     @else
