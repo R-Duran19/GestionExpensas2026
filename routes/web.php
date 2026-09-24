@@ -314,6 +314,13 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
+    | PAGOS QR — CONCILIACIÓN ADMIN [PORTAL QR / Fase 4 — HU-55]
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/pagos-qr', \App\Livewire\Admin\PagosQrAdmin::class)->name('pagos-qr.index');
+
+    /*
+    |--------------------------------------------------------------------------
     | MÓDULO DE REPORTES (FASE 6)
     |--------------------------------------------------------------------------
     */
@@ -347,6 +354,19 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
 /*
 |--------------------------------------------------------------------------
+| WEBHOOK QR BANCARIO [PORTAL QR / Fase 4]
+|--------------------------------------------------------------------------
+| Endpoint PÚBLICO notificado por el banco al pagarse un QR.
+| - Sin CSRF (excluido en bootstrap/app.php) y sin auth (el banco no tiene sesión).
+| - Idempotente (un solo ingreso aunque llegue duplicado).
+| - Rate limit 30/min + formato de respuesta exigido por el banco.
+*/
+Route::post('/webhook/qr', \App\Http\Controllers\WebhookQrController::class)
+    ->name('webhook.qr')
+    ->middleware('throttle:30,1');
+
+/*
+|--------------------------------------------------------------------------
 | PORTAL DE PROPIETARIOS E INQUILINOS [PORTAL / Fase 1.3+]
 |--------------------------------------------------------------------------
 | Middleware 'portal' (CheckPortal): autenticado + tipo propietario/inquilino
@@ -370,6 +390,9 @@ Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal', 'throttl
 
     // Mis Inquilinos: autorizaciones RF-48 (solo propietarios)
     Route::get('/inquilinos', \App\Livewire\Portal\PortalMisInquilinos::class)->name('inquilinos');
+
+    // Pagar con QR (HU-50/52, RF-49) — pago flexible estilo caja
+    Route::get('/pagar', \App\Livewire\Portal\PagarExpensas::class)->name('pagar');
 
     /*
     | PDFs propios (HU-44): DomPDF es pesado (100-200MB por render concurrente).

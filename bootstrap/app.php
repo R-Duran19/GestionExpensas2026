@@ -33,6 +33,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\CheckAdmin::class,
             'portal' => \App\Http\Middleware\CheckPortal::class,
         ]);
+
+        // [PORTAL QR / Fase 4] El webhook del banco NO lleva CSRF (es una API
+        // entrante sin sesión). Rate limit aplicado en la ruta.
+        $middleware->validateCsrfTokens(except: [
+            'webhook/qr',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

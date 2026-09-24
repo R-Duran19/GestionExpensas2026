@@ -35,4 +35,27 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Pagos QR bancarios [PORTAL QR / Fase 4.2 — RF-49]
+    |--------------------------------------------------------------------------
+    | Credenciales del merchant QR (mismas del sistema de tickets 365Soft /
+    | Banco MC4). Si cambia el banco, solo se cambian estas variables y el
+    | driver — el resto del flujo es idéntico (Plan 12, decisión 6).
+    |
+    | driver: 'mc4' (producción) | 'fake' (tests / simulador)
+    */
+    'qr_banco' => [
+        'driver' => env('BANCO_QR_DRIVER', 'mc4'),
+        'api_url' => env('BANCO_QR_API_URL', ''),
+        'api_key' => env('BANCO_QR_API_KEY', ''),
+        'service_key' => env('BANCO_QR_SERVICE_KEY', ''),
+        'username' => env('BANCO_QR_USERNAME', ''),
+        'password' => env('BANCO_QR_PASSWORD', ''),
+        'timeout' => (int) env('BANCO_QR_TIMEOUT', 30),
+        'callback_url' => env('BANCO_QR_CALLBACK_URL', ''),
+        // Vencimiento del QR (horas). Validar tope real del banco en pruebas.
+        'vencimiento_horas' => (int) env('BANCO_QR_VENCIMIENTO_HORAS', 24),
+    ],
+
 ];
