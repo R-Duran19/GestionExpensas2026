@@ -39,6 +39,14 @@
                                    class="px-3 py-2 rounded-md {{ request()->routeIs('portal.dashboard') ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
                                     Inicio
                                 </a>
+                                <a href="{{ route('portal.estado-cuenta') }}"
+                                   class="px-3 py-2 rounded-md {{ request()->routeIs('portal.estado-cuenta') ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                                    Estado de Cuenta
+                                </a>
+                                <a href="{{ route('portal.pagos') }}"
+                                   class="px-3 py-2 rounded-md {{ request()->routeIs('portal.pagos') ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                                    Mis Pagos
+                                </a>
                                 <a href="{{ route('portal.perfil') }}"
                                    class="px-3 py-2 rounded-md {{ request()->routeIs('portal.perfil') ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
                                     Mi Perfil

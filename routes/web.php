@@ -363,4 +363,18 @@ Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal', 'throttl
 
     // Perfil: cambio de contraseña propio + datos en solo-lectura
     Route::get('/perfil', \App\Livewire\Portal\PortalPerfil::class)->name('perfil');
+
+    // Estado de cuenta (HU-42) e historial de pagos (HU-43)
+    Route::get('/estado-cuenta', \App\Livewire\Portal\PortalEstadoCuenta::class)->name('estado-cuenta');
+    Route::get('/pagos', \App\Livewire\Portal\PortalPagos::class)->name('pagos');
+
+    /*
+    | PDFs propios (HU-44): DomPDF es pesado (100-200MB por render concurrente).
+    | Throttle estricto 5/min por usuario para evitar abuso (Plan 12 F5.1).
+    | ANTI-IDOR: PortalPdfController verifica propiedad antes de generar.
+    */
+    Route::get('/boleta/{periodoId}', [\App\Http\Controllers\Portal\PortalPdfController::class, 'boleta'])
+        ->name('boleta')->middleware('throttle:5,1');
+    Route::get('/recibo/{ingresoId}', [\App\Http\Controllers\Portal\PortalPdfController::class, 'recibo'])
+        ->name('recibo')->middleware('throttle:5,1');
 });

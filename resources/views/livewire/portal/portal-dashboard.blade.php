@@ -72,6 +72,12 @@
                             </span>
                         </div>
                     @endif
+
+                    <div class="mt-4 pt-3 border-t border-gray-100">
+                        <a href="{{ route('portal.estado-cuenta') }}" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+                            Ver estado de cuenta <i class="fa-solid fa-arrow-right ml-1 text-xs"></i>
+                        </a>
+                    </div>
                 </div>
             @endforeach
         </div>
