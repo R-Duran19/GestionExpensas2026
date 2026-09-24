@@ -97,6 +97,9 @@ COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # Límites PHP para uploads (imágenes/PDFs). Se carga automáticamente por php-fpm.
 COPY docker/php/uploads.ini /usr/local/etc/php/conf.d/zz-uploads.ini
 COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/zz-opcache.ini
+# Pool PHP-FPM dimensionado para VPS 4GB (Plan 12 F0.3). Se carga después de
+# www.conf y zz-docker.conf (orden alfabético) — estos valores son los que mandan.
+COPY docker/php/www.conf /usr/local/etc/php-fpm.d/zz-expensas.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
