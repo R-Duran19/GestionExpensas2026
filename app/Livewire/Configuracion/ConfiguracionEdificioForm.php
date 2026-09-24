@@ -5,9 +5,12 @@ namespace App\Livewire\Configuracion;
 use App\Models\ConfiguracionEdificio;
 use Livewire\Component;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class ConfiguracionEdificioForm extends Component
 {
+
+    use AuthorizesRequests;
     public $configuracionId = null;
     public $existe = false;
 
@@ -66,6 +69,7 @@ class ConfiguracionEdificioForm extends Component
 
     public function guardar()
     {
+        $this->authorize('update', \App\Models\ConfiguracionEdificio::class);
         $data = $this->validate();
 
         try {

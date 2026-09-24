@@ -7,9 +7,12 @@ use App\Services\MedidorService;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class EditarLecturaIndividual extends Component
 {
+
+    use AuthorizesRequests;
     public $lecturaId;
     public $periodoId;
 
@@ -99,6 +102,7 @@ class EditarLecturaIndividual extends Component
      */
     public function confirmarGuardado()
     {
+        $this->authorize('update', \App\Models\LecturaMedidor::class);
         $this->mostrarConfirmacion = false;
 
         try {

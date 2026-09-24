@@ -7,9 +7,12 @@ use App\Models\PeriodoExpensa;
 use App\Services\MedidorService;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class RegistrarLecturaCompartida extends Component
 {
+
+    use AuthorizesRequests;
     public $periodoId;
 
     public $grupoId;
@@ -113,6 +116,7 @@ class RegistrarLecturaCompartida extends Component
 
     public function guardar()
     {
+        $this->authorize('create', \App\Models\LecturaMedidor::class);
         $this->validate([
             'grupoId' => 'required|exists:medidor_grupos,id',
             'lecturaActual' => 'required|numeric|min:0',

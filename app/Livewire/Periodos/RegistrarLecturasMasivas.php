@@ -9,9 +9,12 @@ use App\Services\MedidorService;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
 use Livewire\WithPagination;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class RegistrarLecturasMasivas extends Component
 {
+
+    use AuthorizesRequests;
     use WithPagination;
 
     public $periodoId;
@@ -154,6 +157,7 @@ class RegistrarLecturasMasivas extends Component
 
     public function guardarTodo()
     {
+        $this->authorize('create', \App\Models\LecturaMedidor::class);
         // Recorre TODAS las lecturas diligenciadas (incluye otras páginas de la
         // paginación) y solo limpia las que se guardaron, para no perder datos.
         $pendientes = array_filter(
@@ -213,6 +217,7 @@ class RegistrarLecturasMasivas extends Component
 
     public function guardarFila($unidadId)
     {
+        $this->authorize('create', \App\Models\LecturaMedidor::class);
         if (!isset($this->lecturas[$unidadId]) ||
             $this->lecturas[$unidadId]['lectura_actual'] === null ||
             $this->lecturas[$unidadId]['lectura_actual'] === '') {

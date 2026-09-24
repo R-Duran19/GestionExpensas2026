@@ -9,9 +9,12 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\Attributes\Validate;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class EgresoForm extends Component
 {
+
+    use AuthorizesRequests;
     use WithFileUploads;
 
     public $egreso_id = null;
@@ -94,6 +97,7 @@ class EgresoForm extends Component
 
     public function guardar()
     {
+        $this->authorize('create', \App\Models\Egreso::class);
         $this->validate();
 
         // Validar que se suba comprobante
@@ -197,6 +201,7 @@ class EgresoForm extends Component
 
     public function crearCategoriaRapida()
     {
+        $this->authorize('create', \App\Models\CategoriaEgreso::class);
         $this->validate([
             'nombre_categoria_nueva' => 'required|string|max:100',
             'color_categoria_nueva' => 'required|string|max:7',

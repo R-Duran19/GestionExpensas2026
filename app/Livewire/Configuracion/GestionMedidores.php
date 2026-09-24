@@ -7,9 +7,12 @@ use App\Models\Unidad;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
 use Livewire\WithPagination;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class GestionMedidores extends Component
 {
+
+    use AuthorizesRequests;
     use WithPagination;
 
     public $search = '';
@@ -96,6 +99,7 @@ class GestionMedidores extends Component
 
     public function asignarIndividual($unidadId)
     {
+        $this->authorize('update', \App\Models\Medidor::class);
         $unidad = Unidad::findOrFail($unidadId);
         $unidad->update([
             'tiene_medidor' => true,
@@ -112,6 +116,7 @@ class GestionMedidores extends Component
 
     public function asignarCompartido($unidadId, $grupoId)
     {
+        $this->authorize('update', \App\Models\Medidor::class);
         $unidad = Unidad::findOrFail($unidadId);
         $grupo = MedidorGrupo::findOrFail($grupoId);
 
@@ -130,6 +135,7 @@ class GestionMedidores extends Component
 
     public function actualizarNumeroMedidor($unidadId, $numero)
     {
+        $this->authorize('update', \App\Models\Medidor::class);
         $unidad = Unidad::findOrFail($unidadId);
         $unidad->update(['numero_medidor' => $numero ?: null]);
 

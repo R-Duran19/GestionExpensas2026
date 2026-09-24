@@ -7,9 +7,12 @@ use App\Models\Unidad;
 use App\Services\InquilinoService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class AsignarInquilino extends Component
 {
+
+    use AuthorizesRequests;
     public $inquilino_id = null;
     public $unidad_ids = []; // Array para múltiples unidades
     public $fecha_inicio = '';
@@ -101,6 +104,7 @@ class AsignarInquilino extends Component
      */
     public function asignar()
     {
+        $this->authorize('update', \App\Models\Inquilino::class);
         $this->validate();
 
         $inquilino = Inquilino::findOrFail($this->inquilino_id);
@@ -187,6 +191,7 @@ class AsignarInquilino extends Component
      */
     public function desasignarUnidad($unidadId)
     {
+        $this->authorize('update', \App\Models\Inquilino::class);
         try {
             $unidad = Unidad::findOrFail($unidadId);
             $inquilino = Inquilino::findOrFail($this->inquilino_id);

@@ -7,9 +7,12 @@ use App\Models\FacturaAguaPeriodo;
 use App\Models\PeriodoExpensa;
 use Livewire\Component;
 use Livewire\Attributes\Locked;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class RegistrarFacturasAgua extends Component
 {
+
+    use AuthorizesRequests;
     #[Locked]
     public $periodoId;
 
@@ -60,6 +63,7 @@ class RegistrarFacturasAgua extends Component
 
     public function guardarFacturas()
     {
+        $this->authorize('create', \App\Models\FacturaAguaPeriodo::class);
         $this->validate([
             'facturas.*.numero_factura' => 'required|string|max:50',
             'facturas.*.importe' => 'required|numeric|min:0',

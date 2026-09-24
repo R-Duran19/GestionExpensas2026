@@ -9,9 +9,12 @@ use App\Services\ExpensaService;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
 use Livewire\WithPagination;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class ExpensaList extends Component
 {
+
+    use AuthorizesRequests;
     use WithPagination;
 
     // Filtros
@@ -217,6 +220,7 @@ class ExpensaList extends Component
      */
     public function generarTodasExpensas()
     {
+        $this->authorize('create', \App\Models\Expensa::class);
         try {
             if (!$this->periodoId) {
                 throw new \Exception('Debe seleccionar un período primero');
@@ -272,6 +276,7 @@ class ExpensaList extends Component
      */
     public function generarExpensaIndividual($unidadId)
     {
+        $this->authorize('create', \App\Models\Expensa::class);
         try {
             if (!$this->periodoId) {
                 throw new \Exception('Debe seleccionar un período primero');
@@ -309,6 +314,7 @@ class ExpensaList extends Component
      */
     public function recalcularExpensas()
     {
+        $this->authorize('recalcular', \App\Models\Expensa::class);
         try {
             if (!$this->periodoId) {
                 throw new \Exception('Debe seleccionar un período primero');
@@ -348,6 +354,7 @@ class ExpensaList extends Component
      */
     public function cerrarPeriodo()
     {
+        $this->authorize('cerrar', \App\Models\PeriodoExpensa::class);
         try {
             if (!$this->periodoId) {
                 throw new \Exception('Debe seleccionar un período primero');
@@ -379,6 +386,7 @@ class ExpensaList extends Component
      */
     public function reabrirPeriodo()
     {
+        $this->authorize('reabrir', \App\Models\PeriodoExpensa::class);
         try {
             if (!$this->periodoId) {
                 throw new \Exception('Debe seleccionar un período primero');
@@ -650,6 +658,7 @@ class ExpensaList extends Component
      */
     public function regenerarExpensasPropietario($propietarioId, $tipo = 'propietario')
     {
+        $this->authorize('create', \App\Models\Expensa::class);
         try {
             if (!$this->periodoId) {
                 throw new \Exception('Debe seleccionar un período primero');

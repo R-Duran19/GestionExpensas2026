@@ -6,9 +6,12 @@ use App\Services\FactorService;
 use Livewire\Component;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class ConfiguracionFactores extends Component
 {
+
+    use AuthorizesRequests;
     public $showModal = false;
     public $categoriaSeleccionada = '';
     public $factorActual = 0;
@@ -76,6 +79,7 @@ class ConfiguracionFactores extends Component
 
     public function actualizarFactor()
     {
+        $this->authorize('update', \App\Models\FactorProrrateo::class);
         $this->validate([
             'nuevoFactor' => 'required|numeric|gt:0',
             'motivo' => 'required|string|min:3',

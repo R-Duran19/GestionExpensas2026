@@ -7,9 +7,12 @@ use App\Services\CategoriaIngresoService;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\On;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class CategoriaIngresoList extends Component
 {
+
+    use AuthorizesRequests;
     use WithPagination;
 
     public $buscar = '';
@@ -51,6 +54,7 @@ class CategoriaIngresoList extends Component
 
     public function crear()
     {
+        $this->authorize('create', \App\Models\CategoriaIngreso::class);
         $this->validate();
 
         try {
@@ -92,6 +96,7 @@ class CategoriaIngresoList extends Component
 
     public function actualizar()
     {
+        $this->authorize('update', \App\Models\CategoriaIngreso::class);
         $this->validate([
             'nombre' => 'required|string|max:100|unique:categorias_ingresos,nombre,' . $this->categoriaSeleccionada->id,
             'descripcion' => 'nullable|string',
@@ -151,6 +156,7 @@ class CategoriaIngresoList extends Component
 
     public function toggleActivo(CategoriaIngreso $categoria)
     {
+        $this->authorize('update', \App\Models\CategoriaIngreso::class);
         $service = app(CategoriaIngresoService::class);
         $service->toggleActivo($categoria);
     }

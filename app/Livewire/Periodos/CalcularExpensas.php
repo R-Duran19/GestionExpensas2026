@@ -9,9 +9,12 @@ use App\Services\PeriodoService;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class CalcularExpensas extends Component
 {
+
+    use AuthorizesRequests;
     public $periodoId;
     public $mostrarConfirmacion = false;
     public $modo = 'todas'; // 'todas' o 'individual'
@@ -73,6 +76,7 @@ class CalcularExpensas extends Component
      */
     public function calcularExpensas()
     {
+        $this->authorize('create', \App\Models\Expensa::class);
         try {
             $this->calculando = true;
 
@@ -151,6 +155,7 @@ class CalcularExpensas extends Component
      */
     public function recalcularExpensas()
     {
+        $this->authorize('recalcular', \App\Models\Expensa::class);
         try {
             $this->calculando = true;
 
