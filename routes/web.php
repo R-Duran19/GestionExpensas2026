@@ -21,7 +21,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     if (auth()->check()) {
-        return redirect()->route('dashboard');
+        // [PORTAL] El aterrizaje depende del tipo de usuario
+        return redirect()->route(auth()->user()->esPortal() ? 'portal.dashboard' : 'dashboard');
     }
 
     return redirect()->route('login');
@@ -342,4 +343,24 @@ Route::middleware(['auth', 'admin'])->group(function () {
     // Route::prefix('auditoria')->name('auditoria.')->group(function () {
     //     Route::view('/', 'auditoria.index')->name('index');
     // });
+});
+
+/*
+|--------------------------------------------------------------------------
+| PORTAL DE PROPIETARIOS E INQUILINOS [PORTAL / Fase 1.3+]
+|--------------------------------------------------------------------------
+| Middleware 'portal' (CheckPortal): autenticado + tipo propietario/inquilino
+| + activo + cambio de contraseña forzado si corresponde.
+|
+| ANTI-IDOR: cada componente del portal resuelve sus datos desde
+| auth()->user()->persona, NUNCA desde IDs de la URL.
+|
+| Throttle global 60/min por usuario (Livewire genera muchas requests).
+*/
+Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal', 'throttle:60,1'])->group(function () {
+
+    Route::get('/', \App\Livewire\Portal\PortalDashboard::class)->name('dashboard');
+
+    // Perfil: cambio de contraseña propio + datos en solo-lectura
+    Route::get('/perfil', \App\Livewire\Portal\PortalPerfil::class)->name('perfil');
 });

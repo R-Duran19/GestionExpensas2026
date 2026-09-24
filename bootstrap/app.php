@@ -31,6 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Registrar middleware aliases
         $middleware->alias([
             'admin' => \App\Http\Middleware\CheckAdmin::class,
+            'portal' => \App\Http\Middleware\CheckPortal::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

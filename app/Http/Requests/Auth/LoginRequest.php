@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -22,12 +24,16 @@ class LoginRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
+     * [PORTAL / Fase 1.2] El campo "email" ahora acepta CORREO (admins) o CI
+     * (propietarios/inquilinos del portal). El nombre del campo se mantiene
+     * para no romper la vista ni los tests existentes.
+     *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'email' => ['required', 'string', 'email'],
+            'email' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string'],
         ];
     }
@@ -35,17 +41,52 @@ class LoginRequest extends FormRequest
     /**
      * Attempt to authenticate the request's credentials.
      *
+     * [PORTAL / Fase 1.2] Login dual:
+     * - Si el identificador es un email → attempt clásico (admins).
+     * - Si NO es un email → login por CI vía ci_hash (HMAC, Pii::hash),
+     *   sin guardar/exponer el CI en claro.
+     *
      * @throws \Illuminate\Validation\ValidationException
      */
     public function authenticate(): void
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        $identificador = trim($this->string('email')->value() ?? '');
+        $password = $this->string('password')->value() ?? '';
+
+        $ok = false;
+
+        if (filter_var($identificador, FILTER_VALIDATE_EMAIL)) {
+            // Login clásico por correo (admin)
+            $ok = Auth::attempt(
+                ['email' => $identificador, 'password' => $password],
+                $this->boolean('remember')
+            );
+        } else {
+            // Login por CI (portal): búsqueda por hash + verificación manual
+            $user = User::buscarPorCiHash($identificador);
+
+            if ($user && Hash::check($password, $user->password)) {
+                Auth::login($user, $this->boolean('remember'));
+                $ok = true;
+            }
+        }
+
+        if (!$ok) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
+            ]);
+        }
+
+        // [PORTAL] Baja lógica de accesos: cuenta desactivada no entra.
+        if (!auth()->user()->activo) {
+            Auth::guard('web')->logout();
+
+            throw ValidationException::withMessages([
+                'email' => 'Tu acceso al sistema fue desactivado. Contacta al administrador.',
             ]);
         }
 
