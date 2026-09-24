@@ -25,7 +25,7 @@ class PortalDashboard extends Component
     /**
      * Unidades visibles según regla maestra (ADR 2026-08-11):
      * - Propietario: sus unidades actuales EXCEPTO las con inquilino actual.
-     * - Inquilino: las unidades donde es inquilino actual.
+     * - Inquilino: unidades donde es inquilino actual Y autorizado (RF-48).
      */
     #[Computed]
     public function unidades(): Collection
@@ -36,13 +36,17 @@ class PortalDashboard extends Component
             return collect();
         }
 
-        $query = $persona->unidadesActuales();
-
         if ($this->user->tipo === 'propietario') {
-            $query->doesntHave('inquilinoActual');
+            return $persona->unidadesActuales()
+                ->doesntHave('inquilinoActual')
+                ->orderBy('codigo')
+                ->get();
         }
 
-        return $query->orderBy('codigo')->get();
+        // Inquilino: solo autorizadas (Fase 3.5)
+        return $persona->unidadesAutorizadasPortal()
+            ->orderBy('codigo')
+            ->get();
     }
 
     /**

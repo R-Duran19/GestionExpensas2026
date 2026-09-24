@@ -368,6 +368,9 @@ Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal', 'throttl
     Route::get('/estado-cuenta', \App\Livewire\Portal\PortalEstadoCuenta::class)->name('estado-cuenta');
     Route::get('/pagos', \App\Livewire\Portal\PortalPagos::class)->name('pagos');
 
+    // Mis Inquilinos: autorizaciones RF-48 (solo propietarios)
+    Route::get('/inquilinos', \App\Livewire\Portal\PortalMisInquilinos::class)->name('inquilinos');
+
     /*
     | PDFs propios (HU-44): DomPDF es pesado (100-200MB por render concurrente).
     | Throttle estricto 5/min por usuario para evitar abuso (Plan 12 F5.1).

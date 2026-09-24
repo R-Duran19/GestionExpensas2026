@@ -37,7 +37,7 @@ class PortalEstadoCuenta extends Component
     }
 
     /**
-     * Unidades visibles (regla maestra).
+     * Unidades visibles (regla maestra + autorización para inquilinos).
      */
     #[Computed]
     public function unidades(): Collection
@@ -48,13 +48,16 @@ class PortalEstadoCuenta extends Component
             return collect();
         }
 
-        $query = $persona->unidadesActuales();
-
         if ($this->user->tipo === 'propietario') {
-            $query->doesntHave('inquilinoActual');
+            return $persona->unidadesActuales()
+                ->doesntHave('inquilinoActual')
+                ->orderBy('codigo')
+                ->get();
         }
 
-        return $query->orderBy('codigo')->get();
+        return $persona->unidadesAutorizadasPortal()
+            ->orderBy('codigo')
+            ->get();
     }
 
     public function mount(): void

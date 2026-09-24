@@ -47,6 +47,12 @@
                                    class="px-3 py-2 rounded-md {{ request()->routeIs('portal.pagos') ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
                                     Mis Pagos
                                 </a>
+                                @if (auth()->user()->tipo === 'propietario')
+                                    <a href="{{ route('portal.inquilinos') }}"
+                                       class="px-3 py-2 rounded-md {{ request()->routeIs('portal.inquilinos') ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                                        Mis Inquilinos
+                                    </a>
+                                @endif
                                 <a href="{{ route('portal.perfil') }}"
                                    class="px-3 py-2 rounded-md {{ request()->routeIs('portal.perfil') ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
                                     Mi Perfil

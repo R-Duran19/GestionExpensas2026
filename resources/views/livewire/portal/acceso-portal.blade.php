@@ -100,5 +100,41 @@
                 @endif
             </div>
         @endif
+
+        {{-- [Fase 3.3] Autorizaciones por unidad (solo inquilinos) --}}
+        @if ($this->tipo === 'inquilino' && $this->unidadesInquilino->isNotEmpty())
+            <div class="mt-5 pt-5 border-t border-gray-200">
+                <h3 class="text-sm font-semibold text-gray-700 mb-1">
+                    <i class="fa-solid fa-shield-halved mr-1 text-indigo-400"></i> Acceso a unidades (RF-48)
+                </h3>
+                <p class="text-xs text-gray-400 mb-3">
+                    El propietario autoriza/revoca desde su portal; aquí puedes gestionarlo como fallback.
+                </p>
+
+                <div class="space-y-2">
+                    @foreach ($this->unidadesInquilino as $fila)
+                        <div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2" wire:key="aut-{{ $fila->unidad->id }}">
+                            <span class="text-sm text-gray-700">
+                                <i class="fa-solid fa-door-open mr-1 text-gray-400"></i> {{ $fila->unidad->codigo }}
+                            </span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs px-2 py-0.5 rounded-full
+                                    {{ $fila->autorizado ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600' }}">
+                                    {{ $fila->autorizado ? 'Autorizado' : 'Sin acceso' }}
+                                </span>
+                                <button wire:click="toggleAutorizacion({{ $fila->unidad->id }})"
+                                        wire:loading.attr="disabled"
+                                        class="text-xs px-2 py-1 rounded-md border transition
+                                        {{ $fila->autorizado
+                                            ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                                            : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100' }}">
+                                    {{ $fila->autorizado ? 'Revocar' : 'Autorizar' }}
+                                </button>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
     </div>
 </div>

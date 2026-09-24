@@ -286,7 +286,7 @@ class Unidad extends Model
     {
         return $this->belongsToMany(Inquilino::class, 'inquilino_unidad')
                     ->wherePivot('es_inquilino_actual', true)
-                    ->withPivot('fecha_inicio', 'fecha_fin', 'monto_alquiler', 'observaciones');
+                    ->withPivot('fecha_inicio', 'fecha_fin', 'monto_alquiler', 'observaciones', 'portal_autorizado', 'autorizado_en');
     }
 
     /**
