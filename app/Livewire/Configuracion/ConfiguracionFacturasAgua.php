@@ -5,9 +5,12 @@ namespace App\Livewire\Configuracion;
 use App\Models\FacturaAguaConfig;
 use App\Services\FacturaAguaService;
 use Livewire\Component;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class ConfiguracionFacturasAgua extends Component
 {
+
+    use AuthorizesRequests;
     public $showModal = false;
     public $facturaId = null;
     public $facturaTipo = '';
@@ -56,6 +59,7 @@ class ConfiguracionFacturasAgua extends Component
 
     public function actualizarNumeroFactura()
     {
+        $this->authorize('update', \App\Models\FacturaAguaConfig::class);
         $this->validate([
             'nuevoNumero' => 'required|string|min:1',
             'motivo' => 'required|string|min:3',

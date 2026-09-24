@@ -6,9 +6,12 @@ use App\Models\Unidad;
 use App\Services\MedidorGrupoService;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class MedidorGrupoForm extends Component
 {
+
+    use AuthorizesRequests;
     public $grupoId = null;
     public $nombre = '';
     public $tipo_distribucion = 'equitativa';
@@ -80,6 +83,7 @@ class MedidorGrupoForm extends Component
 
     public function guardar()
     {
+        $this->authorize('create', \App\Models\MedidorGrupo::class);
         $this->validate([
             'nombre' => 'required|string|min:3|max:100',
             'tipo_distribucion' => 'required|in:equitativa',

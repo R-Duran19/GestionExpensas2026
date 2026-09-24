@@ -9,9 +9,12 @@ use Livewire\WithPagination;
 use Livewire\Attributes\On;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class EgresoList extends Component
 {
+
+    use AuthorizesRequests;
     use WithPagination;
 
     public $buscar = '';
@@ -56,6 +59,7 @@ class EgresoList extends Component
 
     public function eliminar()
     {
+        $this->authorize('delete', \App\Models\Egreso::class);
         if (!$this->egresoAEliminar) {
             return;
         }

@@ -6,9 +6,12 @@ use App\Models\Propietario;
 use App\Models\Unidad;
 use App\Services\UnidadService;
 use Livewire\Component;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class AsignarPropietario extends Component
 {
+
+    use AuthorizesRequests;
     // Formulario
     public $propietario_id = '';
     public $unidades_seleccionadas = []; // Array de IDs para selección múltiple
@@ -163,6 +166,7 @@ class AsignarPropietario extends Component
      */
     public function asignar()
     {
+        $this->authorize('update', \App\Models\Unidad::class);
         $this->validate([
             'propietario_id' => 'required|exists:propietarios,id',
             'unidades_seleccionadas' => 'required|array|min:1',

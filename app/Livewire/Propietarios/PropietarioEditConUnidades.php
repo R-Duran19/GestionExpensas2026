@@ -7,9 +7,12 @@ use App\Models\Unidad;
 use App\Services\UnidadService;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class PropietarioEditConUnidades extends Component
 {
+
+    use AuthorizesRequests;
     #[Locked]
     public $propietario_id;
 
@@ -121,6 +124,7 @@ class PropietarioEditConUnidades extends Component
 
     public function actualizarPropietario()
     {
+        $this->authorize('update', \App\Models\Propietario::class);
         $this->validate();
 
         try {

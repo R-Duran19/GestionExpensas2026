@@ -7,9 +7,12 @@ use App\Services\CategoriaEgresoService;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\On;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class CategoriaEgresoList extends Component
 {
+
+    use AuthorizesRequests;
     use WithPagination;
 
     public $buscar = '';
@@ -51,6 +54,7 @@ class CategoriaEgresoList extends Component
 
     public function crear()
     {
+        $this->authorize('create', \App\Models\CategoriaEgreso::class);
         $this->validate();
 
         try {
@@ -92,6 +96,7 @@ class CategoriaEgresoList extends Component
 
     public function actualizar()
     {
+        $this->authorize('update', \App\Models\CategoriaEgreso::class);
         $this->validate([
             'nombre' => 'required|string|max:100|unique:categorias_egresos,nombre,' . $this->categoriaSeleccionada->id,
             'descripcion' => 'nullable|string',
@@ -151,6 +156,7 @@ class CategoriaEgresoList extends Component
 
     public function toggleActivo(CategoriaEgreso $categoria)
     {
+        $this->authorize('update', \App\Models\CategoriaEgreso::class);
         $service = app(CategoriaEgresoService::class);
         $service->toggleActivo($categoria);
     }

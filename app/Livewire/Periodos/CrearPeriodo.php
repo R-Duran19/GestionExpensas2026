@@ -5,9 +5,12 @@ namespace App\Livewire\Periodos;
 use App\Services\PeriodoService;
 use Livewire\Component;
 use Livewire\Attributes\Validate;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class CrearPeriodo extends Component
 {
+
+    use AuthorizesRequests;
     #[Validate('required|integer|min:1|max:12')]
     public $mes = 1;
 
@@ -47,6 +50,7 @@ class CrearPeriodo extends Component
 
     public function guardar()
     {
+        $this->authorize('create', \App\Models\PeriodoExpensa::class);
         $this->validate();
 
         try {

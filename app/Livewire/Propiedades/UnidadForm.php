@@ -6,9 +6,12 @@ use App\Enums\CategoriaUnidad;
 use App\Enums\TipoUnidad;
 use App\Models\Unidad;
 use Livewire\Component;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class UnidadForm extends Component
 {
+
+    use AuthorizesRequests;
     // Modo: crear o editar
     public $modo = 'crear';
 
@@ -102,6 +105,7 @@ class UnidadForm extends Component
      */
     public function guardar()
     {
+        $this->authorize('create', \App\Models\Unidad::class);
         // Validar
         $this->validate();
 

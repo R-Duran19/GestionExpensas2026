@@ -15,9 +15,12 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\Attributes\Validate;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class IngresoForm extends Component
 {
+
+    use AuthorizesRequests;
     use WithFileUploads;
 
     public $ingreso_id = null;
@@ -904,6 +907,7 @@ class IngresoForm extends Component
 
     public function confirmarGuardado()
     {
+        $this->authorize('create', \App\Models\Ingreso::class);
         // Cerrar modal y proceder con el guardado
         $this->mostrarModalConfirmacion = false;
 
@@ -1047,6 +1051,7 @@ class IngresoForm extends Component
 
     public function crearCategoriaRapida()
     {
+        $this->authorize('create', \App\Models\CategoriaIngreso::class);
         $this->validate([
             'nombre_categoria_nueva' => 'required|string|max:100',
             'color_categoria_nueva' => 'required|string|max:7',

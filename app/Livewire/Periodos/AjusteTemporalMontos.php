@@ -10,6 +10,7 @@ use App\Support\AjusteTemporalFlag;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 /**
  * HERRAMIENTA TEMPORAL: sobreescritura manual de montos por unidad
@@ -22,6 +23,8 @@ use Livewire\WithPagination;
  */
 class AjusteTemporalMontos extends Component
 {
+
+    use AuthorizesRequests;
     use WithPagination;
 
     public $periodoId;
@@ -212,6 +215,7 @@ class AjusteTemporalMontos extends Component
 
     public function guardarFila($expensaId)
     {
+        $this->authorize('ajustar', \App\Models\Expensa::class);
         $editados = $this->ajustes[$expensaId] ?? [];
 
         $nuevaExpensa = $this->normalizarMonto($editados['monto_expensa'] ?? null);
@@ -255,6 +259,7 @@ class AjusteTemporalMontos extends Component
 
     public function guardarTodo()
     {
+        $this->authorize('ajustar', \App\Models\Expensa::class);
         $conCambios = array_filter(
             $this->ajustes,
             fn($a) => ($a['monto_expensa'] ?? '') !== '' || ($a['monto_agua'] ?? '') !== ''

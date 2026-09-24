@@ -5,9 +5,12 @@ namespace App\Livewire\Inquilinos;
 use App\Models\Inquilino;
 use App\Services\InquilinoService;
 use Livewire\Component;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class InquilinoForm extends Component
 {
+
+    use AuthorizesRequests;
     // Modo: crear o editar
     public $modo = 'crear';
 
@@ -97,6 +100,7 @@ class InquilinoForm extends Component
      */
     public function guardar()
     {
+        $this->authorize('create', \App\Models\Inquilino::class);
         // Validar
         $this->validate();
 

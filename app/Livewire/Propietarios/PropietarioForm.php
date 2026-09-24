@@ -5,9 +5,12 @@ namespace App\Livewire\Propietarios;
 use App\Models\Propietario;
 use App\Services\PropietarioService;
 use Livewire\Component;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class PropietarioForm extends Component
 {
+
+    use AuthorizesRequests;
     // Modo: crear o editar
     public $modo = 'crear';
 
@@ -97,6 +100,7 @@ class PropietarioForm extends Component
      */
     public function guardar()
     {
+        $this->authorize('create', \App\Models\Propietario::class);
         // Validar
         $this->validate();
 

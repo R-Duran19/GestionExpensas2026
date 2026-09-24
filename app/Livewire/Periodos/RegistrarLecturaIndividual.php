@@ -7,9 +7,12 @@ use App\Models\Unidad;
 use App\Services\MedidorService;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class RegistrarLecturaIndividual extends Component
 {
+
+    use AuthorizesRequests;
     public $periodoId;
 
     public $unidadId;
@@ -64,6 +67,7 @@ class RegistrarLecturaIndividual extends Component
 
     public function guardar()
     {
+        $this->authorize('create', \App\Models\LecturaMedidor::class);
         $this->validate([
             'unidadId' => 'required|exists:unidades,id',
             'lecturaActual' => 'required|numeric|min:0',

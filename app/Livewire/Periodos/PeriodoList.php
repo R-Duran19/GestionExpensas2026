@@ -7,9 +7,12 @@ use App\Services\PeriodoService;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
 use Livewire\WithPagination;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class PeriodoList extends Component
 {
+
+    use AuthorizesRequests;
     use WithPagination;
 
     public $search = '';
@@ -43,6 +46,7 @@ class PeriodoList extends Component
 
     public function cerrarPeriodo()
     {
+        $this->authorize('cerrar', \App\Models\PeriodoExpensa::class);
         try {
             if (!$this->periodoIdCerrando) {
                 throw new \Exception('No se seleccionó ningún período para cerrar.');
