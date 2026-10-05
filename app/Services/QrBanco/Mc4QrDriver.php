@@ -89,9 +89,28 @@ class Mc4QrDriver implements QrBancoDriver
         }
 
         return [
-            'imagen_qr' => $data['objeto']['imagenQr'] ?? null,
+            'imagen_qr' => self::normalizarImagen($data['objeto']['imagenQr'] ?? null),
             'respuesta' => $data,
         ];
+    }
+
+    /**
+     * [FIX probado contra MC4 real 2026-09-24] El banco devuelve la imagen
+     * como base64 CRUDO (empieza con iVBORw0KGgo...) SIN el prefijo
+     * data:image/png;base64, — sin normalizar, el <img> del navegador no
+     * renderiza nada (imagen rota). Acepta ambos formatos.
+     */
+    public static function normalizarImagen(?string $imagen): ?string
+    {
+        if (empty($imagen)) {
+            return null;
+        }
+
+        if (str_starts_with($imagen, 'data:')) {
+            return $imagen; // ya viene con prefijo (formato documentado)
+        }
+
+        return 'data:image/png;base64,' . $imagen;
     }
 
     public function verificarEstado(string $alias): string
