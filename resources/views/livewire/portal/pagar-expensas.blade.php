@@ -1,6 +1,4 @@
 <div>
-    <h1 class="text-2xl font-bold text-gray-800 mb-6">Pagar Expensas</h1>
-
     {{-- PAGO CONFIRMADO --}}
     @if ($pagoExitoso)
         <div class="bg-white rounded-xl shadow-sm border border-emerald-200 p-8 text-center">
@@ -9,7 +7,7 @@
             </div>
             <h2 class="text-xl font-bold text-emerald-700 mb-2">¡Pago confirmado!</h2>
             <p class="text-gray-600 mb-6">
-                Tu pago fue acreditado correctamente y se aplicó a tus deudas más antiguas.
+                Tu pago fue acreditado correctamente y se aplicó a las expensas que seleccionaste.
                 Si quedó un excedente, se guardó como saldo a tu favor.
             </p>
             <div class="flex flex-col sm:flex-row gap-3 justify-center">
@@ -48,12 +46,12 @@
 
                 <div class="flex flex-col justify-center space-y-3">
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-500">Unidad</span>
-                        <span class="font-semibold text-gray-800">{{ $qr->unidad?->codigo ?? '#' . $qr->unidad_id }}</span>
+                        <span class="text-gray-500">Concepto</span>
+                        <span class="font-semibold text-gray-800">{{ $qr->glosa }}</span>
                     </div>
                     <div class="flex justify-between text-sm">
                         <span class="text-gray-500">Monto a pagar</span>
-                        <span class="text-2xl font-bold text-indigo-700">Bs {{ number_format((float) $qr->monto, 2) }}</span>
+                        <span class="text-2xl font-bold text-indigo-700">Bs {{ number_format((float) $qr->monto, 2, ',', '.') }}</span>
                     </div>
                     <div class="flex justify-between text-sm">
                         <span class="text-gray-500">Vence</span>
@@ -83,122 +81,194 @@
             </div>
         </div>
 
-    {{-- FORMULARIO DE PAGO --}}
+    {{-- FORMULARIO DE SELECCIÓN DE DEUDAS (réplica de Caja → Ingresos) --}}
     @else
         @if ($this->unidades->isEmpty())
             <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center text-gray-500">
                 <i class="fa-solid fa-door-closed text-3xl mb-3 text-gray-300"></i>
                 <p>No tienes unidades con acceso al portal.</p>
             </div>
+        @elseif (empty($deudasPendientes))
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center text-gray-500">
+                <i class="fa-solid fa-champagne-glasses text-3xl mb-3 text-emerald-300"></i>
+                <p>¡No tienes deudas pendientes en ninguna de tus propiedades!</p>
+                <a href="{{ route('portal.estado-cuenta') }}" class="text-sm text-indigo-600 hover:text-indigo-800 mt-2 inline-block">
+                    Ver mi estado de cuenta <i class="fa-solid fa-arrow-right text-xs"></i>
+                </a>
+            </div>
         @else
-            {{-- Selector de unidad --}}
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Unidad a pagar</label>
-                <select wire:model.live="unidadId"
-                        class="w-full sm:w-72 rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                    @foreach ($this->unidades as $u)
-                        <option value="{{ $u->id }}">{{ $u->codigo }} — {{ $u->tipo_unidad->value }}</option>
-                    @endforeach
-                </select>
+            {{-- Encabezado + acciones globales --}}
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                <div>
+                    <h2 class="font-semibold text-gray-700">1. Elige qué pagar</h2>
+                    <p class="text-xs text-gray-400">
+                        Deudas de tus {{ $this->unidades->count() }} propiedad(es), agrupadas por período.
+                        Marca expensa y/o agua y ajusta el monto si quieres pagar parcial.
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <button wire:click="seleccionarTodasDeudas" type="button"
+                            class="px-3 py-1.5 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition">
+                        <i class="fas fa-check-double mr-1"></i> Seleccionar todo
+                    </button>
+                    <button wire:click="deseleccionarTodasDeudas" type="button"
+                            class="px-3 py-1.5 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                        <i class="fas fa-times mr-1"></i> Limpiar
+                    </button>
+                </div>
             </div>
 
-            @if ($this->unidad)
-                {{-- Resumen de deuda --}}
-                <div class="grid grid-cols-2 gap-4 mb-6">
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                        <div class="text-xs text-gray-500 mb-1">Deuda total (FIFO: más antigua primero)</div>
-                        <div class="text-2xl font-bold text-red-600">Bs {{ number_format($this->deudaTotalUnidad(), 2) }}</div>
+            {{-- TABLAS DE DEUDAS POR PERÍODO (mismo patrón visual de Caja) --}}
+            <div class="space-y-4">
+                @foreach($deudasPendientes as $periodoIndex => $periodoData)
+                    @php
+                        $totalPeriodo = collect($periodoData['expensas'])->sum(function($e) {
+                            return floatval($e['monto_expensa'] ?? 0) + floatval($e['monto_agua'] ?? 0);
+                        });
+                        $periodoConSeleccionados = $this->periodoTieneSeleccionados($periodoIndex);
+                    @endphp
+
+                    <div class="border border-gray-200 rounded-lg overflow-hidden @if(!$periodoConSeleccionados) opacity-70 @endif">
+                        {{-- Header del período --}}
+                        <div class="@if($periodoConSeleccionados) bg-indigo-50 @else bg-gray-100 @endif px-4 py-2 border-b border-gray-200 flex justify-between items-center">
+                            <h3 class="font-semibold @if($periodoConSeleccionados) text-indigo-900 @else text-gray-500 @endif">
+                                <i class="fas fa-calendar-alt mr-2"></i>{{ $periodoData['periodo_nombre'] }}
+                            </h3>
+                            <div class="flex items-center gap-3">
+                                <div class="flex items-center gap-1 text-xs">
+                                    <button type="button" wire:click="seleccionarPeriodo({{ $periodoIndex }})"
+                                            class="@if($periodoConSeleccionados) text-indigo-600 @else text-gray-500 @endif font-medium flex items-center gap-1 px-2 py-1 rounded hover:bg-indigo-100 transition">
+                                        <i class="fas fa-check-double"></i> Todas
+                                    </button>
+                                    <span class="text-gray-300">|</span>
+                                    <button type="button" wire:click="deseleccionarPeriodo({{ $periodoIndex }})"
+                                            class="text-gray-400 hover:text-gray-600 font-medium flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 transition">
+                                        <i class="fas fa-times"></i> Ninguna
+                                    </button>
+                                </div>
+                                <span class="text-sm font-medium @if($periodoConSeleccionados) text-indigo-700 @else text-gray-400 @endif">
+                                    Total: {{ number_format($totalPeriodo, 2, ',', '.') }} Bs
+                                </span>
+                            </div>
+                        </div>
+
+                        {{-- Tabla del período --}}
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="bg-gray-50 border-b border-gray-200">
+                                        <th class="px-3 py-2 text-left font-semibold text-gray-700">Propiedad</th>
+                                        <th class="px-3 py-2 text-center font-semibold text-gray-700 w-36">Expensa</th>
+                                        <th class="px-3 py-2 text-center font-semibold text-gray-700 w-36">Agua</th>
+                                        <th class="px-3 py-2 text-right font-semibold text-gray-700 w-28">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    @foreach($periodoData['expensas'] as $expensaIndex => $expensa)
+                                        @php
+                                            $totalFila = floatval($expensa['monto_expensa'] ?? 0) + floatval($expensa['monto_agua'] ?? 0);
+                                        @endphp
+                                        <tr class="hover:bg-gray-50" wire:key="fila-{{ $expensa['expensa_id'] }}">
+                                            {{-- Propiedad --}}
+                                            <td class="px-3 py-2 font-medium text-gray-900">
+                                                {{ $expensa['unidad_codigo'] }}
+                                            </td>
+
+                                            {{-- COLUMNA EXPENSA --}}
+                                            <td class="px-2 py-2 text-center">
+                                                <div class="flex flex-col items-center justify-center">
+                                                    <div class="flex items-center gap-1 mb-1">
+                                                        <input type="checkbox"
+                                                               wire:model.live="deudasPendientes.{{ $periodoIndex }}.expensas.{{ $expensaIndex }}.pagar_expensa"
+                                                               wire:change="actualizarMontoExpensa({{ $periodoIndex }}, {{ $expensaIndex }})"
+                                                               class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                                        @if($expensa['pagar_expensa'])
+                                                            <input type="number" step="0.01" min="0"
+                                                                   wire:model.debounce.300ms="deudasPendientes.{{ $periodoIndex }}.expensas.{{ $expensaIndex }}.monto_expensa"
+                                                                   wire:change="actualizarDesdeInputExpensa({{ $periodoIndex }}, {{ $expensaIndex }})"
+                                                                   class="w-20 text-sm border-gray-300 rounded px-2 py-1 text-center focus:ring-indigo-500 focus:border-indigo-500">
+                                                        @else
+                                                            <span class="text-xs text-gray-400">0.00</span>
+                                                        @endif
+                                                    </div>
+                                                    <span class="text-xs text-gray-500">Deuda: {{ number_format($expensa['deuda_expensa'], 2, ',', '.') }}</span>
+                                                </div>
+                                            </td>
+
+                                            {{-- COLUMNA AGUA --}}
+                                            @if($expensa['tiene_medidor'])
+                                                <td class="px-2 py-2 text-center">
+                                                    <div class="flex flex-col items-center justify-center">
+                                                        <div class="flex items-center gap-1 mb-1">
+                                                            <input type="checkbox"
+                                                                   wire:model.live="deudasPendientes.{{ $periodoIndex }}.expensas.{{ $expensaIndex }}.pagar_agua"
+                                                                   wire:change="actualizarMontoAgua({{ $periodoIndex }}, {{ $expensaIndex }})"
+                                                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                                            @if($expensa['pagar_agua'])
+                                                                <input type="number" step="0.01" min="0"
+                                                                       wire:model.debounce.300ms="deudasPendientes.{{ $periodoIndex }}.expensas.{{ $expensaIndex }}.monto_agua"
+                                                                       wire:change="actualizarDesdeInputAgua({{ $periodoIndex }}, {{ $expensaIndex }})"
+                                                                       class="w-20 text-sm border-gray-300 rounded px-2 py-1 text-center focus:ring-blue-500 focus:border-blue-500">
+                                                            @else
+                                                                <span class="text-xs text-gray-400">0.00</span>
+                                                            @endif
+                                                        </div>
+                                                        <span class="text-xs text-gray-500">Deuda: {{ number_format($expensa['deuda_agua'], 2, ',', '.') }}</span>
+                                                    </div>
+                                                </td>
+                                            @else
+                                                <td class="px-2 py-2 text-center bg-gray-50 text-gray-400">
+                                                    <div class="flex flex-col items-center justify-center">
+                                                        <span class="text-xs">—</span>
+                                                        <span class="text-xs text-gray-300">Sin medidor</span>
+                                                    </div>
+                                                </td>
+                                            @endif
+
+                                            {{-- Total fila --}}
+                                            <td class="px-3 py-2 text-right font-semibold {{ $totalFila > 0 ? 'text-emerald-600' : 'text-gray-400' }}">
+                                                {{ number_format($totalFila, 2, ',', '.') }} Bs
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                        <div class="text-xs text-gray-500 mb-1">Saldo a tu favor (se aplica automáticamente)</div>
-                        <div class="text-2xl font-bold text-emerald-600">Bs {{ number_format($this->saldoFavorUnidad(), 2) }}</div>
-                    </div>
+                @endforeach
+            </div>
+
+            {{-- TOTAL GENERAL (verde, como Caja) --}}
+            <div class="bg-emerald-50 border-2 border-emerald-200 rounded-lg p-4 mt-4">
+                <div class="flex justify-between items-center">
+                    <span class="font-semibold text-emerald-800">Total a Pagar (todas las propiedades):</span>
+                    <span class="text-2xl font-bold text-emerald-600">{{ number_format($totalAPagar, 2, ',', '.') }} Bs</span>
                 </div>
+            </div>
 
-                {{-- Deudas pendientes con checkbox (FIFO) --}}
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-                    <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                        <h2 class="font-semibold text-gray-700 text-sm">1. Elige qué pagar (de más antigua a más reciente)</h2>
-                        <button wire:click="marcarTodo" type="button" class="text-xs text-indigo-600 hover:text-indigo-800">
-                            Marcar todo
-                        </button>
-                    </div>
-
-                    @forelse ($this->pendientes as $exp)
-                        <label class="flex items-center gap-3 px-5 py-3 border-b border-gray-50 hover:bg-gray-50 cursor-pointer" wire:key="pend-{{ $exp->id }}">
-                            <input type="checkbox" wire:model="seleccionadas" value="{{ $exp->id }}"
-                                   class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                            <span class="flex-1 text-sm text-gray-700">
-                                {{ sprintf('%02d/%d', $exp->periodo->mes, $exp->periodo->año) }}
-                                <span class="text-gray-400 text-xs ml-1">
-                                    (Exp. Bs {{ number_format((float) $exp->expensa_pendiente, 2) }}
-                                    @if ($exp->agua_pendiente > 0) · Agua Bs {{ number_format((float) $exp->agua_pendiente, 2) }} @endif)
-                                </span>
-                            </span>
-                            <span class="text-sm font-semibold text-gray-800">
-                                Bs {{ number_format((float) $exp->expensa_pendiente + (float) $exp->agua_pendiente, 2) }}
-                            </span>
-                        </label>
-                    @empty
-                        <div class="px-5 py-8 text-center text-gray-400 text-sm">
-                            <i class="fa-solid fa-champagne-glasses text-2xl mb-2 block text-emerald-300"></i>
-                            ¡No tienes deudas pendientes en esta unidad!
-                        </div>
-                    @endforelse
-
-                    @if ($this->pendientes->isNotEmpty())
-                        <div class="px-5 py-3 bg-gray-50 flex justify-between text-sm">
-                            <span class="text-gray-600">Total seleccionado</span>
-                            <span class="font-bold text-gray-800">Bs {{ number_format($this->totalSeleccion, 2) }}</span>
-                        </div>
-                    @endif
+            {{-- Resumen adicional (como Caja) --}}
+            <div class="mt-3 flex flex-wrap gap-3">
+                <div class="bg-red-50 border-l-4 border-red-400 px-3 py-2 rounded text-sm">
+                    <span class="text-gray-600">Total Deuda:</span>
+                    <span class="font-bold text-red-700 ml-1">{{ number_format($totalDeuda, 2, ',', '.') }} Bs</span>
                 </div>
+                <div class="bg-emerald-50 border-l-4 border-emerald-400 px-3 py-2 rounded text-sm">
+                    <span class="text-gray-600">Saldo a tu favor (se aplica automáticamente):</span>
+                    <span class="font-bold text-emerald-700 ml-1">{{ number_format($this->saldoFavorDisponible(), 2, ',', '.') }} Bs</span>
+                </div>
+            </div>
 
-                {{-- Modo de monto --}}
-                @if ($this->pendientes->isNotEmpty())
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
-                        <h2 class="font-semibold text-gray-700 text-sm mb-3">2. Monto a pagar</h2>
-
-                        <div class="flex flex-col sm:flex-row gap-4">
-                            <label class="flex items-center gap-2 flex-1 cursor-pointer">
-                                <input type="radio" wire:model.live="modo" value="seleccion"
-                                       class="text-indigo-600 focus:ring-indigo-500" />
-                                <span class="text-sm text-gray-700">
-                                    Total de lo seleccionado
-                                    <span class="block text-xs text-gray-400">Bs {{ number_format($this->totalSeleccion, 2) }}</span>
-                                </span>
-                            </label>
-
-                            <label class="flex items-center gap-2 flex-1 cursor-pointer">
-                                <input type="radio" wire:model.live="modo" value="libre"
-                                       class="text-indigo-600 focus:ring-indigo-500" />
-                                <span class="text-sm text-gray-700">
-                                    Otro monto
-                                    <input type="number" wire:model="montoLibre" min="1" step="0.01" inputmode="decimal"
-                                           @disabled($this->modo !== 'libre')
-                                           class="mt-1 w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm disabled:bg-gray-50" />
-                                    @error('montoLibre') <span class="text-xs text-red-600 block">{{ $message }}</span> @enderror
-                                </span>
-                            </label>
-                        </div>
-
-                        <p class="text-xs text-gray-400 mt-3">
-                            <i class="fa-solid fa-circle-info mr-1"></i>
-                            Si pagas menos que la deuda total, se acredita a las deudas más antiguas primero.
-                        </p>
-                    </div>
-
-                    <div class="flex justify-end">
-                        <button wire:click="generarQr"
-                                wire:loading.attr="disabled"
-                                class="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg disabled:opacity-50">
-                            <span wire:loading wire:target="generarQr"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
-                            <i class="fa-solid fa-qrcode" wire:loading.remove wire:target="generarQr"></i>
-                            Generar QR por Bs {{ number_format($this->montoAPagar(), 2) }}
-                        </button>
-                    </div>
-                @endif
-            @endif
+            {{-- Generar QR --}}
+            <div class="mt-6 flex justify-end">
+                <button wire:click="generarQr"
+                        wire:loading.attr="disabled"
+                        @if($totalAPagar <= 0) disabled @endif
+                        class="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition">
+                    <span wire:loading wire:target="generarQr"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                    <i class="fa-solid fa-qrcode" wire:loading.remove wire:target="generarQr"></i>
+                    Generar QR por {{ number_format($totalAPagar, 2, ',', '.') }} Bs
+                </button>
+            </div>
         @endif
     @endif
 </div>

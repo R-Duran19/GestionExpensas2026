@@ -15,36 +15,54 @@ use Livewire\Component;
 /**
  * [PORTAL QR / Fase 4.3 — HU-50/52, RF-49] Pagar expensas con QR.
  *
- * Pago FLEXIBLE estilo Caja (decisión 9 del plan):
- * - Usuario elige unidad → ve deudas pendientes (antigua → reciente).
- * - Dos modos: seleccionar períodos (total sugerido) o monto libre.
- * - UN QR activo por usuario: recargar/re-entrar devuelve el mismo QR.
- * - Polling cada 15s + botón manual "Verificar ahora".
- * - El monto se acredita FIFO con PagoExpensaService; excedente → SaldoAFavor.
+ * [REDESIGN 2026-09-24] Réplica EXACTA del selector de deudas de
+ * Caja → Ingresos (IngresoForm): deudas agrupadas POR PERÍODO de TODAS las
+ * propiedades, checkbox + monto editable por concepto (expensa/agua),
+ * seleccionar/deseleccionar por período, totales en tiempo real.
+ *
+ * El monto del QR es SIEMPRE el total seleccionado (el banco cobra monto
+ * exacto); la acreditación aplica EXACTAMENTE esa distribución (guardada en
+ * `seleccion.distribucion`) con FIFO/excedente→SaldoAFavor de PagoExpensaService.
  */
 #[Title('Pagar Expensas')]
 class PagarExpensas extends Component
 {
-    public ?int $unidadId = null;
+    /** Deudas agrupadas por período: [{periodo_nombre, expensas: [[...]]}] */
+    public array $deudasPendientes = [];
 
-    /** IDs de expensas marcadas (modo sugerido). */
-    public array $seleccionadas = [];
+    /** Totales (caja-style: recalculados con calcularTotales()) */
+    public $totalDeuda = 0;
+    public $totalAPagar = 0;
 
-    /** Modo de monto: 'seleccion' | 'libre'. */
-    public string $modo = 'seleccion';
-
-    /** Monto libre elegido por el usuario. */
-    public $montoLibre = null;
-
-    /** QR activo (id) para UI — el objeto vive en el service. */
+    /** QR activo (id) para UI. */
     #[Locked]
     public ?int $qrActivoId = null;
 
-    /** Mensaje de éxito con el recibo. */
     public bool $pagoExitoso = false;
     public ?int $ingresoId = null;
 
-    protected $listeners = [];
+    public function mount(): void
+    {
+        $this->cargarDeudas();
+
+        // Re-enganchar QR activo (consistencia: recargar no genera otro)
+        $activo = $this->service()->obtenerActivo($this->user);
+
+        if ($activo) {
+            $this->qrActivoId = $activo->id;
+
+            // Si ya fue pagado (pagó desde el celular y volvió), pantalla de éxito
+            if ($activo->estado === PagoQr::ESTADO_PAGADO) {
+                $this->pagoExitoso = true;
+                $this->ingresoId = $activo->ingreso_id;
+            }
+        }
+    }
+
+    protected function service(): PagoQrService
+    {
+        return app(PagoQrService::class);
+    }
 
     #[Computed]
     public function user(): \App\Models\User
@@ -53,7 +71,7 @@ class PagarExpensas extends Component
     }
 
     /**
-     * Unidades pagables del usuario (regla maestra + autorización).
+     * Unidades visibles (regla maestra / autorización) — para el QR y el resumen.
      */
     #[Computed]
     public function unidades(): Collection
@@ -74,198 +92,292 @@ class PagarExpensas extends Component
         return $persona->unidadesAutorizadasPortal()->orderBy('codigo')->get();
     }
 
-    public function mount(): void
-    {
-        $this->unidadId = $this->unidades->first()?->id;
-
-        // Re-enganchar QR activo existente (consistencia: recargar no genera otro)
-        $activo = $this->service()->obtenerActivo($this->user);
-
-        if ($activo) {
-            $this->qrActivoId = $activo->id;
-        }
-
-        // Si el QR activo YA fue pagado (ej. pagó desde el celular y volvió
-        // a entrar), mostrar directamente la pantalla de éxito con el recibo.
-        if ($activo && $activo->estado === PagoQr::ESTADO_PAGADO) {
-            $this->pagoExitoso = true;
-            $this->ingresoId = $activo->ingreso_id;
-        }
-    }
-
-    protected function service(): PagoQrService
-    {
-        return app(PagoQrService::class);
-    }
-
     /**
-     * La unidad seleccionada SOLO si es del usuario (anti-IDOR).
+     * Saldo a favor disponible de TODAS las unidades (como Caja → Ingresos).
      */
     #[Computed]
-    public function unidad(): ?\App\Models\Unidad
+    public function saldoFavorDisponible(): float
     {
-        return $this->unidades->firstWhere('id', $this->unidadId);
-    }
+        $ids = $this->unidades->pluck('id');
 
-    /**
-     * Expensas pendientes de la unidad, de más antigua a más reciente (FIFO).
-     */
-    #[Computed]
-    public function pendientes(): Collection
-    {
-        $unidad = $this->unidad;
-
-        if (!$unidad) {
-            return collect();
-        }
-
-        return Expensa::query()
-            ->where('unidad_id', $unidad->id)
-            ->where(function ($q) {
-                $q->where('expensa_pendiente', '>', 0)
-                  ->orWhere('agua_pendiente', '>', 0);
-            })
-            ->with('periodo')
-            ->join('periodos_expensa as pe', 'pe.id', '=', 'expensas.periodo_id')
-            ->orderBy('pe.año')
-            ->orderBy('pe.mes')
-            ->select('expensas.*')
-            ->get();
-    }
-
-    #[Computed]
-    public function deudaTotalUnidad(): float
-    {
-        return round($this->pendientes->sum(fn ($e) => (float) $e->expensa_pendiente + (float) $e->agua_pendiente), 2);
-    }
-
-    #[Computed]
-    public function saldoFavorUnidad(): float
-    {
-        $unidad = $this->unidad;
-
-        if (!$unidad) {
-            return 0.0;
-        }
-
-        return (float) SaldoAFavor::where('unidad_id', $unidad->id)
+        return $ids->isEmpty() ? 0.0 : (float) SaldoAFavor::whereIn('unidad_id', $ids)
             ->where('monto_saldo', '>', 0)
             ->sum('monto_saldo');
     }
 
     /**
-     * Total de la selección actual (checkboxes marcados).
+     * [como cargarDeudasPropietario de Caja] Deudas de TODAS las unidades,
+     * agrupadas por período (más antiguas primero para el orden de la tabla).
      */
-    #[Computed]
-    public function totalSeleccion(): float
+    public function cargarDeudas(): void
     {
-        return round(
-            $this->pendientes
-                ->whereIn('id', $this->seleccionadas)
-                ->sum(fn ($e) => (float) $e->expensa_pendiente + (float) $e->agua_pendiente),
-            2
-        );
+        $unidadIds = $this->unidades->pluck('id');
+        $this->deudasPendientes = [];
+
+        if ($unidadIds->isEmpty()) {
+            $this->calcularTotales();
+            return;
+        }
+
+        $expensas = Expensa::whereIn('unidad_id', $unidadIds)
+            ->where(function ($q) {
+                $q->where('expensa_pendiente', '>', 0)
+                  ->orWhere('agua_pendiente', '>', 0);
+            })
+            ->with(['periodo', 'unidad'])
+            ->join('periodos_expensa as pe', 'pe.id', '=', 'expensas.periodo_id')
+            ->orderBy('pe.año')
+            ->orderBy('pe.mes')
+            ->select('expensas.*')
+            ->get();
+
+        // Agrupar por período (nombre), como Caja
+        $agrupadas = [];
+        foreach ($expensas as $expensa) {
+            $periodoNombre = $expensa->periodo->nombre_periodo;
+            $tieneMedidor = $expensa->unidad->tiene_medidor ?? false;
+
+            $agrupadas[$periodoNombre][] = [
+                'expensa_id'      => $expensa->id,
+                'unidad_id'       => $expensa->unidad_id,
+                'unidad_codigo'   => $expensa->unidad->codigo,
+                'periodo'         => $periodoNombre,
+                'tiene_medidor'   => $tieneMedidor,
+                'deuda_expensa'   => (float) $expensa->expensa_pendiente,
+                'deuda_agua'      => $tieneMedidor ? (float) $expensa->agua_pendiente : 0,
+                'deuda_total'     => (float) $expensa->expensa_pendiente + ($tieneMedidor ? (float) $expensa->agua_pendiente : 0),
+                'pagar_expensa'   => false,
+                'pagar_agua'      => false,
+                'monto_expensa'   => 0,
+                'monto_agua'      => 0,
+            ];
+        }
+
+        foreach ($agrupadas as $periodoNombre => $filas) {
+            $this->deudasPendientes[] = [
+                'periodo_nombre' => $periodoNombre,
+                'expensas' => $filas,
+            ];
+        }
+
+        $this->calcularTotales();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Métodos idénticos a Caja → Ingresos (IngresoForm)
+    |--------------------------------------------------------------------------
+    */
+
+    public function seleccionarTodasDeudas(): void
+    {
+        foreach ($this->deudasPendientes as &$periodoData) {
+            foreach ($periodoData['expensas'] as &$expensa) {
+                $expensa['pagar_expensa'] = $expensa['deuda_expensa'] > 0;
+                $expensa['pagar_agua'] = $expensa['deuda_agua'] > 0;
+                $expensa['monto_expensa'] = $expensa['deuda_expensa'];
+                $expensa['monto_agua'] = $expensa['deuda_agua'];
+            }
+        }
+        $this->calcularTotales();
+    }
+
+    public function deseleccionarTodasDeudas(): void
+    {
+        foreach ($this->deudasPendientes as &$periodoData) {
+            foreach ($periodoData['expensas'] as &$expensa) {
+                $expensa['pagar_expensa'] = false;
+                $expensa['pagar_agua'] = false;
+                $expensa['monto_expensa'] = 0;
+                $expensa['monto_agua'] = 0;
+            }
+        }
+        $this->calcularTotales();
+    }
+
+    public function seleccionarPeriodo($periodoIndex): void
+    {
+        if (!isset($this->deudasPendientes[$periodoIndex])) {
+            return;
+        }
+
+        foreach ($this->deudasPendientes[$periodoIndex]['expensas'] as &$expensa) {
+            $expensa['pagar_expensa'] = $expensa['deuda_expensa'] > 0;
+            $expensa['pagar_agua'] = $expensa['deuda_agua'] > 0;
+            $expensa['monto_expensa'] = $expensa['deuda_expensa'];
+            $expensa['monto_agua'] = $expensa['deuda_agua'];
+        }
+        $this->calcularTotales();
+    }
+
+    public function deseleccionarPeriodo($periodoIndex): void
+    {
+        if (!isset($this->deudasPendientes[$periodoIndex])) {
+            return;
+        }
+
+        foreach ($this->deudasPendientes[$periodoIndex]['expensas'] as &$expensa) {
+            $expensa['pagar_expensa'] = false;
+            $expensa['pagar_agua'] = false;
+            $expensa['monto_expensa'] = 0;
+            $expensa['monto_agua'] = 0;
+        }
+        $this->calcularTotales();
+    }
+
+    public function actualizarMontoExpensa($periodoIndex, $expensaIndex): void
+    {
+        if (!isset($this->deudasPendientes[$periodoIndex]['expensas'][$expensaIndex])) {
+            return;
+        }
+
+        $expensa = &$this->deudasPendientes[$periodoIndex]['expensas'][$expensaIndex];
+
+        if ($expensa['pagar_expensa']) {
+            $monto = floatval($expensa['monto_expensa'] ?? 0);
+            if ($monto == 0) {
+                $expensa['monto_expensa'] = $expensa['deuda_expensa'];
+            }
+        } else {
+            $expensa['monto_expensa'] = 0;
+        }
+
+        $this->calcularTotales();
+    }
+
+    public function actualizarMontoAgua($periodoIndex, $expensaIndex): void
+    {
+        if (!isset($this->deudasPendientes[$periodoIndex]['expensas'][$expensaIndex])) {
+            return;
+        }
+
+        $expensa = &$this->deudasPendientes[$periodoIndex]['expensas'][$expensaIndex];
+
+        if ($expensa['pagar_agua']) {
+            $monto = floatval($expensa['monto_agua'] ?? 0);
+            if ($monto == 0) {
+                $expensa['monto_agua'] = $expensa['deuda_agua'];
+            }
+        } else {
+            $expensa['monto_agua'] = 0;
+        }
+
+        $this->calcularTotales();
+    }
+
+    public function actualizarDesdeInputExpensa($periodoIndex, $expensaIndex): void
+    {
+        if (!isset($this->deudasPendientes[$periodoIndex]['expensas'][$expensaIndex])) {
+            return;
+        }
+
+        $expensa = &$this->deudasPendientes[$periodoIndex]['expensas'][$expensaIndex];
+        $monto = floatval($expensa['monto_expensa'] ?? 0);
+        $expensa['pagar_expensa'] = $monto > 0;
+
+        $this->calcularTotales();
+    }
+
+    public function actualizarDesdeInputAgua($periodoIndex, $expensaIndex): void
+    {
+        if (!isset($this->deudasPendientes[$periodoIndex]['expensas'][$expensaIndex])) {
+            return;
+        }
+
+        $expensa = &$this->deudasPendientes[$periodoIndex]['expensas'][$expensaIndex];
+        $monto = floatval($expensa['monto_agua'] ?? 0);
+        $expensa['pagar_agua'] = $monto > 0;
+
+        $this->calcularTotales();
+    }
+
+    public function updatedDeudasPendientes(): void
+    {
+        $this->calcularTotales();
+    }
+
+    public function periodoTieneSeleccionados($periodoIndex): bool
+    {
+        if (!isset($this->deudasPendientes[$periodoIndex])) {
+            return false;
+        }
+
+        foreach ($this->deudasPendientes[$periodoIndex]['expensas'] as $expensa) {
+            if (($expensa['pagar_expensa'] && floatval($expensa['monto_expensa'] ?? 0) > 0) ||
+                ($expensa['pagar_agua'] && floatval($expensa['monto_agua'] ?? 0) > 0)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
-     * Monto final a pagar según modo.
+     * [como obtenerExpensasAPagar de Caja] Lista de expensas con concepto
+     * y monto exacto para la acreditación.
      */
-    #[Computed]
-    public function montoAPagar(): float
+    protected function obtenerExpensasAPagar(): array
     {
-        if ($this->modo === 'libre') {
-            return round((float) str_replace(',', '.', (string) $this->montoLibre), 2);
+        $expensasAProcesar = [];
+
+        foreach ($this->deudasPendientes as $periodoData) {
+            foreach ($periodoData['expensas'] as $expensa) {
+                $tieneExpensa = $expensa['pagar_expensa'] && floatval($expensa['monto_expensa'] ?? 0) > 0;
+                $tieneAgua = $expensa['pagar_agua'] && floatval($expensa['monto_agua'] ?? 0) > 0;
+
+                if ($tieneExpensa || $tieneAgua) {
+                    if ($tieneExpensa && $tieneAgua) {
+                        $concepto = 'ambos';
+                        $montoTotal = floatval($expensa['monto_expensa']) + floatval($expensa['monto_agua']);
+                    } elseif ($tieneExpensa) {
+                        $concepto = 'expensa';
+                        $montoTotal = floatval($expensa['monto_expensa']);
+                    } else {
+                        $concepto = 'agua';
+                        $montoTotal = floatval($expensa['monto_agua']);
+                    }
+
+                    $expensasAProcesar[] = [
+                        'expensa_id'    => $expensa['expensa_id'],
+                        'unidad_codigo' => $expensa['unidad_codigo'],
+                        'monto_aplicar' => round($montoTotal, 2),
+                        'concepto'      => $concepto,
+                        'monto_expensa' => round(floatval($expensa['monto_expensa'] ?? 0), 2),
+                        'monto_agua'    => round(floatval($expensa['monto_agua'] ?? 0), 2),
+                    ];
+                }
+            }
         }
 
-        return $this->totalSeleccion;
+        return $expensasAProcesar;
     }
-
-    public function updatedUnidadId(): void
-    {
-        $this->seleccionadas = [];
-        $this->montoLibre = null;
-    }
-
-    public function marcarTodo(): void
-    {
-        $this->seleccionadas = $this->pendientes->pluck('id')->all();
-    }
-
-    protected function rules(): array
-    {
-        return [
-            'unidadId' => ['required', 'integer'],
-            'montoLibre' => ['nullable', 'numeric', 'min:1', 'max:100000'],
-        ];
-    }
-
-    protected $validationAttributes = [
-        'montoLibre' => 'monto a pagar',
-    ];
 
     /**
-     * Generar (o devolver) el QR del pago.
+     * [como calcularTotales de Caja]
      */
-    public function generarQr(): void
+    public function calcularTotales(): void
     {
-        $this->validate();
+        $todas = collect($this->deudasPendientes)->pluck('expensas')->flatten(1);
 
-        if (!$this->unidad) {
-            $this->dispatch('toast-error', message: 'Unidad no encontrada');
-            return;
-        }
+        $this->totalDeuda = $todas->sum('deuda_total');
 
-        $monto = $this->montoAPagar();
-
-        if ($monto <= 0) {
-            $this->dispatch('toast-error', message: 'El monto a pagar debe ser mayor a cero');
-            return;
-        }
-
-        // Validación de negocio: monto libre no mayor a deuda total
-        // (pagar de más se convertiría en saldo a favor, pero en el portal
-        // evitamos confusiones — el admin puede registrar excedentes).
-        if ($this->modo === 'libre' && $monto > $this->deudaTotalUnidad()) {
-            $this->addError('montoLibre', 'El monto no puede superar tu deuda total (Bs ' . number_format($this->deudaTotalUnidad(), 2) . ').');
-            return;
-        }
-
-        if ($this->modo === 'seleccion' && empty($this->seleccionadas)) {
-            $this->dispatch('toast-error', message: 'Selecciona al menos una expensa a pagar');
-            return;
-        }
-
-        // Selección informativa + glosa
-        $seleccion = [
-            'unidad_codigo' => $this->unidad->codigo,
-            'expensas' => $this->pendientes
-                ->whereIn('id', $this->seleccionadas)
-                ->map(fn ($e) => [
-                    'expensa_id' => $e->id,
-                    'periodo' => $e->periodo->nombre_periodo ?? null,
-                    'pendiente' => (float) $e->expensa_pendiente + (float) $e->agua_pendiente,
-                ])->values()->all(),
-            'glosa' => 'Expensas unidad ' . $this->unidad->codigo,
-        ];
-
-        try {
-            $qr = $this->service()->crearIntencion(
-                $this->user,
-                $this->unidad->id,
-                $monto,
-                $seleccion
-            );
-
-            $this->qrActivoId = $qr->id;
-            $this->pagoExitoso = false;
-            $this->ingresoId = null;
-
-            $this->dispatch('toast-success', message: 'QR generado. Escanéalo con tu app bancaria.');
-        } catch (\Throwable $e) {
-            report($e);
-            $this->dispatch('toast-error', message: 'No se pudo generar el QR: ' . $e->getMessage());
-        }
+        $this->totalAPagar = round($todas->sum(function ($e) {
+            $total = 0;
+            if ($e['pagar_expensa']) {
+                $total += floatval($e['monto_expensa'] ?? 0);
+            }
+            if ($e['pagar_agua']) {
+                $total += floatval($e['monto_agua'] ?? 0);
+            }
+            return $total;
+        }), 2);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | QR
+    |--------------------------------------------------------------------------
+    */
 
     /**
      * QR activo resuelto (comprobando propiedad).
@@ -283,10 +395,63 @@ class PagarExpensas extends Component
     }
 
     /**
+     * Generar (o devolver) el QR del pago con la selección actual.
+     */
+    public function generarQr(): void
+    {
+        $distribucion = $this->obtenerExpensasAPagar();
+
+        if (empty($distribucion)) {
+            $this->dispatch('toast-error', message: 'Selecciona al menos una expensa o agua a pagar');
+            return;
+        }
+
+        $monto = round(collect($distribucion)->sum('monto_aplicar'), 2);
+
+        if ($monto <= 0) {
+            $this->dispatch('toast-error', message: 'El monto a pagar debe ser mayor a cero');
+            return;
+        }
+
+        $unidades = collect($distribucion)->pluck('unidad_codigo')->unique();
+        $glosa = $unidades->count() > 1
+            ? "Expensas {$unidades->count()} unidades"
+            : "Expensas unidad {$unidades->first()}";
+
+        $seleccion = [
+            'glosa' => $glosa,
+            'unidades' => $unidades->values()->all(),
+            // Distribución EXACTA elegida por el usuario (la acreditación la
+            // aplica tal cual, con caps por si cambió la deuda mientras tanto)
+            'distribucion' => $distribucion,
+        ];
+
+        try {
+            // Unidad de referencia = la del primer ítem de la distribución
+            $primeraUnidadId = Expensa::find($distribucion[0]['expensa_id'])?->unidad_id
+                ?? $this->unidades->first()?->id;
+
+            $qr = $this->service()->crearIntencion(
+                $this->user,
+                (int) $primeraUnidadId,
+                $monto,
+                $seleccion
+            );
+
+            $this->qrActivoId = $qr->id;
+            $this->pagoExitoso = false;
+            $this->ingresoId = null;
+
+            $this->dispatch('toast-success', message: 'QR generado. Escanéalo con tu app bancaria.');
+        } catch (\Throwable $e) {
+            report($e);
+            $this->dispatch('toast-error', message: 'No se pudo generar el QR: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Verificar estado en el banco.
-     *
-     * Polling automático (15s): usa cache de 5s en el service.
-     * Botón manual "Verificar ahora": fuerza consulta real al banco.
+     * Polling (15s) usa cache de 5s; el botón manual fuerza consulta real.
      */
     public function verificar(bool $forzar = false): void
     {
@@ -299,7 +464,6 @@ class PagarExpensas extends Component
         try {
             $resultado = $this->service()->verificarYAcreditar($qr, $forzar);
         } catch (\Throwable $e) {
-            // Banco caído: el fallback mantiene el estado local (como tickets)
             report($e);
             return;
         }

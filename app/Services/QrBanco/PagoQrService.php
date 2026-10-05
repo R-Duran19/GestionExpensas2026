@@ -220,8 +220,16 @@ class PagoQrService
                 return ['pago_qr' => $qr, 'procesado_ahora' => true];
             }
 
-            // Construir distribución FIFO sobre las expensas pendientes
-            $expensasPago = $this->construirDistribucionFifo($qr->unidad_id, $montoQr);
+            // Distribución EXACTA elegida por el usuario en el portal
+            // (caja-style: expensa_id + concepto + montos por concepto). Si no
+            // existe (QRs legacy), fallback a FIFO sobre la unidad.
+            $distribucion = $qr->seleccion['distribucion'] ?? null;
+
+            if (is_array($distribucion) && !empty($distribucion)) {
+                $expensasPago = $this->validarDistribucion($distribucion, $montoQr);
+            } else {
+                $expensasPago = $this->construirDistribucionFifo($qr->unidad_id, $montoQr);
+            }
 
             if (empty($expensasPago)) {
                 // No había deuda: TODO va a saldo a favor vía una expensa dummy
@@ -271,6 +279,62 @@ class PagoQrService
 
             return ['pago_qr' => $qr->fresh(), 'procesado_ahora' => true];
         });
+    }
+
+    /**
+     * Validar la distribución exacta elegida en el portal (caja-style).
+     *
+     * Por si la deuda cambió desde que se generó el QR (admin registró un
+     * pago mientras tanto), cada monto se CAPA al pendiente actual: la
+     * diferencia cae a SaldoAFavor vía PagoExpensaService (mismo
+     * comportamiento que un excedente en caja).
+     *
+     * @param  array  $distribucion  [{expensa_id, concepto, monto_aplicar, monto_expensa, monto_agua}]
+     * @return array lista lista para PagoExpensaService::procesarRecibo
+     */
+    protected function validarDistribucion(array $distribucion, float $montoQr): array
+    {
+        $expensasPago = [];
+        $totalDistribucion = 0.0;
+
+        foreach ($distribucion as $fila) {
+            $expensa = Expensa::lockForUpdate()->find($fila['expensa_id'] ?? null);
+
+            if (!$expensa) {
+                continue; // la expensa ya no existe (raro): se omite
+            }
+
+            $concepto = in_array($fila['concepto'] ?? '', ['ambos', 'expensa', 'agua'], true)
+                ? $fila['concepto'] : 'ambos';
+
+            $montoAplicar = min(
+                (float) ($fila['monto_aplicar'] ?? 0),
+                (float) $expensa->expensa_pendiente + (float) $expensa->agua_pendiente
+            );
+
+            if ($montoAplicar <= 0) {
+                continue; // ya está pagada
+            }
+
+            $expensasPago[] = [
+                'expensa_id'    => $expensa->id,
+                'monto_aplicar' => round($montoAplicar, 2),
+                'concepto'      => $concepto,
+                'monto_expensa' => round((float) ($fila['monto_expensa'] ?? 0), 2),
+                'monto_agua'    => round((float) ($fila['monto_agua'] ?? 0), 2),
+            ];
+
+            $totalDistribucion += $montoAplicar;
+        }
+
+        // Si la deuda bajó y la distribución quedó menor al monto del QR, el
+        // excedente se agrega a la primera fila => SaldoAFavor automático.
+        $diferencia = round($montoQr - $totalDistribucion, 2);
+        if ($diferencia > 0.01 && !empty($expensasPago)) {
+            $expensasPago[0]['monto_aplicar'] = round($expensasPago[0]['monto_aplicar'] + $diferencia, 2);
+        }
+
+        return $expensasPago;
     }
 
     /**

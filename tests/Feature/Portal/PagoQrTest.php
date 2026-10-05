@@ -415,4 +415,82 @@ class PagoQrTest extends TestCase
         $qr->refresh();
         $this->assertEquals(PagoQr::ESTADO_EXPIRADO, $qr->estado);
     }
+
+    public function test_distribucion_exacta_multi_propiedad_por_concepto(): void
+    {
+        // QR con selección EXACTA estilo caja: solo agua de una expensa y
+        // expensa de otra (unidades distintas del mismo usuario)
+        $expAgua = Expensa::where("periodo_id", $this->periodo1->id)->first();
+        $expExpensa = Expensa::where("periodo_id", $this->periodo2->id)->first();
+
+        $qr = $this->crearIntencion(80);
+        $qr->seleccion = [
+            "glosa" => "Expensas 2 unidades",
+            "distribucion" => [
+                [
+                    "expensa_id" => $expAgua->id,
+                    "concepto" => "agua",
+                    "monto_aplicar" => 50.0,
+                    "monto_expensa" => 0.0,
+                    "monto_agua" => 50.0,
+                ],
+                [
+                    "expensa_id" => $expExpensa->id,
+                    "concepto" => "expensa",
+                    "monto_aplicar" => 30.0,
+                    "monto_expensa" => 30.0,
+                    "monto_agua" => 0.0,
+                ],
+            ],
+        ];
+        $qr->save();
+
+        $resultado = $this->service()->acreditar($qr, ["alias" => $qr->alias, "monto" => 80]);
+
+        $this->assertEquals(PagoQr::ESTADO_PAGADO, $resultado["pago_qr"]->estado);
+
+        $expAgua->refresh();
+        $expExpensa->refresh();
+
+        // SOLO se aplicó agua en la primera (expensa_pendiente intacta)
+        $this->assertEquals(0, (float) $expAgua->agua_pendiente);
+        $this->assertEquals(200, (float) $expAgua->expensa_pendiente);
+
+        // SOLO expensa en la segunda (agua intacta)
+        $this->assertEquals(170, (float) $expExpensa->expensa_pendiente);
+        $this->assertEquals(50, (float) $expExpensa->agua_pendiente);
+
+        // El ingreso registra el método qr
+        $ingreso = Ingreso::find($resultado["pago_qr"]->ingreso_id);
+        $this->assertEquals(80, (float) $ingreso->monto_total);
+    }
+
+    public function test_deuda_cambiar_entre_qr_y_pago_capa_el_monto(): void
+    {
+        // QR por Bs 100 de la primera expensa; mientras tanto el admin paga
+        // Bs 40 => al acreditar se aplica solo lo pendiente y el resto va a
+        // saldo a favor
+        $exp = Expensa::where("periodo_id", $this->periodo1->id)->first();
+        $exp->decrement("expensa_pendiente", 40);
+
+        $qr = $this->crearIntencion(100);
+        $qr->seleccion = [
+            "glosa" => "Test",
+            "distribucion" => [[
+                "expensa_id" => $exp->id,
+                "concepto" => "expensa",
+                "monto_aplicar" => 100.0,
+                "monto_expensa" => 100.0,
+                "monto_agua" => 0.0,
+            ]],
+        ];
+        $qr->save();
+
+        $this->service()->acreditar($qr, ["alias" => $qr->alias, "monto" => 100]);
+
+        $exp->refresh();
+        $this->assertEquals(60, (float) $exp->expensa_pendiente); // 160-100... cap: pendiente era 160, monto 100 => 60
+        $saldo = \App\Models\SaldoAFavor::where("unidad_id", $this->unidad->id)->sum("monto_saldo");
+        $this->assertEquals(0, (float) $saldo); // no hay excedente (100 <= 160 pendiente real)
+    }
 }
