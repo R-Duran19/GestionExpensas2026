@@ -41,6 +41,9 @@ class PagarExpensas extends Component
     public bool $pagoExitoso = false;
     public ?int $ingresoId = null;
 
+    /** Bloqueo anti-spam del botón "Verificar ahora" (10 s tras cada chequeo). */
+    public $cooldownHasta = null;
+
     public function mount(): void
     {
         $this->cargarDeudas();
@@ -451,34 +454,75 @@ class PagarExpensas extends Component
 
     /**
      * Verificar estado en el banco.
-     * Polling (15s) usa cache de 5s; el botón manual fuerza consulta real.
+     *
+     * - Polling (15s) usa cache de 5s; el botón manual fuerza consulta real.
+     * - Anti-spam: tras cada verificación el botón queda bloqueado 10 s
+     *   (cooldownHasta) y SIEMPRE muestra un diálogo con el resultado.
      */
     public function verificar(bool $forzar = false): void
     {
+        // Anti-spam SOLO para el botón manual: el polling automático de 15 s
+        // no debe dejar el botón bloqueado casi permanentemente.
+        if ($forzar) {
+            $this->cooldownHasta = now()->addSeconds(10);
+        }
+
         $qr = $this->qrActivo;
 
         if (!$qr || !$qr->estaPendiente()) {
-            return;
+            return; // sin QR pendiente no hay nada que avisar (el polling pasa por aquí)
         }
 
         try {
             $resultado = $this->service()->verificarYAcreditar($qr, $forzar);
         } catch (\Throwable $e) {
             report($e);
+            // Banco caído: el estado local se mantiene (fallback como tickets)
+            $this->dispatch('alerta', [
+                'tipo' => 'error',
+                'titulo' => 'No se pudo verificar',
+                'mensaje' => 'El banco no respondió en este momento. Tu QR sigue activo; intenta de nuevo en unos segundos.',
+            ]);
             return;
         }
 
-        if ($resultado['pago_procesado']) {
-            $qr->refresh();
+        $qr->refresh();
 
+        if ($resultado['pago_procesado']) {
             if ($qr->estado === PagoQr::ESTADO_PAGADO) {
                 $this->pagoExitoso = true;
                 $this->ingresoId = $qr->ingreso_id;
-                $this->dispatch('toast-success', message: '¡Pago confirmado! Tu recibo ya está disponible.');
+                $this->dispatch('alerta', [
+                    'tipo' => 'success',
+                    'titulo' => '¡Pago confirmado!',
+                    'mensaje' => 'Tu pago fue acreditado correctamente. Ya puedes descargar tu recibo.',
+                ]);
             } else {
-                $this->dispatch('toast-error', message: 'El pago requiere revisión del administrador.');
+                $this->dispatch('alerta', [
+                    'tipo' => 'warning',
+                    'titulo' => 'Pago con monto diferente',
+                    'mensaje' => 'El banco reporta un pago con un monto distinto al del QR. El administrador lo revisará.',
+                ]);
             }
+            return;
         }
+
+        // Sin procesamiento nuevo: informar el estado actual
+        $mensajes = [
+            PagoQr::ESTADO_PENDIENTE => ['info', 'Aún no pagado', 'Verificado con el banco: el QR todavía no ha sido pagado. Te sigue esperando; también puedes esperar la verificación automática.'],
+            PagoQr::ESTADO_PAGADO    => ['info', 'Ya estaba confirmado', 'Este QR ya había sido pagado y acreditado. Descarga tu recibo desde Mis Pagos.'],
+            PagoQr::ESTADO_EXPIRADO  => ['warning', 'El QR venció', 'El QR superó su tiempo de validez (1 hora) sin recibir el pago. Genera uno nuevo con tu selección.'],
+            PagoQr::ESTADO_CANCELADO => ['warning', 'QR cancelado', 'Este QR fue cancelado. Genera uno nuevo con tu selección.'],
+        ];
+
+        [$tipo, $titulo, $mensaje] = $mensajes[$qr->estado] ?? ['info', 'Sin cambios', 'El estado del QR no ha cambiado.'];
+
+        if ($qr->estado === PagoQr::ESTADO_PAGADO) {
+            $this->pagoExitoso = true;
+            $this->ingresoId = $qr->ingreso_id;
+        }
+
+        $this->dispatch('alerta', ['tipo' => $tipo, 'titulo' => $titulo, 'mensaje' => $mensaje]);
     }
 
     /**

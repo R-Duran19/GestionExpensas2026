@@ -107,14 +107,41 @@
                     </div>
 
                     <div class="flex gap-2">
-                        <button wire:click="verificar(true)"
-                                wire:loading.attr="disabled"
-                                class="flex-1 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-                            <span wire:loading wire:target="verificar"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i></span>
-                            Verificar ahora
-                        </button>
-                        <button wire:click="cancelarQr"
-                                wire:confirm="¿Cancelar este QR? Si ya realizaste el pago, NO lo canceles: el pago se acreditará igual."
+                        {{-- Verificar ahora: "Verificando..." mientras llama +
+                             cooldown 10 s tras cada chequeo (anti-spam) --}}
+                        <div x-data="{
+                                hasta: {{ $cooldownHasta ? $cooldownHasta->timestamp * 1000 : 0 }},
+                                ahora: Date.now(),
+                                tick() { this.ahora = Date.now(); if (this.hasta > this.ahora) setTimeout(() => this.tick(), 500); }
+                             }"
+                             x-init="tick()" class="flex-1">
+                            <button wire:click="verificar(true)"
+                                    wire:loading.attr="disabled"
+                                    wire:target="verificar"
+                                    :disabled="hasta > ahora"
+                                    class="w-full px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition">
+                                <span wire:loading wire:target="verificar" class="inline-flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Verificando...
+                                </span>
+                                <span wire:loading.remove wire:target="verificar" x-show="hasta > ahora" x-cloak
+                                      x-text="'Espere ' + Math.ceil((hasta - ahora) / 1000) + ' s'"></span>
+                                <span wire:loading.remove wire:target="verificar" x-show="hasta <= ahora">
+                                    <i class="fa-solid fa-rotate mr-1"></i> Verificar ahora
+                                </span>
+                            </button>
+                        </div>
+                        {{-- Cancelar QR con diálogo SweetAlert2 (no alert nativo) --}}
+                        <button x-data
+                                @click="Swal.fire({
+                                    title: '¿Cancelar este QR?',
+                                    html: 'El QR <b>Bs {{ number_format((float) $qr->monto, 2, ',', '.') }}</b> quedará inhabilitado y nadie podrá pagarlo.<br><small class=\\'text-gray-500\\'>Si YA realizaste el pago, no lo canceles: el pago se acreditará igual.</small>',
+                                    icon: 'warning',
+                                    showCancelButton: true,
+                                    confirmButtonText: 'Sí, cancelar QR',
+                                    cancelButtonText: 'No, volver',
+                                    confirmButtonColor: '#dc2626',
+                                    cancelButtonColor: '#6b7280'
+                                }).then(r => { if (r.isConfirmed) $wire.call('cancelarQr'); })"
                                 class="px-4 py-2 bg-gray-100 text-gray-600 text-sm rounded-lg hover:bg-gray-200">
                             Cancelar QR
                         </button>
