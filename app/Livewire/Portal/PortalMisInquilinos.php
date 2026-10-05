@@ -12,11 +12,15 @@ use Livewire\Component;
 /**
  * [PORTAL / Fase 3.2 — HU-46/47, RF-48] "Mis Inquilinos" del propietario.
  *
- * El propietario autoriza/revoca el acceso al portal de los inquilinos de
- * SUS unidades. La revocación quita la visibilidad en el siguiente request.
+ * Agrupado POR INQUILINO: se lista cada inquilino con TODAS las propiedades
+ * que le fueron asignadas y UN SOLO botón para autorizar/revocar el acceso a
+ * todas a la vez (decisión del admin 2026-09-24).
  *
- * ANTI-IDOR: toggleAutorizacion verifica que la unidad pertenezca al
- * propietario autenticado antes de modificar.
+ * [FIX 2026-09-24] El listado anterior llamaba ->first() sobre el ACCESOR
+ * getInquilinoActualAttribute (que devuelve un MODELO, no una colección):
+ * Model->first() ejecuta Inquilino::first() y mostraba SIEMPRE el primer
+ * inquilino de la tabla, mezclando datos en pantalla. Ahora se usa la
+ * relación eager-loaded vía getRelation() — nunca el accesor.
  */
 #[Title('Mis Inquilinos')]
 class PortalMisInquilinos extends Component
@@ -28,11 +32,11 @@ class PortalMisInquilinos extends Component
     }
 
     /**
-     * Unidades ALQUILADAS del propietario (las que tienen inquilino actual)
-     * con el inquilino y su estado de autorización.
+     * Inquilinos de las unidades alquiladas del propietario, AGRUPADOS,
+     * con el estado de autorización de cada unidad.
      */
     #[Computed]
-    public function alquiladas(): Collection
+    public function grupos(): Collection
     {
         $persona = $this->user->persona;
 
@@ -40,26 +44,47 @@ class PortalMisInquilinos extends Component
             return collect();
         }
 
-        return $persona->unidadesActuales()
+        // Relación eager-loaded (pivote completo, incluye portal_autorizado)
+        $unidades = $persona->unidadesActuales()
             ->has('inquilinoActual')
             ->with('inquilinoActual')
             ->orderBy('codigo')
-            ->get()
-            ->map(function ($unidad) {
-                $inquilino = $unidad->inquilinoActual->first();
+            ->get();
 
-                return (object) [
-                    'unidad' => $unidad,
+        $grupos = [];
+
+        foreach ($unidades as $unidad) {
+            // getRelation(): usa la RELACIÓN real, no el accesor sombra
+            foreach ($unidad->getRelation('inquilinoActual') as $inquilino) {
+                $grupos[$inquilino->id] ??= [
                     'inquilino' => $inquilino,
-                    'autorizado' => (bool) ($inquilino?->pivot->portal_autorizado ?? false),
+                    'unidades'  => collect(),
                 ];
-            });
+
+                $grupos[$inquilino->id]['unidades']->push((object) [
+                    'unidad'     => $unidad,
+                    'autorizado' => (bool) ($inquilino->pivot->portal_autorizado ?? false),
+                ]);
+            }
+        }
+
+        return collect($grupos)
+            ->map(fn ($g) => (object) [
+                'inquilino'   => $g['inquilino'],
+                'unidades'    => $g['unidades']->sortBy(fn ($f) => $f->unidad->codigo)->values(),
+                // Autorizado = TODAS sus unidades lo están
+                'autorizado'  => $g['unidades']->every(fn ($f) => $f->autorizado),
+                'alguno'      => $g['unidades']->contains(fn ($f) => $f->autorizado),
+            ])
+            ->sortBy(fn ($g) => $g->inquilino->nombre_completo)
+            ->values();
     }
 
     /**
-     * Autorizar o revocar al inquilino de una unidad PROPIA.
+     * Autorizar / revocar al inquilino en TODAS sus unidades asignadas
+     * dentro de las propiedades del propietario autenticado.
      */
-    public function toggleAutorizacion(int $unidadId): void
+    public function toggleAutorizacionGrupo(int $inquilinoId): void
     {
         $user = $this->user;
         $persona = $user->persona;
@@ -68,32 +93,35 @@ class PortalMisInquilinos extends Component
             abort(403);
         }
 
-        // ANTI-IDOR: la unidad debe ser del propietario autenticado
-        $unidad = $persona->unidadesActuales()
-            ->where('unidades.id', $unidadId)
-            ->first();
+        // ANTI-IDOR: unidades del propietario autenticado con ese inquilino
+        $unidadesIds = $persona->unidadesActuales()
+            ->whereHas('inquilinos', function ($q) use ($inquilinoId) {
+                $q->where('inquilinos.id', $inquilinoId)
+                  ->where('inquilino_unidad.es_inquilino_actual', true);
+            })
+            ->pluck('unidades.id');
 
-        if (!$unidad) {
-            $this->dispatch('toast-error', message: 'Unidad no encontrada entre tus propiedades');
+        if ($unidadesIds->isEmpty()) {
+            $this->dispatch('toast-error', message: 'Inquilino no encontrado entre tus propiedades');
             return;
         }
 
-        $inquilino = $unidad->inquilinoActual->first();
+        // Estado destino: si todas autorizadas → revocar; si no → autorizar
+        $pivotes = DB::table('inquilino_unidad')
+            ->where('inquilino_id', $inquilinoId)
+            ->whereIn('unidad_id', $unidadesIds)
+            ->where('es_inquilino_actual', true)
+            ->get();
 
-        if (!$inquilino) {
-            $this->dispatch('toast-error', message: 'La unidad no tiene inquilino actual');
-            return;
-        }
-
-        $nuevoEstado = !$inquilino->pivot->portal_autorizado;
+        $nuevoEstado = ! $pivotes->every(fn ($p) => (bool) $p->portal_autorizado);
 
         DB::table('inquilino_unidad')
-            ->where('inquilino_id', $inquilino->id)
-            ->where('unidad_id', $unidad->id)
+            ->where('inquilino_id', $inquilinoId)
+            ->whereIn('unidad_id', $unidadesIds)
             ->where('es_inquilino_actual', true)
             ->update([
                 'portal_autorizado' => $nuevoEstado,
-                'autorizado_en' => $nuevoEstado ? now() : null,
+                'autorizado_en'     => $nuevoEstado ? now() : null,
             ]);
 
         try {
@@ -101,12 +129,11 @@ class PortalMisInquilinos extends Component
                 'user_id' => $user->id,
                 'action' => $nuevoEstado ? 'portal_inquilino_autorizado' : 'portal_inquilino_revocado',
                 'model_type' => \App\Models\Inquilino::class,
-                'model_id' => $inquilino->id,
+                'model_id' => $inquilinoId,
                 'description' => ($nuevoEstado ? 'Autorización OTORGADA' : 'Autorización REVOCADA')
-                    . " al inquilino #{$inquilino->id} para la unidad {$unidad->codigo}",
+                    . " al inquilino #{$inquilinoId} para {$unidadesIds->count()} unidad(es)",
                 'properties' => [
-                    'unidad_id' => $unidad->id,
-                    'inquilino_id' => $inquilino->id,
+                    'unidades' => $unidadesIds->all(),
                     'portal_autorizado' => $nuevoEstado,
                 ],
             ]);
@@ -114,12 +141,12 @@ class PortalMisInquilinos extends Component
             logger()->error('Error auditando autorización portal', ['error' => $e->getMessage()]);
         }
 
-        // Limpiar computed para refrescar el estado
-        unset($this->alquiladas);
+        // Refrescar el computed
+        unset($this->grupos);
 
         $this->dispatch('toast-success', message: $nuevoEstado
-            ? 'Inquilino autorizado. Ya puede usar el portal.'
-            : 'Autorización revocada. Perderá el acceso a esta unidad.');
+            ? 'Inquilino autorizado en todas sus propiedades. Ya puede usar el portal.'
+            : 'Autorización revocada en todas sus propiedades.');
     }
 
     public function render()
