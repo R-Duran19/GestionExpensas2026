@@ -130,11 +130,13 @@
                                 </span>
                             </button>
                         </div>
-                        {{-- Cancelar QR con diálogo SweetAlert2 (no alert nativo) --}}
+                        {{-- Cancelar QR con diálogo SweetAlert2 (no alert nativo).
+                             OJO: el html del Swal NO lleva comillas internas — un
+                             escape mal formado aquí aborta TODO Alpine/Livewire. --}}
                         <button x-data
                                 @click="Swal.fire({
                                     title: '¿Cancelar este QR?',
-                                    html: 'El QR <b>Bs {{ number_format((float) $qr->monto, 2, ',', '.') }}</b> quedará inhabilitado y nadie podrá pagarlo.<br><small class=\\'text-gray-500\\'>Si YA realizaste el pago, no lo canceles: el pago se acreditará igual.</small>',
+                                    html: 'El QR de <b>Bs {{ number_format((float) $qr->monto, 2, ',', '.') }}</b> quedará inhabilitado y nadie podrá pagarlo.<br><br>Si <b>YA</b> realizaste el pago, no lo canceles: el pago se acreditará igual.',
                                     icon: 'warning',
                                     showCancelButton: true,
                                     confirmButtonText: 'Sí, cancelar QR',

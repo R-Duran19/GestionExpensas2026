@@ -477,12 +477,16 @@ class PagarExpensas extends Component
             $resultado = $this->service()->verificarYAcreditar($qr, $forzar);
         } catch (\Throwable $e) {
             report($e);
-            // Banco caído: el estado local se mantiene (fallback como tickets)
-            $this->dispatch('alerta', [
-                'tipo' => 'error',
-                'titulo' => 'No se pudo verificar',
-                'mensaje' => 'El banco no respondió en este momento. Tu QR sigue activo; intenta de nuevo en unos segundos.',
-            ]);
+            // Banco caído: el estado local se mantiene (fallback como tickets).
+            // El polling falla en silencio (report() ya lo logueó); solo el
+            // click manual muestra el error.
+            if ($forzar) {
+                $this->dispatch('alerta', [
+                    'tipo' => 'error',
+                    'titulo' => 'No se pudo verificar',
+                    'mensaje' => 'El banco no respondió en este momento. Tu QR sigue activo; intenta de nuevo en unos segundos.',
+                ]);
+            }
             return;
         }
 
@@ -507,7 +511,13 @@ class PagarExpensas extends Component
             return;
         }
 
-        // Sin procesamiento nuevo: informar el estado actual
+        // Sin procesamiento nuevo: el aviso es SOLO para el click manual.
+        // El polling de 15 s verifica en silencio (no spamea diálogos) y
+        // acreditará solito cuando el banco registre el pago.
+        if (!$forzar) {
+            return;
+        }
+
         $mensajes = [
             PagoQr::ESTADO_PENDIENTE => ['info', 'Aún no pagado', 'Verificado con el banco: el QR todavía no ha sido pagado. Te sigue esperando; también puedes esperar la verificación automática.'],
             PagoQr::ESTADO_PAGADO    => ['info', 'Ya estaba confirmado', 'Este QR ya había sido pagado y acreditado. Descarga tu recibo desde Mis Pagos.'],

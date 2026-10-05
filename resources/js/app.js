@@ -45,9 +45,9 @@ Livewire.on('alerta', (data) => {
         icon: tipos[tipo] || 'info',
         title: titulo,
         text: mensaje,
-        timer: tipo === 'success' ? 3000 : null,
-        timerProgressBar: tipo === 'success',
-        showConfirmButton: tipo !== 'success',
+        timer: 3000,
+        timerProgressBar: true,
+        showConfirmButton: true,
         confirmButtonColor: '#4F46E5',
         background: '#fff',
         color: '#1f2937'
