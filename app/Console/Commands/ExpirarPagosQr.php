@@ -23,13 +23,17 @@ class ExpirarPagosQr extends Command
 
     public function handle(PagoQrService $service): int
     {
-        // 1. Expirar vencidos locales
-        $expirados = PagoQr::where('estado', PagoQr::ESTADO_PENDIENTE)
+        // 1. Expirar vencidos: inhabilita en el banco + marca estado local
+        $vencidos = PagoQr::where('estado', PagoQr::ESTADO_PENDIENTE)
             ->where('fecha_vencimiento', '<=', now())
-            ->update(['estado' => PagoQr::ESTADO_EXPIRADO]);
+            ->get();
 
-        if ($expirados > 0) {
-            $this->info("{$expirados} QR(s) marcados como expirados");
+        foreach ($vencidos as $qr) {
+            $service->expirar($qr);
+        }
+
+        if ($vencidos->count() > 0) {
+            $this->info($vencidos->count() . " QR(s) inhabilitados y expirados");
         }
 
         // 2. Conciliación activa (opcional): pendientes por vencer en <12h

@@ -61,7 +61,7 @@ return [
         //   php -r "echo bin2hex(random_bytes(32));"
         'webhook_secret' => env('BANCO_QR_WEBHOOK_SECRET', ''),
         // Vencimiento del QR (horas). Validar tope real del banco en pruebas.
-        'vencimiento_horas' => (int) env('BANCO_QR_VENCIMIENTO_HORAS', 24),
+        'vencimiento_horas' => (int) env('BANCO_QR_VENCIMIENTO_HORAS', 1),
     ],
 
 ];

@@ -114,6 +114,21 @@ class PagoQrService
     }
 
     /**
+     * Expirar un QR vencido: lo inhabilita en el banco (para que nadie pueda
+     * pagar algo que ya pasó su ventana) y marca el estado local.
+     */
+    public function expirar(PagoQr $pagoQr): void
+    {
+        if (!$pagoQr->estaPendiente()) {
+            return;
+        }
+
+        $this->driver->inhabilitarQr($pagoQr->alias);
+
+        $pagoQr->update(['estado' => PagoQr::ESTADO_EXPIRADO]);
+    }
+
+    /**
      * Verificar el estado en el banco y acreditar si está PAGADO.
      *
      * Usado por: polling del portal (wire:poll), webhook y conciliación.
@@ -145,9 +160,10 @@ class PagoQrService
             : Cache::remember("qr_estado_{$pagoQr->alias}", now()->addSeconds(5), $consultarBanco);
 
         if (strtoupper($estadoBanco) !== 'PAGADO') {
-            // Conciliación pasiva: si ya venció localmente, marcar expirado
+            // Conciliación pasiva: si ya venció localmente, inhabilitar en el
+            // banco (cierra la ventana de pago) y marcar expirado
             if ($pagoQr->estaVencido()) {
-                $pagoQr->update(['estado' => PagoQr::ESTADO_EXPIRADO]);
+                $this->expirar($pagoQr);
                 return ['estado' => PagoQr::ESTADO_EXPIRADO, 'pago_procesado' => false];
             }
 

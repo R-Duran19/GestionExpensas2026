@@ -87,6 +87,29 @@
                 {{ $slot }}
             </main>
 
+            {{-- [PORTAL QR] Burbuja flotante: solo si el usuario tiene un pago en curso.
+                 Permite volver al QR desde cualquier página sin generar otro. --}}
+            @php
+                $qrFlotante = (auth()->check() && auth()->user()->esPortal())
+                    ? \App\Models\PagoQr::pendientes()->where('user_id', auth()->id())->first()
+                    : null;
+            @endphp
+            @if ($qrFlotante)
+                <a href="{{ route('portal.pagar') }}"
+                   class="fixed bottom-6 right-6 z-40 group"
+                   title="Tienes un pago en curso">
+                    <span class="absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75 animate-ping"></span>
+                    <span class="relative flex h-14 w-14 rounded-full bg-indigo-600 text-white items-center justify-center shadow-xl group-hover:bg-indigo-700 transition">
+                        <i class="fa-solid fa-qrcode text-2xl"></i>
+                        <span class="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-emerald-400 border-2 border-white"></span>
+                    </span>
+                    <span class="absolute right-16 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none shadow-lg">
+                        <strong>Pago en curso:</strong> Bs {{ number_format((float) $qrFlotante->monto, 2, ',', '.') }}
+                        · vence {{ $qrFlotante->fecha_vencimiento->format('H:i') }} — ver QR
+                    </span>
+                </a>
+            @endif
+
             <footer class="text-center text-xs text-gray-400 py-6">
                 Portal de {{ auth()->user()->tipo === 'inquilino' ? 'inquilinos' : 'propietarios' }} · {{ config('app.name') }}
             </footer>

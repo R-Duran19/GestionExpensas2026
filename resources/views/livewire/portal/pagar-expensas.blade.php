@@ -26,24 +26,65 @@
 
     {{-- QR ACTIVO EN CURSO --}}
     @elseif ($qr = $this->qrActivo)
-        <div class="bg-white rounded-xl shadow-sm border border-indigo-200 overflow-hidden" wire:poll.15s="verificar">
-            <div class="bg-indigo-50 px-6 py-3 text-sm text-indigo-700 font-medium">
-                <i class="fa-solid fa-hourglass-half mr-1"></i> Tu pago en curso
-                <span class="float-right text-xs font-normal">Se verifica automáticamente cada 15 s</span>
+        <div x-data="{
+                    ampliar: false,
+                    deadline: {{ $qr->fecha_vencimiento->timestamp * 1000 }},
+                    restante: '',
+                    vencido: false,
+                    tick() {
+                        const d = Math.max(0, this.deadline - Date.now());
+                        const h = Math.floor(d / 3600000);
+                        const m = Math.floor((d % 3600000) / 60000);
+                        const s = Math.floor((d % 60000) / 1000);
+                        this.restante = (h > 0 ? h + ' h ' : '') + String(m).padStart(2, '0') + ' min ' + String(s).padStart(2, '0') + ' s';
+                        this.vencido = d <= 0;
+                        if (!this.vencido) setTimeout(() => this.tick(), 1000);
+                        else this.restante = 'VENCIDO';
+                    },
+                    descargar() {
+                        const a = document.createElement('a');
+                        a.href = '{{ $qr->imagen_qr }}';
+                        a.download = 'QR-pago-{{ $qr->alias }}.png';
+                        a.click();
+                    }
+                }"
+             x-init="tick()"
+             wire:poll.15s="verificar"
+             class="bg-white rounded-xl shadow-sm border border-indigo-200 overflow-hidden">
+
+            {{-- Barra superior con cuenta regresiva --}}
+            <div class="bg-indigo-50 px-5 py-3 text-sm text-indigo-700 font-medium flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                <span><i class="fa-solid fa-hourglass-half mr-1"></i> Tu pago en curso</span>
+                <span class="text-xs font-normal">
+                    <span x-show="!vencido">Se verifica automáticamente cada 15 s · vence en</span>
+                    <strong class="ml-1 font-mono text-base"
+                            :class="vencido ? 'text-red-600' : 'text-indigo-900'"
+                            x-text="restante"></strong>
+                    <span class="text-gray-400">· {{ $qr->fecha_vencimiento->format('d/m H:i') }}</span>
+                </span>
             </div>
 
             <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="text-center">
-                    @if ($qr->imagen_qr)
-                        <img src="{{ $qr->imagen_qr }}" alt="QR de pago" class="mx-auto w-56 h-56 border border-gray-100 rounded-lg" />
-                    @else
-                        <div class="w-56 h-56 mx-auto flex items-center justify-center bg-gray-50 rounded-lg text-gray-400 text-sm">
-                            QR no disponible
-                        </div>
-                    @endif
-                    <p class="text-xs text-gray-400 mt-2">Alias: <span class="font-mono">{{ $qr->alias }}</span></p>
+                {{-- QR (vertical-first: grande arriba en móvil) --}}
+                <div class="flex flex-col items-center" x-data>
+                    <img src="{{ $qr->imagen_qr }}" alt="QR de pago"
+                         class="w-64 h-64 sm:w-72 sm:h-72 bg-white border border-gray-200 rounded-lg object-contain cursor-zoom-in"
+                         @click="ampliar = true" />
+                    <p class="text-xs text-gray-400 mt-2 font-mono">{{ $qr->alias }}</p>
+
+                    <div class="flex gap-2 mt-3">
+                        <button type="button" @click="ampliar = true"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition">
+                            <i class="fa-solid fa-expand"></i> Ampliar
+                        </button>
+                        <button type="button" @click="descargar()"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition">
+                            <i class="fa-solid fa-download"></i> Descargar
+                        </button>
+                    </div>
                 </div>
 
+                {{-- Detalles y acciones --}}
                 <div class="flex flex-col justify-center space-y-3">
                     <div class="flex justify-between text-sm">
                         <span class="text-gray-500">Concepto</span>
@@ -60,8 +101,9 @@
 
                     <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
                         <i class="fa-solid fa-mobile-screen mr-1"></i>
-                        Escanea el QR con tu app bancaria (o guárdalo y págalo desde el celular).
-                        Puedes cerrar esta página: tu QR seguirá activo aquí hasta que lo pagues o venza.
+                        Escanea el QR con tu app bancaria o <strong>descárgalo y págalo desde el celular</strong>.
+                        Puedes cerrar esta página: tu QR seguirá activo (verás una burbuja en el portal) hasta que lo
+                        pagues o venza.
                     </div>
 
                     <div class="flex gap-2">
@@ -77,6 +119,25 @@
                             Cancelar QR
                         </button>
                     </div>
+                </div>
+            </div>
+
+            {{-- Modal de ampliación (pantalla completa) --}}
+            <div x-show="ampliar" x-cloak
+                 class="fixed inset-0 z-50 bg-gray-900/90 flex flex-col items-center justify-center p-4"
+                 @keydown.escape.window="ampliar = false" @click.self="ampliar = false">
+                <img src="{{ $qr->imagen_qr }}" alt="QR ampliado"
+                     class="max-h-[80vh] max-w-[90vw] bg-white p-4 rounded-xl shadow-2xl" />
+                <p class="text-white/80 text-sm mt-3 font-mono">{{ $qr->alias }} · Bs {{ number_format((float) $qr->monto, 2, ',', '.') }}</p>
+                <div class="flex gap-3 mt-4">
+                    <button type="button" @click="descargar()"
+                            class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white text-sm rounded-lg hover:bg-emerald-600">
+                        <i class="fa-solid fa-download"></i> Descargar imagen
+                    </button>
+                    <button type="button" @click="ampliar = false"
+                            class="inline-flex items-center gap-2 px-4 py-2 bg-white/10 text-white text-sm rounded-lg hover:bg-white/20">
+                        <i class="fa-solid fa-xmark"></i> Cerrar
+                    </button>
                 </div>
             </div>
         </div>
