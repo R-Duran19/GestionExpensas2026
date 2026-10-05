@@ -29,6 +29,9 @@ class PagoQrTest extends TestCase
 {
     use RefreshDatabase;
 
+    // [REMEDIACIÓN-0.1] Secreto HMAC para los tests HTTP del webhook
+    private const SECRETO_WEBHOOK = 'secreto-test-hmac-0123456789abcdef';
+
     protected User $user;
     protected Unidad $unidad;
     protected PeriodoExpensa $periodo1;
@@ -37,6 +40,8 @@ class PagoQrTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        config(['services.qr_banco.webhook_secret' => self::SECRETO_WEBHOOK]);
 
         foreach (['admin', 'propietario', 'inquilino'] as $rol) {
             Role::firstOrCreate(['name' => $rol, 'guard_name' => 'web']);
@@ -115,6 +120,24 @@ class PagoQrTest extends TestCase
             $monto,
             ['glosa' => 'Expensas unidad DEP-QR-1']
         );
+    }
+
+    /**
+     * [REMEDIACIÓN-0.1] Firma HMAC del body crudo, igual que haría el banco.
+     * postJson serializa con json_encode, así que firmar el mismo encode
+     * produce un body byte a byte idéntico.
+     */
+    private function postWebhook(array $payload, ?string $secreto = null, ?string $firma = null): \Illuminate\Testing\TestResponse
+    {
+        $secreto = $secreto ?? self::SECRETO_WEBHOOK;
+        $headers = [];
+        if ($firma !== null) {
+            $headers['X-Signature'] = $firma;
+        } elseif ($secreto !== '') {
+            $headers['X-Signature'] = hash_hmac('sha256', json_encode($payload), $secreto);
+        }
+
+        return $this->postJson('/webhook/qr', $payload, $headers);
     }
 
     public function test_crear_intencion_genera_qr_pendiente(): void
@@ -232,6 +255,28 @@ class PagoQrTest extends TestCase
         $this->assertNotNull($resultado['pago_qr']->ingreso_id);
     }
 
+    // [REMEDIACIÓN-1.1] Un QR cancelado es un aborto explícito: NINGÚN canal
+    // puede acreditarlo (antes el polling lo rechazaba pero el webhook sí
+    // acreditaba vía acreditar()).
+    public function test_qr_cancelado_no_se_acredita_ningun_canal(): void
+    {
+        $qr = $this->crearIntencion(250);
+        $qr->update(['estado' => PagoQr::ESTADO_CANCELADO]);
+
+        // Canal webhook (acreditar directo, como WebhookQrController)
+        $r1 = $this->service()->acreditar($qr, ['alias' => $qr->alias, 'monto' => 250]);
+        $this->assertFalse($r1['procesado_ahora']);
+
+        // Canal polling (verificarYAcreditar)
+        $r2 = $this->service()->verificarYAcreditar($qr->fresh());
+        $this->assertFalse($r2['pago_procesado']);
+
+        $qr->refresh();
+        $this->assertEquals(PagoQr::ESTADO_CANCELADO, $qr->estado);
+        $this->assertNull($qr->ingreso_id);
+        $this->assertEquals(0, Ingreso::count());
+    }
+
     public function test_monto_divergente_va_a_revision_admin(): void
     {
         $qr = $this->crearIntencion(250);
@@ -250,7 +295,7 @@ class PagoQrTest extends TestCase
 
         Cache::put("fake_qr_pago_{$qr->alias}", true, 60);
 
-        $response = $this->postJson('/webhook/qr', [
+        $response = $this->postWebhook([
             'alias' => $qr->alias,
             'monto' => 250,
             'numeroOrdenOriginante' => 'ORD-HTTP-1',
@@ -266,13 +311,98 @@ class PagoQrTest extends TestCase
     public function test_webhook_alias_desconocido_responde_exito(): void
     {
         // El banco no debe reintentar infinitamente por alias ajenos
-        $response = $this->postJson('/webhook/qr', [
+        $response = $this->postWebhook([
             'alias' => 'ALIAS-INEXISTENTE-123',
             'monto' => 100,
         ]);
 
         $response->assertOk()
             ->assertJson(['codigo' => '0000']);
+    }
+
+    // ------------------------------------------------------------------
+    // [REMEDIACIÓN-0.1] Autenticación del remitente (HMAC)
+    // ------------------------------------------------------------------
+
+    public function test_webhook_sin_firma_rechazado_401(): void
+    {
+        $qr = $this->crearIntencion(250);
+
+        $response = $this->postJson('/webhook/qr', [
+            'alias' => $qr->alias,
+            'monto' => 250,
+        ]); // sin header X-Signature
+
+        $response->assertStatus(401)->assertJson(['codigo' => '1401']);
+
+        $qr->refresh();
+        $this->assertEquals(PagoQr::ESTADO_PENDIENTE, $qr->estado);
+        $this->assertEquals(0, Ingreso::count());
+    }
+
+    public function test_webhook_con_firma_invalida_rechazado_401(): void
+    {
+        $qr = $this->crearIntencion(250);
+
+        $response = $this->postWebhook(
+            ['alias' => $qr->alias, 'monto' => 250],
+            firma: str_repeat('a', 64), // firma errónea
+        );
+
+        $response->assertStatus(401)->assertJson(['codigo' => '1401']);
+
+        $qr->refresh();
+        $this->assertEquals(PagoQr::ESTADO_PENDIENTE, $qr->estado);
+        $this->assertEquals(0, Ingreso::count());
+    }
+
+    public function test_webhook_firma_con_otro_secreto_rechazada(): void
+    {
+        $qr = $this->crearIntencion(250);
+
+        // Firma válida pero computada con un secreto distinto al configurado
+        $response = $this->postWebhook(
+            ['alias' => $qr->alias, 'monto' => 250],
+            secreto: 'otro-secreto-distinto',
+        );
+
+        $response->assertStatus(401)->assertJson(['codigo' => '1401']);
+
+        $qr->refresh();
+        $this->assertEquals(PagoQr::ESTADO_PENDIENTE, $qr->estado);
+    }
+
+    public function test_webhook_sin_secreto_configurado_no_procesa(): void
+    {
+        config(['services.qr_banco.webhook_secret' => '']);
+
+        $qr = $this->crearIntencion(250);
+
+        $response = $this->postWebhook(
+            ['alias' => $qr->alias, 'monto' => 250],
+            secreto: self::SECRETO_WEBHOOK,
+        );
+
+        $response->assertStatus(500)->assertJson(['codigo' => '1501']);
+
+        $qr->refresh();
+        $this->assertEquals(PagoQr::ESTADO_PENDIENTE, $qr->estado);
+        $this->assertEquals(0, Ingreso::count());
+    }
+
+    public function test_webhook_replay_con_mismo_body_y_firma_idempotente(): void
+    {
+        $qr = $this->crearIntencion(250);
+
+        $payload = ['alias' => $qr->alias, 'monto' => 250, 'numeroOrdenOriginante' => 'ORD-REPLAY'];
+
+        // Primera notificación firmada: acredita
+        $this->postWebhook($payload)->assertOk()->assertJson(['codigo' => '0000']);
+
+        // Reintento idéntico (mismo body, misma firma): 200, sin segundo ingreso
+        $this->postWebhook($payload)->assertOk()->assertJson(['codigo' => '0000']);
+
+        $this->assertEquals(1, Ingreso::where('referencia_bancaria', 'ORD-REPLAY')->count());
     }
 
     public function test_comando_expira_qrs_vencidos(): void

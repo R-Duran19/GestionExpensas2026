@@ -15,30 +15,38 @@ class CajaService
      */
     public function calcularTotalesDia(string $fecha, ?int $userId = null): CajaTotal
     {
-        $totales = CajaTotal::obtenerPorFecha($fecha);
+        // [REMEDIACIÓN-2.5] Transacción + lock de la fila del día: los tres
+        // recomputes (este, IngresoService y PagoExpensaService) hacían
+        // read-sum-save desprotegido y dos escrituras concurrentes para la
+        // misma fecha perdían updates (totales ≠ ledger).
+        return DB::transaction(function () use ($fecha, $userId) {
+            $totales = CajaTotal::obtenerPorFecha($fecha);
 
-        // Calcular totales de ingresos del día
-        $ingresosQuery = Ingreso::porFecha($fecha)->activos();
+            $totales = CajaTotal::lockForUpdate()->findOrFail($totales->id);
 
-        $totales->total_ingresos_efectivo = (clone $ingresosQuery)->porMetodoPago('efectivo')->sum('importe');
-        $totales->total_ingresos_transferencia = (clone $ingresosQuery)->porMetodoPago('transferencia')->sum('importe');
-        $totales->total_ingresos_qr = (clone $ingresosQuery)->porMetodoPago('qr')->sum('importe');
-        $totales->total_ingresos_otro = (clone $ingresosQuery)->porMetodoPago('otro')->sum('importe');
-        $totales->total_ingresos = (clone $ingresosQuery)->sum('importe');
-        $totales->cantidad_ingresos = (clone $ingresosQuery)->count();
+            // Calcular totales de ingresos del día
+            $ingresosQuery = Ingreso::porFecha($fecha)->activos();
 
-        // Calcular totales de egresos del día
-        $egresosDia = Egreso::porFecha($fecha)->activos()->get();
-        $totales->total_egresos = $egresosDia->sum('importe');
-        $totales->cantidad_egresos = $egresosDia->count();
+            $totales->total_ingresos_efectivo = (clone $ingresosQuery)->porMetodoPago('efectivo')->sum('importe');
+            $totales->total_ingresos_transferencia = (clone $ingresosQuery)->porMetodoPago('transferencia')->sum('importe');
+            $totales->total_ingresos_qr = (clone $ingresosQuery)->porMetodoPago('qr')->sum('importe');
+            $totales->total_ingresos_otro = (clone $ingresosQuery)->porMetodoPago('otro')->sum('importe');
+            $totales->total_ingresos = (clone $ingresosQuery)->sum('importe');
+            $totales->cantidad_ingresos = (clone $ingresosQuery)->count();
 
-        // Calcular balance neto
-        $totales->balance_neto = $totales->total_ingresos - $totales->total_egresos;
+            // Calcular totales de egresos del día
+            $egresosDia = Egreso::porFecha($fecha)->activos()->get();
+            $totales->total_egresos = $egresosDia->sum('importe');
+            $totales->cantidad_egresos = $egresosDia->count();
 
-        $totales->actualizado_por = $userId ?? Auth::id() ?? 1;
-        $totales->save();
+            // Calcular balance neto
+            $totales->balance_neto = $totales->total_ingresos - $totales->total_egresos;
 
-        return $totales;
+            $totales->actualizado_por = $userId ?? Auth::id() ?? 1;
+            $totales->save();
+
+            return $totales;
+        });
     }
 
     /**

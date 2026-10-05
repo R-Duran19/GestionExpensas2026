@@ -57,7 +57,10 @@ class LoginRequest extends FormRequest
 
         $ok = false;
 
-        if (filter_var($identificador, FILTER_VALIDATE_EMAIL)) {
+        // [FIX] Si contiene '@' es un correo (FILTER_VALIDATE_EMAIL rechaza
+        // dominios sin TLD como 'admin@local' y los trataría como CI).
+        // Los CI nunca contienen '@'.
+        if (str_contains($identificador, '@')) {
             // Login clásico por correo (admin)
             $ok = Auth::attempt(
                 ['email' => $identificador, 'password' => $password],

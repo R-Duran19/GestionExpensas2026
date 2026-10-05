@@ -92,7 +92,17 @@ class SecuenciaCaja extends Model
     public function incrementar(int $userId): int
     {
         return DB::transaction(function () use ($userId) {
-            $secuencia = $this->lockForUpdate()->first();
+            // [REMEDIACIÓN-2.7] Lock por CLAVE (tipo,año,mes): el `$this
+            // ->lockForUpdate()->first()` original (Model::__call → builder
+            // sin restricciones) bloqueaba e incrementaba la PRIMERA fila de
+            // la tabla, compartiendo un solo contador entre todas las
+            // secuencias y todos los meses.
+            $secuencia = static::query()
+                ->where('tipo', $this->tipo)
+                ->where('ano', $this->ano)
+                ->where('mes', $this->mes)
+                ->lockForUpdate()
+                ->first();
 
             if (!$secuencia) {
                 $secuencia = $this;

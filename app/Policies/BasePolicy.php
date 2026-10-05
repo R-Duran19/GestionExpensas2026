@@ -13,6 +13,16 @@ use App\Models\User;
  *
  * Cuando existan roles más finos, basta con sobreescribir la ability
  * específica en la policy hija.
+ *
+ * [FIX 2026-09-24] El parámetro $model es OPCIONAL en todas las abilities.
+ *
+ * Motivo: Laravel DESCARTA el primer argumento cuando es un string
+ * (Gate::callPolicyMethod hace array_shift si $arguments[0] es string), por
+ * lo que las llamadas del tipo authorize('update', Inquilino::class)
+ * invocan la policy con UN solo argumento y provocaban:
+ *   ArgumentCountError: Too few arguments to BasePolicy::update()
+ * Esto afectaba a TODAS las páginas que autorizan con clase-string
+ * (AsignarInquilino, Categorías de Caja, EgresoList, etc.).
  */
 abstract class BasePolicy
 {
@@ -21,7 +31,7 @@ abstract class BasePolicy
         return $user->hasRole('admin');
     }
 
-    public function view(User $user, $model): bool
+    public function view(User $user, $model = null): bool
     {
         return $user->hasRole('admin');
     }
@@ -31,42 +41,42 @@ abstract class BasePolicy
         return $user->hasRole('admin');
     }
 
-    public function update(User $user, $model): bool
+    public function update(User $user, $model = null): bool
     {
         return $user->hasRole('admin');
     }
 
-    public function delete(User $user, $model): bool
+    public function delete(User $user, $model = null): bool
     {
         return $user->hasRole('admin');
     }
 
-    public function restore(User $user, $model): bool
+    public function restore(User $user, $model = null): bool
     {
         return $user->hasRole('admin');
     }
 
-    public function forceDelete(User $user, $model): bool
+    public function forceDelete(User $user, $model = null): bool
     {
         return $user->hasRole('admin');
     }
 
-    public function recalcular(User $user, $model): bool
+    public function recalcular(User $user, $model = null): bool
     {
         return $user->hasRole('admin');
     }
 
-    public function cerrar(User $user, $model): bool
+    public function cerrar(User $user, $model = null): bool
     {
         return $user->hasRole('admin');
     }
 
-    public function reabrir(User $user, $model): bool
+    public function reabrir(User $user, $model = null): bool
     {
         return $user->hasRole('admin');
     }
 
-    public function ajustar(User $user, $model): bool
+    public function ajustar(User $user, $model = null): bool
     {
         return $user->hasRole('admin');
     }

@@ -182,6 +182,17 @@ class PagoQrService
                 return ['pago_qr' => $qr, 'procesado_ahora' => false];
             }
 
+            // [REMEDIACIÓN-1.1] Política compartida por TODOS los canales:
+            // un QR cancelado por el usuario es un aborto explícito y ningún
+            // canal puede acreditarlo (antes solo el polling lo rechazaba y
+            // el webhook sí lo acreditaba vía esta misma función).
+            // EXPIRADO sigue acreditable a PROPÓSITO (pago tardío: el dinero
+            // entró; test test_pago_tardio_tras_expiracion_se_acredita).
+            if ($qr->estado === PagoQr::ESTADO_CANCELADO) {
+                Log::info('QR cancelado: notificación de pago ignorada', ['alias' => $qr->alias]);
+                return ['pago_qr' => $qr, 'procesado_ahora' => false];
+            }
+
             // Registrar datos del pagador bancario
             $qr->fill([
                 'numero_orden' => $datosBanco['numeroOrdenOriginante'] ?? $qr->numero_orden,
@@ -219,7 +230,9 @@ class PagoQrService
                 $qr->save();
 
                 Log::warning('QR pagado sin deuda pendiente en la unidad', ['alias' => $qr->alias]);
-                return ['pago_qr' => $qr, 'procesado_ahora' => true];
+                // [REMEDIACIÓN-2.9] procesado_ahora=false: NADA se acreditó
+                // (antes devolvía true y el admin registraba un crédito falso).
+                return ['pago_qr' => $qr, 'procesado_ahora' => false];
             }
 
             // Autenticar al pagador durante la acreditación (creado_por,

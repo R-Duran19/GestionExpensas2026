@@ -67,7 +67,17 @@ class PortalPerfil extends Component
         $this->user->forceFill([
             'password' => $this->password,
             'must_change_password' => false,
+            // [REMEDIACIÓN-1.2] Rotar remember: cookies "recordarme" robadas
+            // dejan de funcionar tras un cambio de contraseña.
+            'remember_token' => \Illuminate\Support\Str::random(60),
         ])->saveQuietly();
+
+        // [REMEDIACIÓN-1.2] Revocar las OTRAS sesiones del usuario (la actual
+        // queda viva para no expulsar a quien está cambiando la contraseña).
+        \Illuminate\Support\Facades\DB::table('sessions')
+            ->where('user_id', $this->user->id)
+            ->where('id', '!=', session()->getId())
+            ->delete();
 
         $this->reset(['password_actual', 'password', 'password_confirmation']);
 

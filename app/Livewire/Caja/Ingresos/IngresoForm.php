@@ -908,6 +908,12 @@ class IngresoForm extends Component
     public function confirmarGuardado()
     {
         $this->authorize('create', \App\Models\Ingreso::class);
+
+        // [REMEDIACIÓN-2.6] El write path real no puede depender del paso de
+        // UI: los #[Validate] sólo corren en updates de props (el modal), y
+        // una llamada directa a esta acción saltaba la validación completa.
+        $this->validate();
+
         // Cerrar modal y proceder con el guardado
         $this->mostrarModalConfirmacion = false;
 

@@ -48,19 +48,25 @@ echo "🔐 VARIABLES DE ENTORNO"
 echo "----------------------"
 
 if [ -f ".env" ]; then
-    DB_USER=$(grep DB_USERNAME .env | cut -d '=' -f2)
-    DB_PASS=$(grep DB_PASSWORD .env | cut -d '=' -f2)
+    DB_USER=$(grep '^DB_USERNAME=' .env | cut -d '=' -f2)
+    DB_PASS=$(grep '^DB_PASSWORD=' .env | cut -d '=' -f2)
+    # [REMEDIACIÓN-0.2] Canario de filtración: hash SHA-256 de la contraseña que
+    # quedó expuesta en el historial git. Permite detectar que NO se rotó sin
+    # volver a almacenar el secreto en texto plano en este repositorio.
+    PASSWORD_FILTRADA_HISTORIAL_SHA256="2d9cc37a99899a5f9bdb78834f52e9c75ca8dc375443a38e8a0e9e8ce402d91e"
 
-    if [ "$DB_USER" = "AdminUserExpe2026" ]; then
-        check_pass "DB_USERNAME correcto: $DB_USER"
+    if [ -n "$DB_USER" ]; then
+        check_pass "DB_USERNAME configurado: $DB_USER"
     else
-        check_fail "DB_USERNAME incorrecto: $DB_USER (debe ser AdminUserExpe2026)"
+        check_fail "DB_USERNAME sin configurar en .env"
     fi
 
-    if [ "$DB_PASS" = "AdminExpe8119" ]; then
-        check_pass "DB_PASSWORD correcto"
+    if [ -z "$DB_PASS" ]; then
+        check_fail "DB_PASSWORD sin configurar en .env"
+    elif [ "$(printf '%s' "$DB_PASS" | sha256sum | cut -d ' ' -f1)" = "$PASSWORD_FILTRADA_HISTORIAL_SHA256" ]; then
+        check_fail "DB_PASSWORD usa la contraseña FILTRADA en el historial git. ROTALA ya (ver audit/run-1/REMEDIATION-PLAN.md fase 0.2)"
     else
-        check_warn "DB_PASSWORD: $DB_PASS (debe ser AdminExpe8119)"
+        check_pass "DB_PASSWORD configurada (no coincide con la filtrada históricamente)"
     fi
 else
     check_fail "No se pueden verificar variables - .env no existe"
@@ -158,18 +164,23 @@ echo ""
 echo "🔗 CONEXIÓN A MYSQL"
 echo "-----------------"
 
+# [REMEDIACIÓN-0.2] Credenciales leídas del .env del host (nunca hardcodeadas)
+DB_USER=$(grep '^DB_USERNAME=' .env 2>/dev/null | cut -d '=' -f2)
+DB_PASS=$(grep '^DB_PASSWORD=' .env 2>/dev/null | cut -d '=' -f2)
+DB_ROOT_PASS=$(grep '^DB_ROOT_PASSWORD=' .env 2>/dev/null | cut -d '=' -f2)
+
 if docker compose ps mysql | grep -q "Up"; then
-    if docker compose exec -T mysql mysql -u AdminUserExpe2026 -pAdminExpe8119 -e "SELECT 1" &> /dev/null; then
-        check_pass "Conexión a MySQL exitosa con credenciales AdminUserExpe2026"
+    if [ -n "$DB_USER" ] && docker compose exec -T mysql mysql -u "$DB_USER" -p"$DB_PASS" -e "SELECT 1" &> /dev/null; then
+        check_pass "Conexión a MySQL exitosa con credenciales de .env ($DB_USER)"
     else
-        check_fail "Conexión a MySQL FALLÓ con credenciales AdminUserExpe2026"
+        check_fail "Conexión a MySQL FALLÓ con credenciales de .env"
         echo "   Posible causa: Usuario no configurado correctamente en MySQL"
     fi
 
-    if docker compose exec -T mysql mysql -u root -pAdminExpe8119 -e "SELECT 1" &> /dev/null; then
-        check_pass "Conexión a MySQL exitosa con credenciales root"
+    if [ -n "$DB_ROOT_PASS" ] && docker compose exec -T mysql mysql -u root -p"$DB_ROOT_PASS" -e "SELECT 1" &> /dev/null; then
+        check_pass "Conexión a MySQL exitosa con credenciales root (de .env)"
     else
-        check_fail "Conexión a MySQL FALLÓ con credenciales root"
+        check_fail "Conexión a MySQL FALLÓ con credenciales root (revisa DB_ROOT_PASSWORD en .env)"
     fi
 else
     check_warn "No se puede probar conexión - MySQL no está corriendo"
@@ -202,7 +213,7 @@ if ! docker compose ps app | grep -q "Up"; then
     echo "2. Ejecuta: docker compose up -d"
 fi
 
-if ! docker compose exec -T mysql mysql -u AdminUserExpe2026 -pAdminExpe8119 -e "SELECT 1" &> /dev/null; then
+if [ -n "$DB_USER" ] && ! docker compose exec -T mysql mysql -u "$DB_USER" -p"$DB_PASS" -e "SELECT 1" &> /dev/null; then
     echo "3. Ejecuta: docker compose down -v && docker compose up -d"
     echo "   Esto reiniciará MySQL con la configuración correcta"
 fi

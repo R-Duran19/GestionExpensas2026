@@ -208,7 +208,19 @@ class IngresoService
         }
 
         // Eliminar los saldos a favor generados por este ingreso
-        \App\Models\SaldoAFavor::where('ingreso_id', $ingreso->id)->delete();
+        // [REMEDIACIÓN-2.2] Los saldos YA CONSUMIDOS (aplicados a expensas por
+        // la generación de períodos) no se pueden borrar: su efecto financiero
+        // (deuda reducida) persiste y el recibo que los respalda dejaría de
+        // existir — pérdida silenciosa e irrecuperable del ledger.
+        $haySaldosConsumidos = \App\Models\SaldoAFavor::where('ingreso_id', $ingreso->id)
+            ->whereIn('estado', ['consumido', 'parcialmente_consumido'])
+            ->exists();
+
+        if ($haySaldosConsumidos) {
+            throw new \Exception('Este recibo generó un saldo a favor que ya fue aplicado a expensas. No puede eliminarse sin reversión contable. Consulte al administrador del sistema.');
+        }
+
+        \App\Models\SaldoAFavor::where('ingreso_id', $ingreso->id)->where('estado', 'disponible')->delete();
     }
 
     /**

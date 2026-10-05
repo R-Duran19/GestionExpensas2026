@@ -361,6 +361,9 @@ Route::middleware(['auth', 'admin'])->group(function () {
 |--------------------------------------------------------------------------
 | Endpoint PÚBLICO notificado por el banco al pagarse un QR.
 | - Sin CSRF (excluido en bootstrap/app.php) y sin auth (el banco no tiene sesión).
+| - [REMEDIACIÓN-0.1] Autenticado por HMAC: header X-Signature con
+|   HMAC-SHA256 del body crudo, secreto BANCO_QR_WEBHOOK_SECRET (fail-closed:
+|   sin secreto configurado rechaza todo).
 | - Idempotente (un solo ingreso aunque llegue duplicado).
 | - Rate limit 30/min + formato de respuesta exigido por el banco.
 */

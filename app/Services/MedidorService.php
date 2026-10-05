@@ -257,6 +257,18 @@ class MedidorService
                 throw new \Exception("El período {$lectura->periodo->nombre_periodo} está cerrado. No se pueden editar lecturas.");
             }
 
+            // [REMEDIACIÓN-2.3] No editar lecturas de un período si ya existe
+            // una lectura registrada en un período posterior: el next-period
+            // guarda su lectura_anterior como snapshot y la edición dejaría la
+            // cadena inconsistente (y el prorrateo con base vencida).
+            $hayLecturasPosteriores = LecturaMedidor::where('unidad_id', $lectura->unidad_id)
+                ->where('periodo_id', '>', $lectura->periodo_id)
+                ->exists();
+
+            if ($hayLecturasPosteriores) {
+                throw new \Exception('No se puede editar esta lectura: ya existe una lectura registrada en un período posterior para la unidad.');
+            }
+
             $valorLecturaAnterior = (float) $lectura->lectura_anterior;
             $this->validarLecturaActualMayorAnterior($lecturaActual, $valorLecturaAnterior);
 
@@ -320,6 +332,17 @@ class MedidorService
 
             if ($lecturaGrupo->periodo->estado !== 'abierto') {
                 throw new \Exception("El período {$lecturaGrupo->periodo->nombre_periodo} está cerrado. No se pueden editar lecturas.");
+            }
+
+            // [REMEDIACIÓN-2.3] Mismo guard de cadena que la lectura individual:
+            // si el grupo ya tiene lecturas distribuidas en períodos posteriores,
+            // editar el total dejaría esas distribuciones con base vencida.
+            $hayLecturasPosteriores = LecturaGrupoPeriodo::where('medidor_grupo_id', $lecturaGrupo->medidor_grupo_id)
+                ->where('periodo_id', '>', $lecturaGrupo->periodo_id)
+                ->exists();
+
+            if ($hayLecturasPosteriores) {
+                throw new \Exception('No se puede editar esta lectura: el grupo ya tiene lecturas registradas en períodos posteriores.');
             }
 
             $valorLecturaAnterior = (float) $lecturaGrupo->lectura_anterior;
@@ -499,7 +522,13 @@ class MedidorService
         }
 
         // Buscar la última lectura de la unidad en cualquier período anterior
+        // [REMEDIACIÓN-2.3] whereNotNull(lectura_actual): excluye las filas
+        // DISTRIBUIDAS de medidor compartido (lectura_anterior/actual NULL).
+        // Antes, si la unidad era individual tras salir de un grupo, la fila
+        // huérfana matcheaba y su NULL se convertía en base 0.0 => se cobraba
+        // el volumen absoluto completo del medidor como un solo mes.
         return LecturaMedidor::where('unidad_id', $unidadId)
+            ->whereNotNull('lectura_actual')
             ->whereHas('unidad', fn($q) => $q->where('tipo_medidor', 'individual'))
             ->whereHas('periodo', function ($query) use ($periodoActual) {
                 $query->where(function ($q) use ($periodoActual) {

@@ -27,6 +27,7 @@ class AjusteTemporalMontos extends Component
     use AuthorizesRequests;
     use WithPagination;
 
+    #[Locked]
     public $periodoId;
 
     public $search = '';
@@ -154,7 +155,21 @@ class AjusteTemporalMontos extends Component
      */
     private function aplicarAjuste(int $expensaId, ?float $nuevaExpensa, ?float $nuevaAgua): array
     {
-        $expensa = Expensa::findOrFail($expensaId);
+        $expensa = Expensa::with('periodo')->findOrFail($expensaId);
+        $this->authorize('ajustar', $expensa);
+
+        // [REMEDIACIÓN-2.8] Scope real de la herramienta: la expensa debe
+        // pertenecer al período montado Y estar en período abierto (la
+        // inmutabilidad de períodos cerrados sólo se reversa vía reabrir con
+        // motivo, no por esta vía).
+        if ((int) $expensa->periodo_id !== (int) $this->periodoId) {
+            throw new \Exception('La expensa no pertenece al período de esta herramienta.');
+        }
+
+        if ($expensa->periodo && $expensa->periodo->estado !== 'abierto') {
+            throw new \Exception('La expensa pertenece a un período cerrado. Reabra el período para ajustarla.');
+        }
+
         $unidad = $expensa->unidad;
 
         $valoresAntes = [
@@ -215,7 +230,16 @@ class AjusteTemporalMontos extends Component
 
     public function guardarFila($expensaId)
     {
-        $this->authorize('ajustar', \App\Models\Expensa::class);
+        // [REMEDIACIÓN-2.8] Re-chequear el kill switch en cada acción: el
+        // gate sólo en mount() dejaba operar a tabs ya cargados tras
+        // "ajuste-temporal off" (los updates hidratan sin re-mount).
+        if (!AjusteTemporalFlag::enabled()) {
+            abort(404);
+        }
+
+        // [REMEDIACIÓN-2.8] El authorize con class-string rompía en runtime
+        // (BasePolicy::ajustar exige instancia): se autoriza por instancia
+        // dentro de aplicarAjuste().
         $editados = $this->ajustes[$expensaId] ?? [];
 
         $nuevaExpensa = $this->normalizarMonto($editados['monto_expensa'] ?? null);
@@ -259,7 +283,13 @@ class AjusteTemporalMontos extends Component
 
     public function guardarTodo()
     {
-        $this->authorize('ajustar', \App\Models\Expensa::class);
+        // [REMEDIACIÓN-2.8] Ídem guardarFila
+        if (!AjusteTemporalFlag::enabled()) {
+            abort(404);
+        }
+
+        // [REMEDIACIÓN-2.8] Ídem guardarFila: autorización por instancia en
+        // aplicarAjuste().
         $conCambios = array_filter(
             $this->ajustes,
             fn($a) => ($a['monto_expensa'] ?? '') !== '' || ($a['monto_agua'] ?? '') !== ''

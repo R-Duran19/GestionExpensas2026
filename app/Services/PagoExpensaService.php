@@ -285,7 +285,17 @@ class PagoExpensaService
         $ingreso->detalles()->delete();
 
         // Eliminar los saldos a favor generados por este ingreso
-        SaldoAFavor::where('ingreso_id', $ingreso->id)->delete();
+        // [REMEDIACIÓN-2.2] Ver REMEDIACIÓN-2.2 en IngresoService: los saldos
+        // ya consumidos no se pueden borrar sin reversión contable.
+        $haySaldosConsumidos = SaldoAFavor::where('ingreso_id', $ingreso->id)
+            ->whereIn('estado', ['consumido', 'parcialmente_consumido'])
+            ->exists();
+
+        if ($haySaldosConsumidos) {
+            throw new \Exception('Este recibo generó un saldo a favor que ya fue aplicado a expensas. No puede editarse sin reversión contable. Consulte al administrador del sistema.');
+        }
+
+        SaldoAFavor::where('ingreso_id', $ingreso->id)->where('estado', 'disponible')->delete();
     }
 
     /**

@@ -65,7 +65,8 @@ MAIL_FROM_NAME="${MAIL_FROM_NAME:-Gestión de Expensas}"
 
 VITE_APP_NAME="${VITE_APP_NAME:-Gestión de Expensas}"
 ASSET_URL=${ASSET_URL:-${APP_URL:-https://expensas.acmanalytics.online}}
-TRUSTED_PROXIES=${TRUSTED_PROXIES:-*}
+TRUSTED_PROXIES=${TRUSTED_PROXIES:-127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+BANCO_QR_WEBHOOK_SECRET=${BANCO_QR_WEBHOOK_SECRET:-}
 EOF
     echo "✅ .env generado"
 fi

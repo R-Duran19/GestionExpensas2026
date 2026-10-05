@@ -54,6 +54,12 @@ return [
         'password' => env('BANCO_QR_PASSWORD', ''),
         'timeout' => (int) env('BANCO_QR_TIMEOUT', 30),
         'callback_url' => env('BANCO_QR_CALLBACK_URL', ''),
+        // [REMEDIACIÓN-0.1] Secreto compartido para autenticar las notificaciones
+        // entrantes del banco (webhook). Verificación HMAC-SHA256 sobre el body
+        // crudo, comparada con el header X-Signature. Sin este secreto el
+        // webhook NO procesa nada (fail-closed). Generar con:
+        //   php -r "echo bin2hex(random_bytes(32));"
+        'webhook_secret' => env('BANCO_QR_WEBHOOK_SECRET', ''),
         // Vencimiento del QR (horas). Validar tope real del banco en pruebas.
         'vencimiento_horas' => (int) env('BANCO_QR_VENCIMIENTO_HORAS', 24),
     ],

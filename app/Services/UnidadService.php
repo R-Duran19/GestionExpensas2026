@@ -68,11 +68,17 @@ class UnidadService
         ?string $motivo = null
     ): void {
         DB::transaction(function () use ($unidad, $propietario, $fechaInicio, $motivo) {
+            // [REMEDIACIÓN-2.4] Serializar asignaciones concurrentes sobre la
+            // MISMA unidad: el guard + insert sin lock permitía dos assigns
+            // simultáneos (distinto dueño) pasando ambos el check.
+            $unidad = Unidad::lockForUpdate()->findOrFail($unidad->id);
+
             // 0. Verificar si el propietario YA es el actual de esta unidad
             $asignacionActual = DB::table('propietario_unidad')
                 ->where('unidad_id', $unidad->id)
                 ->where('propietario_id', $propietario->id)
                 ->where('es_propietario_actual', true)
+                ->lockForUpdate()
                 ->first();
 
             if ($asignacionActual) {
@@ -92,6 +98,28 @@ class UnidadService
             if ($existeMismaFecha) {
                 // Si el registro existe pero NO es el actual, reactivarlo
                 if (!$existeMismaFecha->es_propietario_actual) {
+                    // [REMEDIACIÓN-2.4] Cerrar el dueño actual ANTES de
+                    // reactivar: el return anticipado dejaba DOS filas con
+                    // es_propietario_actual=true para la misma unidad.
+                    $asignacionVigente = DB::table('propietario_unidad')
+                        ->where('unidad_id', $unidad->id)
+                        ->where('es_propietario_actual', true)
+                        ->first();
+
+                    $nombrePropietarioAnterior = 'Desconocido';
+                    if ($asignacionVigente) {
+                        $anterior = Propietario::find($asignacionVigente->propietario_id);
+                        $nombrePropietarioAnterior = $anterior ? $anterior->nombre_completo : 'Desconocido';
+
+                        DB::table('propietario_unidad')
+                            ->where('id', $asignacionVigente->id)
+                            ->update([
+                                'es_propietario_actual' => false,
+                                'fecha_fin' => now(),
+                                'updated_at' => now(),
+                            ]);
+                    }
+
                     DB::table('propietario_unidad')
                         ->where('id', $existeMismaFecha->id)
                         ->update([
@@ -112,10 +140,11 @@ class UnidadService
                         'action' => 'propietario.reactivado',
                         'model_type' => Unidad::class,
                         'model_id' => $unidad->id,
-                        'description' => "Propietario {$propietario->nombre_completo} reactivado para unidad {$unidad->codigo}",
+                        'description' => "Propietario {$propietario->nombre_completo} reactivado para unidad {$unidad->codigo}" . ($asignacionVigente ? " (reemplaza a {$nombrePropietarioAnterior})" : ''),
                         'properties' => [
                             'unidad_codigo' => $unidad->codigo,
                             'propietario_nombre' => $propietario->nombre_completo,
+                            'propietario_anterior' => $nombrePropietarioAnterior,
                             'fecha_inicio' => $fechaInicioFormat,
                         ],
                     ]);

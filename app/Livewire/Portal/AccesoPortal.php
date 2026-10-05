@@ -132,7 +132,14 @@ class AccesoPortal extends Component
             'password' => $temporal,
             'must_change_password' => true,
             'activo' => true,
+            // [REMEDIACIÓN-1.2] Rotar remember: cookies "recordarme" viejas
+            // dejan de auto-autenticar tras un reset de credencial.
+            'remember_token' => Str::random(60),
         ])->saveQuietly();
+
+        // [REMEDIACIÓN-1.2] Matar TODAS las sesiones activas del afectado:
+        // la credencial temporal solo sirve si las sesiones previas mueren.
+        DB::table('sessions')->where('user_id', $acceso->id)->delete();
 
         $this->passwordTemporal = $temporal;
 
@@ -153,7 +160,18 @@ class AccesoPortal extends Component
             return;
         }
 
-        $acceso->forceFill(['activo' => !$acceso->activo])->saveQuietly();
+        $nuevoEstado = !$acceso->activo;
+        $datos = ['activo' => $nuevoEstado];
+
+        // [REMEDIACIÓN-1.2] Al desactivar: matar sesiones activas y rotar el
+        // remember_token, para que un navegador ya autenticado (o con cookie
+        // "recordarme") no siga operativo por el canal Livewire.
+        if (!$nuevoEstado) {
+            DB::table('sessions')->where('user_id', $acceso->id)->delete();
+            $datos['remember_token'] = Str::random(60);
+        }
+
+        $acceso->forceFill($datos)->saveQuietly();
 
         $nuevo = $acceso->activo ? 'activado' : 'desactivado';
         $this->auditar('acceso_portal_toggle', "Acceso {$nuevo} para {$this->tipo} #{$this->personaId}");

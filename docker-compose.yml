@@ -54,10 +54,15 @@ services:
       # Vite / Assets / Proxy
       - VITE_APP_NAME=Gestión de Expensas
       - ASSET_URL=${APP_URL:-https://expensas.acmanalytics.online}
-      - TRUSTED_PROXIES=*
+      # [REMEDIACIÓN-1.4] En prod, estrechar en .env a la IP de NPM (p. ej. 172.18.0.5)
+      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+      # Pagos QR (webhook HMAC)
+      - BANCO_QR_WEBHOOK_SECRET=${BANCO_QR_WEBHOOK_SECRET:-}
       # Auto-deploy
       - RUN_MIGRATIONS=${RUN_MIGRATIONS:-true}
-      - RUN_SEEDERS=${RUN_SEEDERS:-true}
+      # [REMEDIACIÓN-0.3] Sembrar solo explícitamente: el seeder crea el admin
+      # por defecto; en producción la DB no debe poblar sola.
+      - RUN_SEEDERS=${RUN_SEEDERS:-false}
     networks:
       - expensas_network
       - proxy_network

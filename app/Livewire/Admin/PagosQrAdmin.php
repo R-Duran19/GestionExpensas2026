@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Models\PagoQr;
 use App\Services\QrBanco\PagoQrService;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -79,9 +80,32 @@ class PagosQrAdmin extends Component
         }
 
         try {
-            // Forzar estado pendiente y acreditar por el monto del QR
-            $qr->update(['estado' => PagoQr::ESTADO_PENDIENTE]);
-            $resultado = $this->service()->acreditar($qr, ['monto' => $qr->monto]);
+            // [REMEDIACIÓN-2.9] Flip + acreditación atómicos y con lock: el
+            // update suelto (:83 original) podía pisar un estado final escrito
+            // concurrentemente y abrir ventana a un segundo ingreso.
+            $resultado = DB::transaction(function () use ($qr) {
+                $qr = PagoQr::lockForUpdate()->findOrFail($qr->id);
+
+                if ($qr->estado !== PagoQr::ESTADO_DIVERGENTE) {
+                    // Alguien más lo procesó mientras tanto
+                    return ['pago_qr' => $qr, 'procesado_ahora' => false];
+                }
+
+                $qr->update(['estado' => PagoQr::ESTADO_PENDIENTE]);
+
+                return $this->service()->acreditar($qr, ['monto' => $qr->monto]);
+            });
+
+            $final = $resultado['pago_qr']->refresh();
+
+            // [REMEDIACIÓN-2.9] Verificar el RESULTADO antes de auditar: la
+            // rama "sin deuda aplicable" de acreditar() vuelve a divergente con
+            // ingreso_id null y ANTES se registraba como "acreditado" (auditoría
+            // falsa) con toast de éxito — y la fila quedaba incerrable.
+            if ($final->estado !== PagoQr::ESTADO_PAGADO || !$final->ingreso_id) {
+                $this->dispatch('toast-error', message: 'Sin deuda pendiente en la unidad: el pago queda en divergente para revisión manual. No se acreditó nada.');
+                return;
+            }
 
             \App\Models\ActivityLog::create([
                 'user_id' => auth()->id(),
@@ -92,7 +116,7 @@ class PagosQrAdmin extends Component
                 'properties' => [
                     'alias' => $qr->alias,
                     'monto' => (float) $qr->monto,
-                    'ingreso_id' => $resultado['pago_qr']->ingreso_id,
+                    'ingreso_id' => $final->ingreso_id,
                 ],
             ]);
 

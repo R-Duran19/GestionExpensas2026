@@ -269,6 +269,21 @@ class MedidorGrupoService
         }
 
         return DB::transaction(function () use ($grupo, $unidad) {
+            // [REMEDIACIÓN-2.3] Bloquear la desasignación si la unidad tiene
+            // lecturas distribuidas (de grupo) en un período ABIERTO: al pasar
+            // a individual, esas filas quedan huérfanas (lectura_actual NULL)
+            // y la siguiente lectura individual toma base 0.0 => se cobra el
+            // volumen absoluto completo del medidor como un solo mes.
+            $hayDistribuidasAbiertas = \App\Models\LecturaMedidor::where('unidad_id', $unidad->id)
+                ->where('medidor_grupo_id', $grupo->id)
+                ->whereNull('lectura_actual')
+                ->whereHas('periodo', fn ($q) => $q->where('estado', 'abierto'))
+                ->exists();
+
+            if ($hayDistribuidasAbiertas) {
+                throw new \Exception("No se puede desasignar {$unidad->nombre_completo}: tiene lecturas compartidas en un período abierto. Cierre el período o elimina esas lecturas primero.");
+            }
+
             // Primero quitar de la tabla pivot
             $grupo->unidades()->detach($unidad->id);
 
