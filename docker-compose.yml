@@ -58,6 +58,18 @@ services:
       - TRUSTED_PROXIES=${TRUSTED_PROXIES:-127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
       # Pagos QR (webhook HMAC)
       - BANCO_QR_WEBHOOK_SECRET=${BANCO_QR_WEBHOOK_SECRET:-}
+      # Pagos QR bancarios (driver MC4) — [DEPLOY 2026-10-15] el contenedor no
+      # lee el .env del host directamente (código baked); estas vars entran por
+      # interpolación de compose, igual que APP_KEY/DB_*.
+      - BANCO_QR_DRIVER=${BANCO_QR_DRIVER:-mc4}
+      - BANCO_QR_API_URL=${BANCO_QR_API_URL:-}
+      - BANCO_QR_API_KEY=${BANCO_QR_API_KEY:-}
+      - BANCO_QR_SERVICE_KEY=${BANCO_QR_SERVICE_KEY:-}
+      - BANCO_QR_USERNAME=${BANCO_QR_USERNAME:-}
+      - BANCO_QR_PASSWORD=${BANCO_QR_PASSWORD:-}
+      - BANCO_QR_CALLBACK_URL=${BANCO_QR_CALLBACK_URL:-}
+      - BANCO_QR_TIMEOUT=${BANCO_QR_TIMEOUT:-30}
+      - BANCO_QR_VENCIMIENTO_HORAS=${BANCO_QR_VENCIMIENTO_HORAS:-1}
       # Auto-deploy
       - RUN_MIGRATIONS=${RUN_MIGRATIONS:-true}
       # [REMEDIACIÓN-0.3] Sembrar solo explícitamente: el seeder crea el admin
