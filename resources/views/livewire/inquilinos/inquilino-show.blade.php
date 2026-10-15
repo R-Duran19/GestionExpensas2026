@@ -75,6 +75,9 @@
                     </div>
                 </div>
             </div>
+
+            {{-- [PORTAL / Fase 1.4 + 3.3] Acceso al portal del inquilino --}}
+            <livewire:portal.acceso-portal :tipo="'inquilino'" :persona-id="$inquilino->id" :key="'acceso-inq-'.$inquilino->id" />
         </div>
 
         {{-- Unidades asignadas --}}

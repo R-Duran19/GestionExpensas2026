@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
         // FASE 1.1: Seguridad y Roles
         $this->call([
             AdminRoleSeeder::class,
+            PortalRolesSeeder::class,
         ]);
 
         // FASE 1.2: Propiedades y Propietarios

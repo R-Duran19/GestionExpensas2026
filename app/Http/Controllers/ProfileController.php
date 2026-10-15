@@ -38,6 +38,22 @@ class ProfileController extends Controller
     }
 
     /**
+     * [Plan 12 Fase 5.5] Cerrar todas las demás sesiones del usuario.
+     * Requiere la contraseña actual (logoutOtherDevices re-hashea).
+     */
+    public function cerrarOtrasSesiones(Request $request): RedirectResponse
+    {
+        $request->validateWithBag('sesiones', [
+            'password' => ['required', 'current_password'],
+        ]);
+
+        Auth::logoutOtherDevices($request->input('password'));
+
+        return Redirect::route('profile.edit')
+            ->with('status', 'sesiones-cerradas');
+    }
+
+    /**
      * Delete the user's account.
      */
     public function destroy(Request $request): RedirectResponse

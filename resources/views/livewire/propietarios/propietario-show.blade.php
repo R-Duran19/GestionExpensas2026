@@ -68,6 +68,9 @@
                     </div>
                 </div>
             </div>
+
+            {{-- [PORTAL / Fase 1.4] Gestión de acceso al portal --}}
+            <livewire:portal.acceso-portal :tipo="'propietario'" :persona-id="$propietario->id" :key="'acceso-prop-'.$propietario->id" />
         </div>
 
         {{-- Unidades asignadas --}}

@@ -193,16 +193,29 @@ class Expensa extends Model
     }
 
     /**
+     * ¿Tiene algún pago aplicado sin cubrir el total? (estado Parcial)
+     */
+    public function tienePagoAplicado(): bool
+    {
+        if ($this->estaPagada()) {
+            return false;
+        }
+
+        return ($this->monto_expensa - $this->expensa_pendiente) > 0
+            || ($this->monto_agua - $this->agua_pendiente) > 0;
+    }
+
+    /**
      * Get estado label (basado en saldos pendientes)
      */
     public function getEstadoLabelAttribute(): string
     {
         if ($this->estaPagada()) {
             return 'Pagado';
-        } elseif ($this->tieneDeuda()) {
-            return 'Pendiente';
-        } else {
+        } elseif ($this->tienePagoAplicado()) {
             return 'Parcial';
+        } else {
+            return 'Pendiente';
         }
     }
 
@@ -213,10 +226,10 @@ class Expensa extends Model
     {
         if ($this->estaPagada()) {
             return 'green';
-        } elseif ($this->tieneDeuda()) {
-            return 'red';
-        } else {
+        } elseif ($this->tienePagoAplicado()) {
             return 'yellow';
+        } else {
+            return 'red';
         }
     }
 

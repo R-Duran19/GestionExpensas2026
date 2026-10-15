@@ -22,10 +22,15 @@ class InquilinoService
         ?string $observaciones = null
     ): void {
         DB::transaction(function () use ($unidad, $inquilino, $fechaInicio, $montoAlquiler, $observaciones) {
+            // [REMEDIACIÓN-2.4] Serializar asignaciones sobre la unidad (guard
+            // sin lock + insert = dos inquilinos actuales por carrera).
+            $unidad = Unidad::lockForUpdate()->findOrFail($unidad->id);
+
             // Verificar que NO hay ya un inquilito actual en esta unidad
             $inquilinoActual = DB::table('inquilino_unidad')
                 ->where('unidad_id', $unidad->id)
                 ->where('es_inquilino_actual', true)
+                ->lockForUpdate()
                 ->first();
 
             if ($inquilinoActual) {

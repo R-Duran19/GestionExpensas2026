@@ -100,6 +100,14 @@ class ExpensaService
     {
         $periodo = PeriodoExpensa::findOrFail($periodoId);
 
+        // [REMEDIACIÓN-2.1] Guard interno de estado: la inmutabilidad del
+        // período cerrado se aplica AQUÍ (fuente única), no en cada caller.
+        // Antes dos callers wire-reachable regeneraban expensas de períodos
+        // cerrados reseteando pendientes y desmarcando la inmutabilidad.
+        if ($periodo->estado !== 'abierto') {
+            throw new \Exception("El período {$periodo->nombre_periodo} está cerrado: no se pueden generar/regenerar sus expensas. Reabra el período primero.");
+        }
+
         // 1. Calcular montos de emisión (no cambian si el periodo está cerrado)
         $montoExpensa = $this->calcularMontoExpensa($unidad);
         $montoAgua = $unidad->tiene_medidor
@@ -131,21 +139,40 @@ class ExpensaService
         $montoTotal = $montoExpensa + $montoAgua;
 
         // 6. Crear o actualizar expensa
-        $expensa = Expensa::updateOrCreate(
-            [
-                'periodo_id' => $periodoId,
-                'unidad_id' => $unidad->id,
-            ],
-            [
+        // [REMEDIACIÓN-2.1] En UPDATE nunca resetear pendientes a la emisión:
+        // se recalculan desde lo efectivamente pagado (ingreso_detalles), tal
+        // como lo hace el ajuste temporal. Antes, regenerar un período con
+        // pagos parciales borraba el estado de pago (doble cobro).
+        $expensa = Expensa::where('periodo_id', $periodoId)
+            ->where('unidad_id', $unidad->id)
+            ->first();
+
+        if ($expensa) {
+            $pagado = \App\Models\IngresoDetalle::where('expensa_id', $expensa->id)
+                ->selectRaw('COALESCE(SUM(monto_expensa_aplicado), 0) AS pagado_expensa, COALESCE(SUM(monto_agua_aplicado), 0) AS pagado_agua')
+                ->first();
+
+            $expensa->update([
                 'monto_expensa' => $montoExpensa,
                 'monto_agua' => $montoAgua,
                 'monto_total' => $montoTotal,
-                // Al crear, todo está pendiente (los saldos pendientes son solo del periodo actual)
+                'expensa_pendiente' => max(0, $montoExpensa - (float) $pagado->pagado_expensa),
+                'agua_pendiente' => max(0, $montoAgua - (float) $pagado->pagado_agua),
+                // periodo_cerrado NO se toca en update: es marca de inmutabilidad
+            ]);
+        } else {
+            // Al crear, todo está pendiente (los saldos pendientes son solo del periodo actual)
+            $expensa = Expensa::create([
+                'periodo_id' => $periodoId,
+                'unidad_id' => $unidad->id,
+                'monto_expensa' => $montoExpensa,
+                'monto_agua' => $montoAgua,
+                'monto_total' => $montoTotal,
                 'expensa_pendiente' => $montoExpensa,
                 'agua_pendiente' => $montoAgua,
                 'periodo_cerrado' => false,
-            ]
-        );
+            ]);
+        }
 
         Log::info('Expensa generada', [
             'periodo' => $periodo->nombre_periodo,
@@ -432,11 +459,23 @@ class ExpensaService
             throw new \Exception("No se puede recalcular un período cerrado. Reabra el período primero.");
         }
 
-        // Eliminar expensas existentes del período
-        Expensa::where('periodo_id', $periodoId)->delete();
+        // [REMEDIACIÓN-2.1] No destruir expensas con pagos registrados: el
+        // delete en cascada borraba ingreso_detalles (la evidencia de la
+        // aplicación del pago) mientras el recibo sobrevivía — deuda doble.
+        $hayPagos = \App\Models\IngresoDetalle::whereHas('expensa', function ($q) use ($periodoId) {
+            $q->where('periodo_id', $periodoId);
+        })->exists();
 
-        // Generar nuevamente
-        return $this->generarExpensas($periodoId);
+        if ($hayPagos) {
+            throw new \Exception("No se puede recalcular: el período tiene pagos registrados. Anule los recibos primero o use el ajuste temporal.");
+        }
+
+        // Eliminar expensas existentes del período y regenerar de forma atómica
+        return DB::transaction(function () use ($periodoId) {
+            Expensa::where('periodo_id', $periodoId)->delete();
+
+            return $this->generarExpensas($periodoId);
+        });
     }
 
     /**

@@ -21,6 +21,10 @@ class AuthenticatedSessionController extends Controller
 
     /**
      * Handle an incoming authentication request.
+     *
+     * [PORTAL / Fase 1.2] Los usuarios del portal (propietario/inquilino)
+     * aterrizan en su portal; los admin en el dashboard administrativo.
+     * Registra last_login_at para la gestión de accesos.
      */
     public function store(LoginRequest $request): RedirectResponse
     {
@@ -28,7 +32,16 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        $user = auth()->user();
+
+        // last_login_at con saveQuietly (sin disparar eventos del modelo).
+        $user->forceFill(['last_login_at' => now()])->saveQuietly();
+
+        return redirect()->intended(
+            $user->esPortal()
+                ? route('portal.dashboard', absolute: false)
+                : route('dashboard', absolute: false)
+        );
     }
 
     /**

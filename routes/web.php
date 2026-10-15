@@ -21,7 +21,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     if (auth()->check()) {
-        return redirect()->route('dashboard');
+        // [PORTAL] El aterrizaje depende del tipo de usuario
+        return redirect()->route(auth()->user()->esPortal() ? 'portal.dashboard' : 'dashboard');
     }
 
     return redirect()->route('login');
@@ -77,6 +78,9 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    // [Plan 12 Fase 5.5] Cerrar todas las demás sesiones (admin)
+    Route::post('/profile/sesiones', [ProfileController::class, 'cerrarOtrasSesiones'])
+        ->name('profile.cerrar-sesiones');
 
     /*
     |--------------------------------------------------------------------------
@@ -313,6 +317,13 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
+    | PAGOS QR — CONCILIACIÓN ADMIN [PORTAL QR / Fase 4 — HU-55]
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/pagos-qr', \App\Livewire\Admin\PagosQrAdmin::class)->name('pagos-qr.index');
+
+    /*
+    |--------------------------------------------------------------------------
     | MÓDULO DE REPORTES (FASE 6)
     |--------------------------------------------------------------------------
     */
@@ -342,4 +353,60 @@ Route::middleware(['auth', 'admin'])->group(function () {
     // Route::prefix('auditoria')->name('auditoria.')->group(function () {
     //     Route::view('/', 'auditoria.index')->name('index');
     // });
+});
+
+/*
+|--------------------------------------------------------------------------
+| WEBHOOK QR BANCARIO [PORTAL QR / Fase 4]
+|--------------------------------------------------------------------------
+| Endpoint PÚBLICO notificado por el banco al pagarse un QR.
+| - Sin CSRF (excluido en bootstrap/app.php) y sin auth (el banco no tiene sesión).
+| - [REMEDIACIÓN-0.1] Autenticado por HMAC: header X-Signature con
+|   HMAC-SHA256 del body crudo, secreto BANCO_QR_WEBHOOK_SECRET (fail-closed:
+|   sin secreto configurado rechaza todo).
+| - Idempotente (un solo ingreso aunque llegue duplicado).
+| - Rate limit 30/min + formato de respuesta exigido por el banco.
+*/
+Route::post('/webhook/qr', \App\Http\Controllers\WebhookQrController::class)
+    ->name('webhook.qr')
+    ->middleware('throttle:30,1');
+
+/*
+|--------------------------------------------------------------------------
+| PORTAL DE PROPIETARIOS E INQUILINOS [PORTAL / Fase 1.3+]
+|--------------------------------------------------------------------------
+| Middleware 'portal' (CheckPortal): autenticado + tipo propietario/inquilino
+| + activo + cambio de contraseña forzado si corresponde.
+|
+| ANTI-IDOR: cada componente del portal resuelve sus datos desde
+| auth()->user()->persona, NUNCA desde IDs de la URL.
+|
+| Throttle global 60/min por usuario (Livewire genera muchas requests).
+*/
+Route::prefix('portal')->name('portal.')->middleware(['auth', 'portal', 'throttle:portal'])->group(function () {
+
+    Route::get('/', \App\Livewire\Portal\PortalDashboard::class)->name('dashboard');
+
+    // Perfil: cambio de contraseña propio + datos en solo-lectura
+    Route::get('/perfil', \App\Livewire\Portal\PortalPerfil::class)->name('perfil');
+
+    // Estado de cuenta (HU-42) e historial de pagos (HU-43)
+    Route::get('/estado-cuenta', \App\Livewire\Portal\PortalEstadoCuenta::class)->name('estado-cuenta');
+    Route::get('/pagos', \App\Livewire\Portal\PortalPagos::class)->name('pagos');
+
+    // Mis Inquilinos: autorizaciones RF-48 (solo propietarios)
+    Route::get('/inquilinos', \App\Livewire\Portal\PortalMisInquilinos::class)->name('inquilinos');
+
+    // Pagar con QR (HU-50/52, RF-49) — pago flexible estilo caja
+    Route::get('/pagar', \App\Livewire\Portal\PagarExpensas::class)->name('pagar');
+
+    /*
+    | PDFs propios (HU-44): DomPDF es pesado (100-200MB por render concurrente).
+    | Throttle estricto 5/min por usuario para evitar abuso (Plan 12 F5.1).
+    | ANTI-IDOR: PortalPdfController verifica propiedad antes de generar.
+    */
+    Route::get('/boleta/{periodoId}', [\App\Http\Controllers\Portal\PortalPdfController::class, 'boleta'])
+        ->name('boleta')->middleware('throttle:portal-pdf');
+    Route::get('/recibo/{ingresoId}', [\App\Http\Controllers\Portal\PortalPdfController::class, 'recibo'])
+        ->name('recibo')->middleware('throttle:portal-pdf');
 });

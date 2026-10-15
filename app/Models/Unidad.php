@@ -77,8 +77,20 @@ class Unidad extends Model
     /**
      * Obtener el inquilino actual como un modelo individual
      */
+    /**
+     * Obtener el inquilino actual de esta unidad (modelo único).
+     *
+     * [FIX 2026-09-24] Este ACCESOR sombra a la relación inquilinoActual().
+     * Ahora usa la relación eager-loaded si está presente (sin N+1 y con el
+     * pivote completo, que incluye portal_autorizado). Nunca llamar
+     * ->first() sobre el resultado: es un modelo, no una colección.
+     */
     public function getInquilinoActualAttribute()
     {
+        if ($this->relationLoaded('inquilinoActual')) {
+            return $this->getRelation('inquilinoActual')->first();
+        }
+
         return $this->inquilinos()->wherePivot('es_inquilino_actual', true)->first();
     }
 
@@ -274,7 +286,7 @@ class Unidad extends Model
     public function inquilinos()
     {
         return $this->belongsToMany(Inquilino::class, 'inquilino_unidad')
-                    ->withPivot('fecha_inicio', 'fecha_fin', 'es_inquilino_actual', 'monto_alquiler', 'observaciones')
+                    ->withPivot('fecha_inicio', 'fecha_fin', 'es_inquilino_actual', 'monto_alquiler', 'observaciones', 'portal_autorizado', 'autorizado_en')
                     ->withTimestamps()
                     ->orderBy('pivot_fecha_inicio', 'desc');
     }
@@ -286,7 +298,7 @@ class Unidad extends Model
     {
         return $this->belongsToMany(Inquilino::class, 'inquilino_unidad')
                     ->wherePivot('es_inquilino_actual', true)
-                    ->withPivot('fecha_inicio', 'fecha_fin', 'monto_alquiler', 'observaciones');
+                    ->withPivot('fecha_inicio', 'fecha_fin', 'monto_alquiler', 'observaciones', 'portal_autorizado', 'autorizado_en');
     }
 
     /**

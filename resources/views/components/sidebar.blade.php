@@ -104,6 +104,16 @@
                 Caja
             </a>
 
+            <!-- Pagos QR [PORTAL QR / HU-55] -->
+            <a href="{{ route('pagos-qr.index') }}"
+               wire:navigate
+               class="flex items-center px-3 py-3 text-sm font-medium rounded-lg {{ request()->routeIs('pagos-qr.*') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-100' }}">
+                <svg class="shrink-0 h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                </svg>
+                Pagos QR
+            </a>
+
         <!-- Períodos -->
         <x-sidebar-link
             :href="route('periodos.index')"

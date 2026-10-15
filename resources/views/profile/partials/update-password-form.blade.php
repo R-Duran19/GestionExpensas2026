@@ -45,4 +45,28 @@
             @endif
         </div>
     </form>
+
+    {{-- [Plan 12 Fase 5.5] Cerrar todas las demás sesiones --}}
+    <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+        <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">
+            {{ __('Cerrar otras sesiones') }}
+        </h3>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            Cierra todas las sesiones abiertas de esta cuenta en otros dispositivos o navegadores.
+        </p>
+
+        <form method="post" action="{{ route('profile.cerrar-sesiones') }}" class="mt-4 flex items-end gap-3">
+            @csrf
+            <div class="flex-1">
+                <x-input-label for="sesiones_password" :value="__('Contraseña actual')" />
+                <x-text-input id="sesiones_password" name="password" type="password" class="mt-1 block w-full" autocomplete="current-password" />
+                <x-input-error :messages="$errors->sesiones->get('password')" class="mt-2" />
+            </div>
+            <x-secondary-button>{{ __('Cerrar sesiones') }}</x-secondary-button>
+        </form>
+
+        @if (session('status') === 'sesiones-cerradas')
+            <p class="mt-2 text-sm text-emerald-600">{{ __('Todas las demás sesiones fueron cerradas.') }}</p>
+        @endif
+    </div>
 </section>

@@ -225,7 +225,28 @@ class Inquilino extends Model
     {
         return $this->belongsToMany(Unidad::class, 'inquilino_unidad')
                     ->wherePivot('es_inquilino_actual', true)
-                    ->withPivot('fecha_inicio', 'fecha_fin', 'monto_alquiler', 'observaciones');
+                    ->withPivot('fecha_inicio', 'fecha_fin', 'monto_alquiler', 'observaciones', 'portal_autorizado', 'autorizado_en');
+    }
+
+    /**
+     * [PORTAL / Fase 3.5 — RF-48] Unidades que el inquilino puede ver en el
+     * portal: donde es inquilino actual Y el propietario lo autorizó.
+     */
+    public function unidadesAutorizadasPortal()
+    {
+        return $this->unidadesActuales()
+                    ->wherePivot('portal_autorizado', true);
+    }
+
+    /**
+     * ¿Tiene al menos una unidad autorizada para el portal?
+     * (Requisito para que el admin pueda crearle cuenta — Fase 3.4)
+     */
+    public function tieneAutorizacionPortal(): bool
+    {
+        return $this->unidadesActuales()
+            ->wherePivot('portal_autorizado', true)
+            ->exists();
     }
 
     /**
