@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ActivityLog;
 use App\Models\Expensa;
 use App\Models\Unidad;
 use App\Models\PeriodoExpensa;
@@ -389,8 +390,22 @@ class ExpensaService
                 'estado' => 'cerrado',
                 'fecha_cierre' => now(),
                 'cerrado_por' => auth()->id(),
-                'motivo_cierre' => $motivo,
             ]);
+
+            // Auditoría: el motivo del cierre (opcional) vive en activity_logs,
+            // NO en una columna del período (decisión 2026-10-15: sin esquema nuevo).
+            try {
+                ActivityLog::create([
+                    'user_id' => auth()->id(),
+                    'action' => 'cierre_periodo',
+                    'model_type' => PeriodoExpensa::class,
+                    'model_id' => $periodo->id,
+                    'description' => 'Cierre del período ' . $periodo->nombre_periodo . ($motivo ? ': ' . $motivo : ''),
+                    'properties' => ['motivo' => $motivo, 'fecha_cierre' => now()->toDateTimeString()],
+                ]);
+            } catch (\Exception $e) {
+                // El log de auditoría no debe romper el cierre
+            }
 
             Log::info('Período cerrado', [
                 'periodo' => $periodo->nombre_periodo,
