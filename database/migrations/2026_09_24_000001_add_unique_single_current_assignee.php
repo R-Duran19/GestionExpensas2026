@@ -14,6 +14,13 @@ use Illuminate\Support\Facades\Schema;
  * únicos parciales nativos, así que se emula con una columna GENERADA que
  * vale unidad_id sólo cuando el flag está activo (NULL en caso contrario,
  * y los NULL no colisionan en índices únicos).
+ *
+ * NOTA DEPLOY 2026-10-15: se usa VIRTUAL (no STORED) porque en MySQL 8.0.x
+ * agregar una columna STORED sobre tablas con foreign keys fuerza rebuild
+ * (ALGORITHM=COPY) y aborta con "errno 1215 Cannot add foreign key
+ * constraint" aunque los datos sean consistentes (falso positivo de la
+ * re-validación de FKs durante el rebuild). VIRTUAL no reconstruye la tabla
+ * y el índice único secundario sobre columna virtual es soportado nativo.
  */
 return new class extends Migration
 {
@@ -23,7 +30,7 @@ return new class extends Migration
         Schema::table('propietario_unidad', function (Blueprint $table) {
             $table->unsignedBigInteger('unidad_actual_key')
                 ->nullable()
-                ->storedAs('CASE WHEN es_propietario_actual = 1 THEN unidad_id END');
+                ->virtualAs('CASE WHEN es_propietario_actual = 1 THEN unidad_id END');
         });
 
         try {
@@ -55,7 +62,7 @@ return new class extends Migration
         Schema::table('inquilino_unidad', function (Blueprint $table) {
             $table->unsignedBigInteger('unidad_actual_key')
                 ->nullable()
-                ->storedAs('CASE WHEN es_inquilino_actual = 1 THEN unidad_id END');
+                ->virtualAs('CASE WHEN es_inquilino_actual = 1 THEN unidad_id END');
         });
 
         try {
