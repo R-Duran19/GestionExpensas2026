@@ -121,7 +121,17 @@
                         </button>
 
                         <button
-                            wire:click="recalcularExpensas"
+                            x-data
+                            @click="Swal.fire({
+                                title: '¿Recalcular expensas?',
+                                text: 'Se eliminarán las expensas actuales del período y se generarán nuevamente.',
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonText: 'Sí, recalcular',
+                                cancelButtonText: 'Cancelar',
+                                confirmButtonColor: '#4F46E5',
+                                cancelButtonColor: '#6b7280'
+                            }).then(r => { if (r.isConfirmed) $wire.call('recalcularExpensas') })"
                             wire:loading.attr="disabled"
                             class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -147,7 +157,19 @@
                 <div class="flex gap-2">
                     @if($this->periodo->estado === 'abierto')
                         <button
-                            wire:click="cerrarPeriodo"
+                            x-data
+                            @click="Swal.fire({
+                                title: '¿Cerrar período?',
+                                text: 'Una vez cerrado, no se podrán modificar los montos de emisión.',
+                                input: 'textarea',
+                                inputPlaceholder: 'Motivo del cierre (opcional)...',
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonText: 'Sí, cerrar',
+                                cancelButtonText: 'Cancelar',
+                                confirmButtonColor: '#dc2626',
+                                cancelButtonColor: '#6b7280'
+                            }).then(r => { if (r.isConfirmed) $wire.call('cerrarPeriodo', (r.value || '').trim()) })"
                             class="inline-flex items-center px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                         >
                             <svg class="-ml-1 mr-2 h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -157,7 +179,19 @@
                         </button>
                     @else
                         <button
-                            wire:click="reabrirPeriodo"
+                            x-data
+                            @click="Swal.fire({
+                                title: '¿Reabrir período?',
+                                text: 'Las expensas volverán a ser modificables.',
+                                input: 'textarea',
+                                inputPlaceholder: 'Motivo de la reapertura (opcional)...',
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonText: 'Sí, reabrir',
+                                cancelButtonText: 'Cancelar',
+                                confirmButtonColor: '#d97706',
+                                cancelButtonColor: '#6b7280'
+                            }).then(r => { if (r.isConfirmed) $wire.call('reabrirPeriodo', (r.value || '').trim()) })"
                             class="inline-flex items-center px-4 py-2 border border-yellow-300 rounded-md shadow-sm text-sm font-medium text-yellow-700 bg-white hover:bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
                         >
                             <svg class="-ml-1 mr-2 h-4 w-4 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">

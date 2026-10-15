@@ -371,9 +371,9 @@ class ExpensaService
      * @param int $periodoId
      * @return void
      */
-    public function cerrarPeriodo(int $periodoId): void
+    public function cerrarPeriodo(int $periodoId, ?string $motivo = null): void
     {
-        DB::transaction(function () use ($periodoId) {
+        DB::transaction(function () use ($periodoId, $motivo) {
             $periodo = PeriodoExpensa::findOrFail($periodoId);
 
             if ($periodo->estado === 'cerrado') {
@@ -389,11 +389,13 @@ class ExpensaService
                 'estado' => 'cerrado',
                 'fecha_cierre' => now(),
                 'cerrado_por' => auth()->id(),
+                'motivo_cierre' => $motivo,
             ]);
 
             Log::info('Período cerrado', [
                 'periodo' => $periodo->nombre_periodo,
                 'cerrado_por' => auth()->id(),
+                'motivo' => $motivo,
             ]);
         });
 

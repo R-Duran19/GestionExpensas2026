@@ -324,10 +324,6 @@ class ExpensaList extends Component
                 throw new \Exception('No se puede recalcular un período cerrado. Reabra el período primero.');
             }
 
-            if (!confirm('¿Está seguro de recalcular todas las expensas? Esto eliminará las expensas actuales y las generará nuevamente.')) {
-                return;
-            }
-
             $this->generando = true;
 
             $resultados = $this->expensaService->recalcularExpensas($this->periodoId);
@@ -350,9 +346,9 @@ class ExpensaList extends Component
     }
 
     /**
-     * Cerrar período
+     * Cerrar período (motivo opcional viene del diálogo Swal)
      */
-    public function cerrarPeriodo()
+    public function cerrarPeriodo(?string $motivo = null)
     {
         $this->authorize('cerrar', \App\Models\PeriodoExpensa::class);
         try {
@@ -360,11 +356,7 @@ class ExpensaList extends Component
                 throw new \Exception('Debe seleccionar un período primero');
             }
 
-            if (!confirm('¿Está seguro de cerrar este período? Una vez cerrado, no se podrán modificar los montos de emisión.')) {
-                return;
-            }
-
-            $this->expensaService->cerrarPeriodo($this->periodoId);
+            $this->expensaService->cerrarPeriodo($this->periodoId, $motivo ?: null);
 
             $this->dispatch('alerta', [
                 'tipo' => 'success',
@@ -382,19 +374,14 @@ class ExpensaList extends Component
     }
 
     /**
-     * Reabrir período
+     * Reabrir período (motivo opcional viene del diálogo Swal)
      */
-    public function reabrirPeriodo()
+    public function reabrirPeriodo(?string $motivo = null)
     {
         $this->authorize('reabrir', \App\Models\PeriodoExpensa::class);
         try {
             if (!$this->periodoId) {
                 throw new \Exception('Debe seleccionar un período primero');
-            }
-
-            $motivo = prompt('Motivo de la reapertura (opcional):');
-            if ($motivo === false) {
-                return;
             }
 
             $this->expensaService->reabrirPeriodo($this->periodoId, $motivo ?: null);
