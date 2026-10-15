@@ -147,19 +147,25 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-# 5. Seeders (SOLO si la tabla users está vacía — evita duplicados en redeploys)
+# 5. Seeders
+#    - BD vacía: seeders completos (DatabaseSeeder — instalación fresca).
+#    - BD con datos: SOLO DeploySeeder (seeders idempotentes — firstOrCreate),
+#      para que cada deploy aplique roles/datos base nuevos sin intervención
+#      manual. Ver database/seeders/DeploySeeder.php para la regla.
 # -----------------------------------------------------------------------------
 RUN_SEEDERS="${RUN_SEEDERS:-true}"
 if [ "${RUN_SEEDERS}" = "true" ]; then
     USERS_COUNT=$(php artisan tinker --execute="echo App\\Models\\User::count();" 2>/dev/null || echo "-1")
     if [ "${USERS_COUNT}" = "0" ]; then
-        echo "🌱 Base de datos vacía — ejecutando seeders..."
+        echo "🌱 Base de datos vacía — ejecutando seeders completos..."
         php artisan db:seed --force
         echo "✅ Seeders OK"
     elif [ "${USERS_COUNT}" = "-1" ]; then
         echo "⚠️  No se pudo verificar el estado de la BD — saltando seeders por seguridad"
     else
-        echo "⏭️  La BD ya tiene ${USERS_COUNT} usuarios — saltando seeders (idempotente)"
+        echo "🌱 BD con ${USERS_COUNT} usuarios — aplicando seeders idempotentes de deploy..."
+        php artisan db:seed --class=DeploySeeder --force
+        echo "✅ DeploySeeder OK"
     fi
 else
     echo "⏭️  RUN_SEEDERS=false — saltando seeders"
