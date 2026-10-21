@@ -87,14 +87,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         default-mysql-client \
         imagemagick \
-        libmagickwand-6.q16-6 \
-        libpng16-16 \
+        libmagickwand-7.q16-10 \
+        libpng16-16t64 \
         libjpeg62-turbo \
         libfreetype6 \
         libwebp7 \
         libonig5 \
         libxml2 \
-        libzip4 \
+        libzip5 \
     && rm -rf /var/lib/apt/lists/*
 
 # Extensiones ya compiladas en builder: los .so + sus ini (docker-php-ext-*)
