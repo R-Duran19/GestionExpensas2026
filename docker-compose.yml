@@ -11,6 +11,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      network: host
     container_name: gestion_expensas_app
     restart: unless-stopped
     working_dir: /var/www/html
