@@ -44,6 +44,9 @@ secrets/
 node_modules/
 vendor/
 
+# --- Dumps SQL (se importan desde el host, no van en la imagen) ---
+database/dumps/
+
 # --- Artefactos de build y caché (se regeneran) ---
 public/build/
 public/hot

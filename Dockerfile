@@ -1,34 +1,37 @@
 # =============================================================================
 # Dockerfile — Gestión de Expensas (Laravel 12 + PHP 8.4 + Nginx + Supervisor)
 # =============================================================================
-FROM php:8.4-fpm
+# MULTI-STAGE: la etapa "builder" compila (Node, extensiones PHP, Vite) y la
+# etapa final SOLO copia el resultado → imagen ~2.1GB → ~700MB, sin Node ni
+# compiladores en producción (menos disco, menos superficie de ataque).
+# =============================================================================
 
 # -----------------------------------------------------------------------------
-# 1. Dependencias del sistema + extensiones PHP + Node.js + cliente MySQL
+# ETAPA 1 — builder: dependencias, extensiones PHP y assets del front
 # -----------------------------------------------------------------------------
+FROM php:8.4-fpm AS builder
+
+# Dependencias de compilación (dev): SOLO viven en esta etapa
 RUN apt-get update && apt-get install -y \
     git \
     curl \
+    zip \
+    unzip \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
     libzip-dev \
-    zip \
-    unzip \
-    nginx \
-    supervisor \
     libfreetype6-dev \
     libjpeg62-turbo-dev \
     libwebp-dev \
-    default-mysql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Node.js 22 (para build de assets con Vite)
+# Node.js 22 (build de assets con Vite) — descartado en la etapa final
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Extensiones PHP requeridas por Laravel
+# Extensiones PHP requeridas por Laravel (compiladas acá, copiadas al final)
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-install -j$(nproc) \
     pdo \
@@ -52,18 +55,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && docker-php-ext-enable imagick \
     && rm -rf /var/lib/apt/lists/*
 
-# Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# -----------------------------------------------------------------------------
-# 2. Código de la aplicación
-# -----------------------------------------------------------------------------
 WORKDIR /var/www/html
 COPY . .
 
-# -----------------------------------------------------------------------------
-# 3. Dependencias PHP y build de assets front (Vite)
-# -----------------------------------------------------------------------------
 RUN composer install \
         --no-interaction \
         --no-dev \
@@ -72,10 +68,45 @@ RUN composer install \
 
 RUN npm install --no-audit --no-fund \
     && npm run build \
-    && npm cache clean --force
+    && npm cache clean --force \
+    # node_modules ya cumplió: si no se borra, viajaría a la etapa final
+    && rm -rf node_modules
 
 # -----------------------------------------------------------------------------
-# 4. Permisos y directorios necesarios
+# ETAPA 2 — production: solo runtime (sin Node, sin -dev, sin compiladores)
+# -----------------------------------------------------------------------------
+FROM php:8.4-fpm AS production
+
+# Runtime del sistema: nginx + supervisor (procesos), mysql-client (el
+# entrypoint usa mysqladmin para esperar a la BD) y las librerías NO-dev que
+# enlazan las extensiones compiladas en builder.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        nginx \
+        supervisor \
+        curl \
+        ca-certificates \
+        default-mysql-client \
+        imagemagick \
+        libmagickwand-6.q16-6 \
+        libpng16-16 \
+        libjpeg62-turbo \
+        libfreetype6 \
+        libwebp7 \
+        libonig5 \
+        libxml2 \
+        libzip4 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Extensiones ya compiladas en builder: los .so + sus ini (docker-php-ext-*)
+COPY --from=builder /usr/local/lib/php/extensions /usr/local/lib/php/extensions
+COPY --from=builder /usr/local/etc/php/conf.d/docker-php-ext-*.ini /usr/local/etc/php/conf.d/
+
+# Código + vendor + assets compilados (node_modules se eliminó en builder)
+WORKDIR /var/www/html
+COPY --from=builder /var/www/html /var/www/html
+
+# -----------------------------------------------------------------------------
+# Permisos y directorios necesarios
 # -----------------------------------------------------------------------------
 RUN mkdir -p \
         bootstrap/cache \
@@ -90,7 +121,7 @@ RUN mkdir -p \
     && chmod -R 775 /var/www/html/bootstrap/cache
 
 # -----------------------------------------------------------------------------
-# 5. Configuración de nginx, supervisor y entrypoint
+# Configuración de nginx, supervisor y entrypoint
 # -----------------------------------------------------------------------------
 COPY docker/nginx/default.conf /etc/nginx/sites-available/default
 COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
@@ -104,7 +135,7 @@ COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # -----------------------------------------------------------------------------
-# 6. Puertos y arranque
+# Puertos y arranque
 # -----------------------------------------------------------------------------
 EXPOSE 80 9000
 
