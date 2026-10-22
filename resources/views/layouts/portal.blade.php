@@ -24,43 +24,47 @@
     </head>
     <body class="font-sans antialiased">
         <div class="min-h-screen bg-gray-100">
-            {{-- Navbar simple del portal: sin navegación administrativa --}}
-            <nav class="bg-white border-b border-gray-200">
+            @php
+                // [RESPONSIVE 2026-10-15] Enlaces del portal definidos UNA vez y
+                // pintados dos veces: fila horizontal (sm+) y panel móvil.
+                // NOTA: no poner comentarios Blade {{-- --}} con directivas
+                // (@php, @if...) dentro del texto: el compilador puede tragarse
+                // el bloque siguiente (bug encontrado hoy).
+                $navLinks = [
+                    ['ruta' => 'portal.dashboard', 'texto' => 'Inicio', 'icono' => 'fa-house'],
+                    ['ruta' => 'portal.estado-cuenta', 'texto' => 'Estado de Cuenta', 'icono' => 'fa-file-invoice-dollar'],
+                    ['ruta' => 'portal.pagar', 'texto' => 'Pagar', 'icono' => 'fa-qrcode', 'destacado' => true],
+                    ['ruta' => 'portal.pagos', 'texto' => 'Mis Pagos', 'icono' => 'fa-receipt'],
+                ];
+                if (auth()->user()->tipo === 'propietario') {
+                    $navLinks[] = ['ruta' => 'portal.inquilinos', 'texto' => 'Mis Inquilinos', 'icono' => 'fa-users'];
+                }
+                $navLinks[] = ['ruta' => 'portal.perfil', 'texto' => 'Mi Perfil', 'icono' => 'fa-user-gear'];
+            @endphp
+            <nav class="bg-white border-b border-gray-200" x-data="{ menuAbierto: false }">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div class="flex justify-between h-16">
                         <div class="flex items-center gap-6">
-                            <a href="{{ route('portal.dashboard') }}" class="flex items-center gap-2">
+                            <a href="{{ route('portal.dashboard') }}" class="flex items-center gap-2 min-w-0">
                                 <i class="fa-solid fa-building text-indigo-600"></i>
-                                <span class="font-semibold text-gray-800">{{ config('app.name') }}</span>
+                                <span class="font-semibold text-gray-800 text-sm sm:text-base truncate max-w-[150px] sm:max-w-none">{{ config('app.name') }}</span>
                             </a>
 
+                            {{-- Fila de enlaces: escritorio --}}
                             <div class="hidden sm:flex items-center gap-1 text-sm">
-                                <a href="{{ route('portal.dashboard') }}"
-                                   class="px-3 py-2 rounded-md {{ request()->routeIs('portal.dashboard') ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                                    Inicio
-                                </a>
-                                <a href="{{ route('portal.estado-cuenta') }}"
-                                   class="px-3 py-2 rounded-md {{ request()->routeIs('portal.estado-cuenta') ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                                    Estado de Cuenta
-                                </a>
-                                <a href="{{ route('portal.pagar') }}"
-                                   class="px-3 py-2 rounded-md font-medium {{ request()->routeIs('portal.pagar') ? 'bg-indigo-600 text-white' : 'bg-emerald-500 text-white hover:bg-emerald-600' }}">
-                                    <i class="fa-solid fa-qrcode mr-1"></i> Pagar
-                                </a>
-                                <a href="{{ route('portal.pagos') }}"
-                                   class="px-3 py-2 rounded-md {{ request()->routeIs('portal.pagos') ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                                    Mis Pagos
-                                </a>
-                                @if (auth()->user()->tipo === 'propietario')
-                                    <a href="{{ route('portal.inquilinos') }}"
-                                       class="px-3 py-2 rounded-md {{ request()->routeIs('portal.inquilinos') ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                                        Mis Inquilinos
-                                    </a>
-                                @endif
-                                <a href="{{ route('portal.perfil') }}"
-                                   class="px-3 py-2 rounded-md {{ request()->routeIs('portal.perfil') ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                                    Mi Perfil
-                                </a>
+                                @foreach ($navLinks as $link)
+                                    @if (!empty($link['destacado']))
+                                        <a href="{{ route($link['ruta']) }}"
+                                           class="px-3 py-2 rounded-md font-medium {{ request()->routeIs($link['ruta']) ? 'bg-indigo-600 text-white' : 'bg-emerald-500 text-white hover:bg-emerald-600' }}">
+                                            <i class="fa-solid {{ $link['icono'] }} mr-1"></i> {{ $link['texto'] }}
+                                        </a>
+                                    @else
+                                        <a href="{{ route($link['ruta']) }}"
+                                           class="px-3 py-2 rounded-md {{ request()->routeIs($link['ruta']) ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                                            {{ $link['texto'] }}
+                                        </a>
+                                    @endif
+                                @endforeach
                             </div>
                         </div>
 
@@ -69,6 +73,15 @@
                                 <i class="fa-solid fa-user mr-1 {{ auth()->user()->tipo === 'inquilino' ? 'text-blue-500' : 'text-emerald-500' }}"></i>
                                 {{ auth()->user()->persona?->nombre_completo ?? auth()->user()->name }}
                             </span>
+
+                            {{-- Botón hamburguesa: SOLO móvil --}}
+                            <button type="button"
+                                    @click="menuAbierto = !menuAbierto"
+                                    :aria-expanded="menuAbierto"
+                                    aria-label="Abrir menú"
+                                    class="sm:hidden inline-flex items-center justify-center h-10 w-10 rounded-md text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <i class="fa-solid text-lg" :class="menuAbierto ? 'fa-xmark' : 'fa-bars'"></i>
+                            </button>
 
                             <form method="POST" action="{{ route('logout') }}">
                                 @csrf
@@ -79,6 +92,34 @@
                             </form>
                         </div>
                     </div>
+                </div>
+
+                {{-- Panel desplegable: SOLO móvil --}}
+                <div class="sm:hidden border-t border-gray-200 bg-white px-2 pt-2 pb-3 space-y-1"
+                     x-show="menuAbierto"
+                     x-cloak
+                     @click.outside="menuAbierto = false">
+                    <p class="px-3 py-1 text-xs text-gray-400">
+                        <i class="fa-solid fa-user mr-1 {{ auth()->user()->tipo === 'inquilino' ? 'text-blue-500' : 'text-emerald-500' }}"></i>
+                        {{ auth()->user()->persona?->nombre_completo ?? auth()->user()->name }}
+                        ({{ auth()->user()->tipo }})
+                    </p>
+                    @foreach ($navLinks as $link)
+                        @if (!empty($link['destacado']))
+                            <a href="{{ route($link['ruta']) }}"
+                               @click="menuAbierto = false"
+                               class="flex items-center gap-2 px-3 py-2.5 rounded-md font-medium {{ request()->routeIs($link['ruta']) ? 'bg-indigo-600 text-white' : 'bg-emerald-500 text-white' }}">
+                                <i class="fa-solid {{ $link['icono'] }}"></i> {{ $link['texto'] }}
+                            </a>
+                        @else
+                            <a href="{{ route($link['ruta']) }}"
+                               @click="menuAbierto = false"
+                               class="flex items-center gap-2 px-3 py-2.5 rounded-md text-sm {{ request()->routeIs($link['ruta']) ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-700 hover:bg-gray-50' }}">
+                                <i class="fa-solid {{ $link['icono'] }} w-5 text-center {{ request()->routeIs($link['ruta']) ? 'text-indigo-600' : 'text-gray-400' }}"></i>
+                                {{ $link['texto'] }}
+                            </a>
+                        @endif
+                    @endforeach
                 </div>
             </nav>
 

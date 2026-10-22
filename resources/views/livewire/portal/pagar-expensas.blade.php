@@ -106,7 +106,7 @@
                         pagues o venza.
                     </div>
 
-                    <div class="flex gap-2">
+                    <div class="flex flex-col sm:flex-row gap-2">
                         {{-- Verificar ahora: "Verificando..." mientras llama +
                              cooldown 10 s tras cada chequeo (anti-spam) --}}
                         <div x-data="{
@@ -232,7 +232,7 @@
 
                     <div class="border border-gray-200 rounded-lg overflow-hidden @if(!$periodoConSeleccionados) opacity-70 @endif">
                         {{-- Header del período --}}
-                        <div class="@if($periodoConSeleccionados) bg-indigo-50 @else bg-gray-100 @endif px-4 py-2 border-b border-gray-200 flex justify-between items-center">
+                        <div class="@if($periodoConSeleccionados) bg-indigo-50 @else bg-gray-100 @endif px-4 py-2 border-b border-gray-200 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                             <h3 class="font-semibold @if($periodoConSeleccionados) text-indigo-900 @else text-gray-500 @endif">
                                 <i class="fas fa-calendar-alt mr-2"></i>{{ $periodoData['periodo_nombre'] }}
                             </h3>
@@ -356,7 +356,7 @@
 
             {{-- TOTAL GENERAL (verde, como Caja) --}}
             <div class="bg-emerald-50 border-2 border-emerald-200 rounded-lg p-4 mt-4">
-                <div class="flex justify-between items-center">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                     <span class="font-semibold text-emerald-800">Total a Pagar (todas las propiedades):</span>
                     <span class="text-2xl font-bold text-emerald-600">{{ number_format($totalAPagar, 2, ',', '.') }} Bs</span>
                 </div>
