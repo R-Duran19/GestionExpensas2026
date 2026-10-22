@@ -187,6 +187,18 @@
                 </a>
             </div>
         @else
+            {{-- Banner de saldo a favor disponible --}}
+            @if($this->saldoFavorDisponible > 0)
+                <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 flex items-start gap-2">
+                    <i class="fas fa-piggy-bank text-emerald-600 mt-0.5"></i>
+                    <p class="text-sm text-emerald-800">
+                        <strong>Tienes Bs {{ number_format($this->saldoFavorDisponible, 2, ',', '.') }} a favor.</strong>
+                        Se descontarán automáticamente de tus deudas al generar el próximo período
+                        (tu expensa nueva puede nacer pagada o pagada parcial).
+                    </p>
+                </div>
+            @endif
+
             {{-- Encabezado + acciones globales --}}
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <div>
@@ -223,11 +235,6 @@
                         <div class="@if($periodoConSeleccionados) bg-indigo-50 @else bg-gray-100 @endif px-4 py-2 border-b border-gray-200 flex justify-between items-center">
                             <h3 class="font-semibold @if($periodoConSeleccionados) text-indigo-900 @else text-gray-500 @endif">
                                 <i class="fas fa-calendar-alt mr-2"></i>{{ $periodoData['periodo_nombre'] }}
-                                @if($periodoData['es_ultimo_periodo'] ?? false)
-                                    <span class="ml-2 text-[11px] font-medium text-emerald-700 bg-emerald-100 border border-emerald-200 rounded-full px-2 py-0.5">
-                                        <i class="fas fa-piggy-bank mr-1"></i>Último mes con deuda: puedes pagar de más (quedará a tu favor)
-                                    </span>
-                                @endif
                             </h3>
                             <div class="flex items-center gap-3">
                                 <div class="flex items-center gap-1 text-xs">
@@ -279,7 +286,7 @@
                                                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
                                                         @if($expensa['pagar_expensa'])
                                                             <input type="number" step="0.01" min="0"
-                                                                   @unless($periodoData['es_ultimo_periodo'] ?? false) max="{{ $expensa['deuda_expensa'] }}" @endunless
+                                                                   @unless($expensa['permite_sobrepago'] ?? false) max="{{ $expensa['deuda_expensa'] }}" @endunless
                                                                    wire:model.debounce.300ms="deudasPendientes.{{ $periodoIndex }}.expensas.{{ $expensaIndex }}.monto_expensa"
                                                                    wire:change="actualizarDesdeInputExpensa({{ $periodoIndex }}, {{ $expensaIndex }})"
                                                                    class="w-20 text-sm rounded px-2 py-1 text-center focus:ring-indigo-500 focus:border-indigo-500 {{ ($expensa['aviso_expensa'] ?? false) ? 'border-red-400 bg-red-50 text-red-700' : 'border-gray-300' }}">
@@ -288,7 +295,9 @@
                                                         @endif
                                                     </div>
                                                     @if($expensa['aviso_expensa'] ?? false)
-                                                        <span class="text-[11px] text-red-500 font-medium">Máx. Bs {{ number_format($expensa['deuda_expensa'], 2, ',', '.') }} (tu deuda) — para pagar de más usa el último mes</span>
+                                                        <span class="text-[11px] text-red-500 font-medium">Máx. Bs {{ number_format($expensa['deuda_expensa'], 2, ',', '.') }} — paga primero tus meses anteriores para poder adelantar</span>
+                                                    @elseif($expensa['permite_sobrepago'] ?? false)
+                                                        <span class="text-[11px] text-emerald-600 font-medium"><i class="fas fa-piggy-bank mr-1"></i>Puedes pagar de más: el excedente queda a tu favor</span>
                                                     @else
                                                         <span class="text-xs text-gray-500">Deuda: {{ number_format($expensa['deuda_expensa'], 2, ',', '.') }}</span>
                                                     @endif
@@ -306,7 +315,7 @@
                                                                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
                                                             @if($expensa['pagar_agua'])
                                                                 <input type="number" step="0.01" min="0"
-                                                                       @unless($periodoData['es_ultimo_periodo'] ?? false) max="{{ $expensa['deuda_agua'] }}" @endunless
+                                                                       @unless($expensa['permite_sobrepago'] ?? false) max="{{ $expensa['deuda_agua'] }}" @endunless
                                                                        wire:model.debounce.300ms="deudasPendientes.{{ $periodoIndex }}.expensas.{{ $expensaIndex }}.monto_agua"
                                                                        wire:change="actualizarDesdeInputAgua({{ $periodoIndex }}, {{ $expensaIndex }})"
                                                                        class="w-20 text-sm rounded px-2 py-1 text-center focus:ring-blue-500 focus:border-blue-500 {{ ($expensa['aviso_agua'] ?? false) ? 'border-red-400 bg-red-50 text-red-700' : 'border-gray-300' }}">
@@ -315,7 +324,9 @@
                                                             @endif
                                                         </div>
                                                         @if($expensa['aviso_agua'] ?? false)
-                                                            <span class="text-[11px] text-red-500 font-medium">Máx. Bs {{ number_format($expensa['deuda_agua'], 2, ',', '.') }} (tu deuda) — para pagar de más usa el último mes</span>
+                                                            <span class="text-[11px] text-red-500 font-medium">Máx. Bs {{ number_format($expensa['deuda_agua'], 2, ',', '.') }} — paga primero tus meses anteriores para poder adelantar</span>
+                                                        @elseif($expensa['permite_sobrepago'] ?? false)
+                                                            <span class="text-[11px] text-emerald-600 font-medium"><i class="fas fa-piggy-bank mr-1"></i>Puedes pagar de más: el excedente queda a tu favor</span>
                                                         @else
                                                             <span class="text-xs text-gray-500">Deuda: {{ number_format($expensa['deuda_agua'], 2, ',', '.') }}</span>
                                                         @endif

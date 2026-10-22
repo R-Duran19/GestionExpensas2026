@@ -163,19 +163,28 @@ class PagarExpensas extends Component
         foreach ($agrupadas as $periodoNombre => $filas) {
             $this->deudasPendientes[] = [
                 'periodo_nombre' => $periodoNombre,
-                // [REGLA SALDO A FAVOR 2026-10-15] Solo el ÚLTIMO período con
-                // deuda (el más reciente) puede sobrepagar: su excedente es lo
-                // único que genera SaldoAFavor. Los meses anteriores se clampan
-                // a su deuda (parcial o total, nunca más).
-                'es_ultimo_periodo' => false,
                 'expensas' => $filas,
             ];
         }
 
-        $ultimo = count($this->deudasPendientes) - 1;
-        if ($ultimo >= 0) {
-            $this->deudasPendientes[$ultimo]['es_ultimo_periodo'] = true;
+        // [REGLA SALDO A FAVOR 2026-10-15 — OPCIÓN 3, POR UNIDAD] Solo se
+        // puede sobrepagar (excedente → SaldoAFavor) en la fila cuya unidad
+        // NO tiene OTRAS deudas pendientes en el selector: primero pagas lo
+        // viejo, recién adelantas. Los saldos a favor se crean por unidad,
+        // así que la regla también es por unidad.
+        $filasPorUnidad = [];
+        foreach ($this->deudasPendientes as $p) {
+            foreach ($p['expensas'] as $f) {
+                $filasPorUnidad[$f['unidad_id']] = ($filasPorUnidad[$f['unidad_id']] ?? 0) + 1;
+            }
         }
+        foreach ($this->deudasPendientes as &$p) {
+            foreach ($p['expensas'] as &$f) {
+                $f['permite_sobrepago'] = ($filasPorUnidad[$f['unidad_id']] ?? 0) === 1;
+            }
+            unset($f);
+        }
+        unset($p);
 
         $this->calcularTotales();
     }
@@ -243,19 +252,19 @@ class PagarExpensas extends Component
     }
 
     /**
-     * [REGLA SALDO A FAVOR 2026-10-15] Clamp del monto a la deuda del mes,
-     * SALVO en el último período con deuda (ahí el excedente genera
-     * SaldoAFavor al acreditar). Si clampea, deja aviso_expensa/aviso_agua
-     * en true para que la vista muestre el feedback "máximo Bs X".
+     * [REGLA SALDO A FAVOR 2026-10-15 — OPCIÓN 3] Clamp del monto a la deuda
+     * del mes, SALVO en la fila cuya unidad no tiene otras deudas pendientes
+     * (ahí el excedente genera SaldoAFavor al acreditar). Si clampea, deja
+     * aviso_expensa/aviso_agua en true para el feedback "Máx. Bs X".
      */
-    protected function clampMontoSegunRegla(int $periodoIndex, array &$expensa, string $campoMonto, string $campoDeuda, string $campoAviso): void
+    protected function clampMontoSegunRegla(array &$expensa, string $campoMonto, string $campoDeuda, string $campoAviso): void
     {
-        $esUltimo = $this->deudasPendientes[$periodoIndex]['es_ultimo_periodo'] ?? false;
+        $permiteSobrepago = $expensa['permite_sobrepago'] ?? false;
 
         $max = floatval($expensa[$campoDeuda] ?? 0);
         $monto = floatval($expensa[$campoMonto] ?? 0);
 
-        if (!$esUltimo && $monto > $max) {
+        if (!$permiteSobrepago && $monto > $max) {
             $expensa[$campoMonto] = $max;
             $expensa[$campoAviso] = true;
         } else {
@@ -276,7 +285,7 @@ class PagarExpensas extends Component
             if ($monto == 0) {
                 $expensa['monto_expensa'] = $expensa['deuda_expensa'];
             }
-            $this->clampMontoSegunRegla($periodoIndex, $expensa, 'monto_expensa', 'deuda_expensa', 'aviso_expensa');
+            $this->clampMontoSegunRegla($expensa, 'monto_expensa', 'deuda_expensa', 'aviso_expensa');
         } else {
             $expensa['monto_expensa'] = 0;
         }
@@ -297,7 +306,7 @@ class PagarExpensas extends Component
             if ($monto == 0) {
                 $expensa['monto_agua'] = $expensa['deuda_agua'];
             }
-            $this->clampMontoSegunRegla($periodoIndex, $expensa, 'monto_agua', 'deuda_agua', 'aviso_agua');
+            $this->clampMontoSegunRegla($expensa, 'monto_agua', 'deuda_agua', 'aviso_agua');
         } else {
             $expensa['monto_agua'] = 0;
         }
@@ -314,7 +323,7 @@ class PagarExpensas extends Component
         $expensa = &$this->deudasPendientes[$periodoIndex]['expensas'][$expensaIndex];
         $monto = floatval($expensa['monto_expensa'] ?? 0);
         $expensa['pagar_expensa'] = $monto > 0;
-        $this->clampMontoSegunRegla($periodoIndex, $expensa, 'monto_expensa', 'deuda_expensa', 'aviso_expensa');
+        $this->clampMontoSegunRegla($expensa, 'monto_expensa', 'deuda_expensa', 'aviso_expensa');
 
         $this->calcularTotales();
     }
@@ -328,7 +337,7 @@ class PagarExpensas extends Component
         $expensa = &$this->deudasPendientes[$periodoIndex]['expensas'][$expensaIndex];
         $monto = floatval($expensa['monto_agua'] ?? 0);
         $expensa['pagar_agua'] = $monto > 0;
-        $this->clampMontoSegunRegla($periodoIndex, $expensa, 'monto_agua', 'deuda_agua', 'aviso_agua');
+        $this->clampMontoSegunRegla($expensa, 'monto_agua', 'deuda_agua', 'aviso_agua');
 
         $this->calcularTotales();
     }
@@ -363,17 +372,17 @@ class PagarExpensas extends Component
         $expensasAProcesar = [];
 
         foreach ($this->deudasPendientes as $periodoData) {
-            // [REGLA SALDO A FAVOR 2026-10-15] Clamp de servidor: meses que no
-            // son el último NUNCA pueden pagar más que su deuda, aunque la
-            // petición llegue manipulada. El último período mantiene su
-            // excedente (genera SaldoAFavor al acreditar).
-            $esUltimo = $periodoData['es_ultimo_periodo'] ?? false;
-
             foreach ($periodoData['expensas'] as $expensa) {
+                // [REGLA SALDO A FAVOR — OPCIÓN 3] Clamp de servidor: filas
+                // cuya unidad tiene otras deudas NUNCA pagan más que su
+                // deuda, aunque la petición llegue manipulada. Filas de
+                // unidad al día (única deuda) conservan el excedente.
+                $permiteSobrepago = $expensa['permite_sobrepago'] ?? false;
+
                 $montoExpensa = floatval($expensa['monto_expensa'] ?? 0);
                 $montoAgua = floatval($expensa['monto_agua'] ?? 0);
 
-                if (!$esUltimo) {
+                if (!$permiteSobrepago) {
                     $montoExpensa = min($montoExpensa, floatval($expensa['deuda_expensa'] ?? 0));
                     $montoAgua = min($montoAgua, floatval($expensa['deuda_agua'] ?? 0));
                 }

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\ActivityLog;
 use App\Models\Expensa;
+use App\Models\IngresoDetalle;
 use App\Models\Unidad;
 use App\Models\PeriodoExpensa;
 use App\Models\LecturaMedidor;
@@ -175,6 +176,14 @@ class ExpensaService
             ]);
         }
 
+        // [FIX B — OPCIÓN 3 2026-10-15] Si aún queda saldo a favor disponible
+        // (la unidad estaba al día y la deuda histórica no lo consumió), se
+        // aplica a la expensa NUEVA como pago automático, registrado como
+        // ingreso_detalle del ingreso que generó el saldo (trazabilidad
+        // contable completa). Así el mes siguiente "nace pagado" o pagado
+        // parcial según cubra el saldo.
+        $this->aplicarSaldoAFavorANuevaExpensa($expensa);
+
         Log::info('Expensa generada', [
             'periodo' => $periodo->nombre_periodo,
             'unidad' => $unidad->nombre_completo,
@@ -185,6 +194,96 @@ class ExpensaService
         ]);
 
         return $expensa;
+    }
+
+    /**
+     * [FIX B — OPCIÓN 3 2026-10-15] Aplicar el saldo a favor disponible de la
+     * unidad a la expensa recién generada (pago automático).
+     *
+     * Se registra como ingreso_detalle(s) del ingreso que generó cada saldo
+     * (misma trazabilidad que un pago normal), se consume el saldo FIFO con
+     * sus estados (disponible → parcialmente_consumido → consumido) y se
+     * recomputan los pendientes desde los detalles. Es seguro ante
+     * regeneración: el pendiente SIEMPRE se recalcula desde ingreso_detalles.
+     */
+    protected function aplicarSaldoAFavorANuevaExpensa(Expensa $expensa): void
+    {
+        DB::transaction(function () use ($expensa) {
+            $saldoDisponible = $this->obtenerSaldoAFavorDisponible($expensa->unidad_id);
+            if ($saldoDisponible <= 0) {
+                return;
+            }
+
+            $expensa->refresh();
+
+            // Primero cubre expensa, luego agua (convención del sistema)
+            $porExpensa = (float) min($saldoDisponible, max(0, (float) $expensa->expensa_pendiente));
+            $porAgua = (float) min(round($saldoDisponible - $porExpensa, 2), max(0, (float) $expensa->agua_pendiente));
+            $totalAplicar = round($porExpensa + $porAgua, 2);
+
+            if ($totalAplicar <= 0) {
+                return;
+            }
+
+            // Incluye parcialmente_consumidos: aún tienen monto_saldo aplicable
+            $saldos = SaldoAFavor::deUnidad($expensa->unidad_id)
+                ->whereIn('estado', ['disponible', 'parcialmente_consumido'])
+                ->where('monto_saldo', '>', 0)
+                ->orderBy('created_at', 'asc') // FIFO
+                ->lockForUpdate()
+                ->get();
+
+            $faltaExpensa = $porExpensa;
+            $faltaAgua = $porAgua;
+
+            foreach ($saldos as $saldo) {
+                if ($faltaExpensa <= 0 && $faltaAgua <= 0) {
+                    break;
+                }
+
+                $delSaldoExpensa = (float) min($faltaExpensa, $saldo->monto_saldo);
+                $delSaldoAgua = (float) min($faltaAgua, round($saldo->monto_saldo - $delSaldoExpensa, 2));
+                $aplicado = round($delSaldoExpensa + $delSaldoAgua, 2);
+
+                if ($aplicado <= 0) {
+                    continue;
+                }
+
+                IngresoDetalle::create([
+                    'ingreso_id' => $saldo->ingreso_id,
+                    'expensa_id' => $expensa->id,
+                    'concepto' => ($delSaldoExpensa > 0 && $delSaldoAgua > 0) ? 'ambos' : ($delSaldoAgua > 0 ? 'agua' : 'expensa'),
+                    'monto_aplicado' => $aplicado,
+                    'monto_expensa_aplicado' => $delSaldoExpensa,
+                    'monto_agua_aplicado' => $delSaldoAgua,
+                ]);
+
+                $saldo->aplicarParcialmente($aplicado);
+
+                $faltaExpensa = round($faltaExpensa - $delSaldoExpensa, 2);
+                $faltaAgua = round($faltaAgua - $delSaldoAgua, 2);
+            }
+
+            // Recomputar pendientes desde los detalles (misma fórmula del update)
+            $pagado = IngresoDetalle::where('expensa_id', $expensa->id)
+                ->selectRaw('COALESCE(SUM(monto_expensa_aplicado), 0) AS pe, COALESCE(SUM(monto_agua_aplicado), 0) AS pa')
+                ->first();
+
+            $expensa->update([
+                'expensa_pendiente' => max(0, (float) $expensa->monto_expensa - (float) $pagado->pe),
+                'agua_pendiente' => max(0, (float) $expensa->monto_agua - (float) $pagado->pa),
+            ]);
+
+            Log::info('Saldo a favor aplicado a expensa nueva', [
+                'expensa_id' => $expensa->id,
+                'unidad_id' => $expensa->unidad_id,
+                'periodo_id' => $expensa->periodo_id,
+                'aplicado_expensa' => $porExpensa,
+                'aplicado_agua' => $porAgua,
+                'pendiente_expensa' => $expensa->fresh()->expensa_pendiente,
+                'pendiente_agua' => $expensa->fresh()->agua_pendiente,
+            ]);
+        });
     }
 
     /**
