@@ -81,9 +81,14 @@ class PortalPerfil extends Component
 
         $this->reset(['password_actual', 'password', 'password_confirmation']);
 
-        // Patrón del sistema: dispatch a listener global en app.js (SweetAlert2).
-        // Nos quedamos en la página (sin redirect) para evitar perder el evento.
-        $this->dispatch('toast-success', message: 'Contraseña actualizada correctamente');
+        // Modal de éxito (SweetAlert2, auto-cierra en 3 s) y al cerrarse
+        // redirige al inicio del portal ('redirect-to' + listener en app.js).
+        $this->dispatch('alerta', [
+            'tipo' => 'success',
+            'titulo' => '¡Contraseña actualizada!',
+            'mensaje' => 'Tu contraseña fue cambiada correctamente.',
+        ]);
+        $this->dispatch('redirect-to', route('portal.dashboard'));
     }
 
     public function render()
