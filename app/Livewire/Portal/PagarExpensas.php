@@ -606,12 +606,25 @@ class PagarExpensas extends Component
     public function cancelarQr(): void
     {
         $qr = $this->qrActivo;
+        $cancelo = false;
 
         if ($qr && $qr->estaPendiente()) {
             $this->service()->cancelar($qr);
+            $cancelo = true;
         }
 
         $this->qrActivoId = null;
+
+        if ($cancelo) {
+            // Feedback (Swal auto-cierra en 3 s) y al cerrarse vuelve al
+            // inicio del portal (patrón alerta + redirect-to de app.js).
+            $this->dispatch('alerta', [
+                'tipo' => 'success',
+                'titulo' => 'QR cancelado',
+                'mensaje' => 'El QR fue inhabilitado y nadie podrá pagarlo. Puedes generar uno nuevo cuando quieras.',
+            ]);
+            $this->dispatch('redirect-to', route('portal.dashboard'));
+        }
     }
 
     public function render()
