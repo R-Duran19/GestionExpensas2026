@@ -12,14 +12,28 @@
             <x-input-error :messages="$errors->get('email')" class="mt-2" />
         </div>
 
-        <!-- Password -->
+        <!-- Password (con ojito para mostrar/ocultar) -->
         <div class="mt-4">
             <x-input-label for="password" :value="__('Password')" />
 
-            <x-text-input id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="current-password" />
+            <div class="relative mt-1" x-data="{ mostrar: false }">
+                {{-- Input nativo (no x-text-input): los :bind son de Alpine, no
+                     de Blade (un :attr sobre componente Blade se evalúa en PHP) --}}
+                <input id="password"
+                       type="password"
+                       name="password"
+                       required
+                       autocomplete="current-password"
+                       :type="mostrar ? 'text' : 'password'"
+                       class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm block w-full pr-10" />
+                <button type="button"
+                        @click="mostrar = !mostrar"
+                        tabindex="-1"
+                        :aria-label="mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                        class="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600 focus:outline-none">
+                    <i class="fa-solid" :class="mostrar ? 'fa-eye-slash' : 'fa-eye'"></i>
+                </button>
+            </div>
 
             <x-input-error :messages="$errors->get('password')" class="mt-2" />
         </div>
