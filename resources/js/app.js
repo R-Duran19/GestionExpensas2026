@@ -1,14 +1,21 @@
 import './bootstrap';
 
-import Alpine from 'alpinejs';
 import Swal from 'sweetalert2';
 import collapse from '@alpinejs/collapse';
+
+// [FIX DOBLE ALPINE 2026-10-29] Alpine DEBE ser la MISMA instancia que
+// Livewire trae por dentro. Importar 'alpinejs' + Alpine.start() creaba una
+// SEGUNDA instancia de Alpine: el magic "$wire" no existía en esa instancia
+// (error "$wire is not defined") y TODOS los wire:click del sistema morían
+// (cancelar/verificar del QR) mientras el countdown puro-Alpine seguía vivo.
+import { Livewire, Alpine } from '../../vendor/livewire/livewire/dist/livewire.esm';
 
 window.Alpine = Alpine;
 window.Swal = Swal;
 
 Alpine.plugin(collapse);
-Alpine.start();
+
+Livewire.start();
 
 // Escuchar alertas de Livewire
 Livewire.on('alerta', (data) => {
