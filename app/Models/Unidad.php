@@ -303,15 +303,20 @@ class Unidad extends Model
 
     /**
      * Verificar si tiene inquilino actual
+     *
+     * OJO: el accesor getInquilinoActualAttribute SOMBRREA a la relación
+     * `inquilinoActual()` incluso con eager loading: devuelve un MODELO|null,
+     * nunca una Colección. Por eso, con la relación cargada hay que usar
+     * getRelation() (que sí devuelve la Colección) y en el resto comparar
+     * contra null. Nunca ->isNotEmpty() sobre el accesor.
      */
     public function tieneInquilinoActual(): bool
     {
-        // Si la relación ya fue eager-loaded, NO pegar a la BD por cada unidad
         if ($this->relationLoaded('inquilinoActual')) {
-            return $this->inquilinoActual->isNotEmpty();
+            return $this->getRelation('inquilinoActual')->isNotEmpty();
         }
 
-        return $this->inquilinoActual()->exists();
+        return $this->inquilinoActual !== null;
     }
 
     /**
