@@ -16,6 +16,7 @@ use App\Services\ExpensaService;
 use App\Services\QrBanco\FakeQrDriver;
 use App\Services\QrBanco\PagoQrService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -260,4 +261,56 @@ class SaldoFavorRuleTest extends TestCase
             (float) $saldo->monto_saldo
         );
     }
+
+
+/**
+ * [BLINDAJE 2026-10-29] Si el webhook (o el cron) acredita el QR antes que el
+ * polling, el siguiente verificar() debe AVISAR al usuario (alerta success +
+ * pantalla de éxito) en vez de dejar que la tarjeta desaparezca en silencio.
+ */
+public function test_webhook_acredita_primero_y_el_polling_igual_avisa(): void
+{
+    $service = new PagoQrService(new FakeQrDriver(), app(\App\Services\PagoExpensaService::class));
+    $qr = $service->crearIntencion($this->user, $this->unidad->id, 250, ['glosa' => 'Expensas DEP-SF-1']);
+
+    // El "webhook" acredita primero (el polling sigue dormido)
+    $service->acreditar($qr, ['alias' => $qr->alias, 'monto' => 250]);
+
+    // El polling despierta: el QR ya NO está pendiente → debe avisar igual
+    $t = $this->componentePortal();
+    $t->call('verificar', false);
+
+    $this->assertTrue($t->instance()->pagoExitoso);
+    $this->assertEquals($qr->fresh()->ingreso_id, $t->instance()->ingresoId);
+    $t->assertDispatched('alerta');
+}
+
+/**
+ * [BLINDAJE 2026-10-29] Guarda anti-apilamiento: si ya hay una verificación
+ * en curso (lock del banco/QR), el click manual informa en vez de colgarse
+ * esperando el lock (sensación de pantalla congelada).
+ */
+public function test_verificacion_manual_mientras_hay_una_en_curso_informa_y_no_se_cuelga(): void
+{
+    $service = new PagoQrService(new FakeQrDriver(), app(\App\Services\PagoExpensaService::class));
+    $service->crearIntencion($this->user, $this->unidad->id, 250, ['glosa' => 'Expensas DEP-SF-1']);
+
+    $t = $this->componentePortal();
+    $qr = $t->instance()->qrActivo;
+
+    // Simular otra verificación en curso (otra pestaña/polling)
+    Cache::put("qr_verif_en_curso_{$qr->id}", true, now()->addSeconds(10));
+
+    $t->call('verificar', true);
+
+    $t->assertDispatched('alerta', function ($event, $payload) {
+        $data = is_array($payload) && isset($payload[0]) && is_array($payload[0]) ? $payload[0] : $payload;
+        return ($data['titulo'] ?? '') === 'Verificación en curso';
+    });
+
+    // El QR sigue pendiente (no se procesó nada detrás del guard)
+    $this->assertEquals('pendiente', $qr->fresh()->estado);
+
+    Cache::forget("qr_verif_en_curso_{$qr->id}");
+}
 }

@@ -7,6 +7,7 @@ use App\Models\PagoQr;
 use App\Models\SaldoAFavor;
 use App\Services\QrBanco\PagoQrService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -535,69 +536,128 @@ class PagarExpensas extends Component
         $qr = $this->qrActivo;
 
         if (!$qr || !$qr->estaPendiente()) {
-            return; // sin QR pendiente no hay nada que avisar (el polling pasa por aquí)
+            // [FIX 2026-10-29] El webhook o el cron pudieron acreditarlo o
+            // vencerlo mientras tanto: dar feedback en vez de que la tarjeta
+            // desaparezca en silencio ("no sale el mensaje de pago exitoso").
+            $this->avisarSiFueAcreditado();
+            return;
         }
 
-        try {
-            $resultado = $this->service()->verificarYAcreditar($qr, $forzar);
-        } catch (\Throwable $e) {
-            report($e);
-            // Banco caído: el estado local se mantiene (fallback como tickets).
-            // El polling falla en silencio (report() ya lo logueó); solo el
-            // click manual muestra el error.
+        // [FIX 2026-10-29] Guarda anti-apilamiento: el polling, el click manual
+        // y otras pestañas compiten por el lock del QR. Mientras una
+        // verificación corre (el banco puede tardar varios segundos), las
+        // demás PASAN DE LARGO en vez de colgarse tras el lock (congelón).
+        $claveEnCurso = "qr_verif_en_curso_{$qr->id}";
+        if (Cache::has($claveEnCurso)) {
             if ($forzar) {
                 $this->dispatch('alerta', [
-                    'tipo' => 'error',
-                    'titulo' => 'No se pudo verificar',
-                    'mensaje' => 'El banco no respondió en este momento. Tu QR sigue activo; intenta de nuevo en unos segundos.',
+                    'tipo' => 'info',
+                    'titulo' => 'Verificación en curso',
+                    'mensaje' => 'Ya se está verificando tu QR. Espera unos segundos.',
                 ]);
             }
             return;
         }
+        Cache::put($claveEnCurso, true, now()->addSeconds(10));
 
-        $qr->refresh();
+        try {
+            try {
+                $resultado = $this->service()->verificarYAcreditar($qr, $forzar);
+            } catch (\Throwable $e) {
+                report($e);
+                // Banco caído: el estado local se mantiene (fallback como tickets).
+                // El polling falla en silencio (report() ya lo logueó); solo el
+                // click manual muestra el error.
+                if ($forzar) {
+                    $this->dispatch('alerta', [
+                        'tipo' => 'error',
+                        'titulo' => 'No se pudo verificar',
+                        'mensaje' => 'El banco no respondió en este momento. Tu QR sigue activo; intenta de nuevo en unos segundos.',
+                    ]);
+                }
+                return;
+            }
 
-        if ($resultado['pago_procesado']) {
+            $qr->refresh();
+
+            if ($resultado['pago_procesado']) {
+                if ($qr->estado === PagoQr::ESTADO_PAGADO) {
+                    $this->pagoExitoso = true;
+                    $this->ingresoId = $qr->ingreso_id;
+                    $this->dispatch('alerta', [
+                        'tipo' => 'success',
+                        'titulo' => '¡Pago confirmado!',
+                        'mensaje' => 'Tu pago fue acreditado correctamente. Ya puedes descargar tu recibo.',
+                    ]);
+                } else {
+                    $this->dispatch('alerta', [
+                        'tipo' => 'warning',
+                        'titulo' => 'Pago con monto diferente',
+                        'mensaje' => 'El banco reporta un pago con un monto distinto al del QR. El administrador lo revisará.',
+                    ]);
+                }
+                return;
+            }
+
+            // Sin procesamiento nuevo: el aviso es SOLO para el click manual.
+            // El polling de 15 s verifica en silencio (no spamea diálogos) y
+            // acreditará solito cuando el banco registre el pago.
+            if (!$forzar) {
+                return;
+            }
+
+            $mensajes = [
+                PagoQr::ESTADO_PENDIENTE => ['info', 'Aún no pagado', 'Verificado con el banco: el QR todavía no ha sido pagado. Te sigue esperando; también puedes esperar la verificación automática.'],
+                PagoQr::ESTADO_PAGADO    => ['info', 'Ya estaba confirmado', 'Este QR ya había sido pagado y acreditado. Descarga tu recibo desde Mis Pagos.'],
+                PagoQr::ESTADO_EXPIRADO  => ['warning', 'El QR venció', 'El QR superó su tiempo de validez (1 hora) sin recibir el pago. Genera uno nuevo con tu selección.'],
+                PagoQr::ESTADO_CANCELADO => ['warning', 'QR cancelado', 'Este QR fue cancelado. Genera uno nuevo con tu selección.'],
+            ];
+
+            [$tipo, $titulo, $mensaje] = $mensajes[$qr->estado] ?? ['info', 'Sin cambios', 'El estado del QR no ha cambiado.'];
+
             if ($qr->estado === PagoQr::ESTADO_PAGADO) {
                 $this->pagoExitoso = true;
                 $this->ingresoId = $qr->ingreso_id;
-                $this->dispatch('alerta', [
-                    'tipo' => 'success',
-                    'titulo' => '¡Pago confirmado!',
-                    'mensaje' => 'Tu pago fue acreditado correctamente. Ya puedes descargar tu recibo.',
-                ]);
-            } else {
-                $this->dispatch('alerta', [
-                    'tipo' => 'warning',
-                    'titulo' => 'Pago con monto diferente',
-                    'mensaje' => 'El banco reporta un pago con un monto distinto al del QR. El administrador lo revisará.',
-                ]);
             }
+
+            $this->dispatch('alerta', ['tipo' => $tipo, 'titulo' => $titulo, 'mensaje' => $mensaje]);
+        } finally {
+            Cache::forget($claveEnCurso);
+        }
+    }
+
+    /**
+     * [FIX 2026-10-29] El QR activo ya no está pendiente cuando el polling
+     * despertó: el webhook o el cron lo acreditaron/vencieron primero.
+     * Informar al usuario en vez de dejar que la tarjeta muera sin mensaje.
+     */
+    protected function avisarSiFueAcreditado(): void
+    {
+        $reciente = PagoQr::where('user_id', $this->user->id)
+            ->whereIn('estado', [PagoQr::ESTADO_PAGADO, PagoQr::ESTADO_EXPIRADO])
+            ->where('updated_at', '>=', now()->subSeconds(30))
+            ->latest('updated_at')
+            ->first();
+
+        if (!$reciente) {
             return;
         }
 
-        // Sin procesamiento nuevo: el aviso es SOLO para el click manual.
-        // El polling de 15 s verifica en silencio (no spamea diálogos) y
-        // acreditará solito cuando el banco registre el pago.
-        if (!$forzar) {
-            return;
-        }
-
-        $mensajes = [
-            PagoQr::ESTADO_PENDIENTE => ['info', 'Aún no pagado', 'Verificado con el banco: el QR todavía no ha sido pagado. Te sigue esperando; también puedes esperar la verificación automática.'],
-            PagoQr::ESTADO_PAGADO    => ['info', 'Ya estaba confirmado', 'Este QR ya había sido pagado y acreditado. Descarga tu recibo desde Mis Pagos.'],
-            PagoQr::ESTADO_EXPIRADO  => ['warning', 'El QR venció', 'El QR superó su tiempo de validez (1 hora) sin recibir el pago. Genera uno nuevo con tu selección.'],
-            PagoQr::ESTADO_CANCELADO => ['warning', 'QR cancelado', 'Este QR fue cancelado. Genera uno nuevo con tu selección.'],
-        ];
-
-        [$tipo, $titulo, $mensaje] = $mensajes[$qr->estado] ?? ['info', 'Sin cambios', 'El estado del QR no ha cambiado.'];
-
-        if ($qr->estado === PagoQr::ESTADO_PAGADO) {
+        if ($reciente->estado === PagoQr::ESTADO_PAGADO) {
             $this->pagoExitoso = true;
-            $this->ingresoId = $qr->ingreso_id;
+            $this->ingresoId = $reciente->ingreso_id;
+            $this->dispatch('alerta', [
+                'tipo' => 'success',
+                'titulo' => '¡Pago confirmado!',
+                'mensaje' => 'Tu pago fue acreditado correctamente. Ya puedes descargar tu recibo.',
+            ]);
+        } else {
+            $this->dispatch('alerta', [
+                'tipo' => 'warning',
+                'titulo' => 'El QR venció',
+                'mensaje' => 'Superó su tiempo de validez sin recibir el pago. Genera uno nuevo con tu selección.',
+            ]);
         }
-
-        $this->dispatch('alerta', ['tipo' => $tipo, 'titulo' => $titulo, 'mensaje' => $mensaje]);
     }
 
     /**
