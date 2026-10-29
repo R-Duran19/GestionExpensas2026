@@ -26,12 +26,18 @@
 
     {{-- QR ACTIVO EN CURSO --}}
     @elseif ($qr = $this->qrActivo)
-        <div x-data="{
+        <div wire:key="qr-card" x-data="{
                     ampliar: false,
                     deadline: {{ $qr->fecha_vencimiento->timestamp * 1000 }},
                     restante: '',
                     vencido: false,
                     tick() {
+                        // [FIX CONGELAMIENTO 2026-10-29] Si el elemento fue
+                        // reemplazado por un morph del polling, la cadena de
+                        // setTimeout queda huérfana y se acumula una cadena
+                        // nueva en cada re-init → el navegador muere en minutos.
+                        // Cortar la cadena si el nodo ya no está en el DOM.
+                        if (!this.$el || !this.$el.isConnected) return;
                         const d = Math.max(0, this.deadline - Date.now());
                         const h = Math.floor(d / 3600000);
                         const m = Math.floor((d % 3600000) / 60000);
@@ -112,8 +118,16 @@
                         <div x-data="{
                                 hasta: {{ $cooldownHasta ? $cooldownHasta->timestamp * 1000 : 0 }},
                                 ahora: Date.now(),
-                                tick() { this.ahora = Date.now(); if (this.hasta > this.ahora) setTimeout(() => this.tick(), 500); }
+                                // [FIX CONGELAMIENTO] mismo guard que el countdown:
+                                // el morph re-inicia este x-data tras cada verificar
+                                // (hasta cambia) — cortar cadenas huérfanas.
+                                tick() {
+                                    if (!this.$el || !this.$el.isConnected) return;
+                                    this.ahora = Date.now();
+                                    if (this.hasta > this.ahora) setTimeout(() => this.tick(), 500);
+                                }
                              }"
+                             wire:key="cooldown-verificar"
                              x-init="tick()" class="flex-1">
                             <button wire:click="verificar(true)"
                                     wire:loading.attr="disabled"
