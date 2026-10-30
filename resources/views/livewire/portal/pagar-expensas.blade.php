@@ -113,33 +113,19 @@
                     </div>
 
                     <div class="flex flex-col sm:flex-row gap-2">
-                        {{-- Verificar ahora: "Verificando..." mientras llama +
-                             cooldown 10 s tras cada chequeo (anti-spam) --}}
-                        <div x-data="{
-                                hasta: {{ $cooldownHasta ? $cooldownHasta->timestamp * 1000 : 0 }},
-                                ahora: Date.now(),
-                                // [FIX CONGELAMIENTO] mismo guard que el countdown:
-                                // el morph re-inicia este x-data tras cada verificar
-                                // (hasta cambia) — cortar cadenas huérfanas.
-                                tick() {
-                                    if (!this.$el || !this.$el.isConnected) return;
-                                    this.ahora = Date.now();
-                                    if (this.hasta > this.ahora) setTimeout(() => this.tick(), 500);
-                                }
-                             }"
-                             wire:key="cooldown-verificar"
-                             x-init="tick()" class="flex-1">
-                            <button wire:click="verificar(true)"
+                        {{-- Verificar ahora: "Verificando..." mientras llama (sin
+                             cooldown de cliente — el anti-spam vive en el servidor:
+                             guarda anti-apilamiento + cache de 5s del polling) --}}
+                        <div class="flex-1">
+                            <button type="button"
+                                    wire:click="verificar(true)"
                                     wire:loading.attr="disabled"
                                     wire:target="verificar"
-                                    :disabled="hasta > ahora"
                                     class="w-full px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition">
                                 <span wire:loading wire:target="verificar" class="inline-flex items-center justify-center gap-1">
                                     <i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Verificando...
                                 </span>
-                                <span wire:loading.remove wire:target="verificar" x-show="hasta > ahora" x-cloak
-                                      x-text="'Espere ' + Math.ceil((hasta - ahora) / 1000) + ' s'"></span>
-                                <span wire:loading.remove wire:target="verificar" x-show="hasta <= ahora">
+                                <span wire:loading.remove wire:target="verificar">
                                     <i class="fa-solid fa-rotate mr-1"></i> Verificar ahora
                                 </span>
                             </button>

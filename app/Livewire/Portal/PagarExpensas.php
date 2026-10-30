@@ -42,9 +42,6 @@ class PagarExpensas extends Component
     public bool $pagoExitoso = false;
     public ?int $ingresoId = null;
 
-    /** Bloqueo anti-spam del botón "Verificar ahora" (10 s tras cada chequeo). */
-    public $cooldownHasta = null;
-
     public function mount(): void
     {
         $this->cargarDeudas();
@@ -522,17 +519,12 @@ class PagarExpensas extends Component
      * Verificar estado en el banco.
      *
      * - Polling (15s) usa cache de 5s; el botón manual fuerza consulta real.
-     * - Anti-spam: tras cada verificación el botón queda bloqueado 10 s
-     *   (cooldownHasta) y SIEMPRE muestra un diálogo con el resultado.
+     * - Anti-spam: el botón se deshabilita solo mientras la verificación
+     *   corre (wire:loading) y la guarda anti-apilamiento deduplica polls +
+     *   clicks + pestañas. SIEMPRE muestra un diálogo con el resultado.
      */
     public function verificar(bool $forzar = false): void
     {
-        // Anti-spam SOLO para el botón manual: el polling automático de 15 s
-        // no debe dejar el botón bloqueado casi permanentemente.
-        if ($forzar) {
-            $this->cooldownHasta = now()->addSeconds(10);
-        }
-
         $qr = $this->qrActivo;
 
         if (!$qr || !$qr->estaPendiente()) {
