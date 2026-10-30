@@ -26,67 +26,40 @@
 
     {{-- QR ACTIVO EN CURSO --}}
     @elseif ($qr = $this->qrActivo)
-        <div wire:key="qr-card" x-data="{
-                    ampliar: false,
-                    deadline: {{ $qr->fecha_vencimiento->timestamp * 1000 }},
-                    restante: '',
-                    vencido: false,
-                    tick() {
-                        // [FIX CONGELAMIENTO 2026-10-29] Si el elemento fue
-                        // reemplazado por un morph del polling, la cadena de
-                        // setTimeout queda huérfana y se acumula una cadena
-                        // nueva en cada re-init → el navegador muere en minutos.
-                        // Cortar la cadena si el nodo ya no está en el DOM.
-                        if (!this.$el || !this.$el.isConnected) return;
-                        const d = Math.max(0, this.deadline - Date.now());
-                        const h = Math.floor(d / 3600000);
-                        const m = Math.floor((d % 3600000) / 60000);
-                        const s = Math.floor((d % 60000) / 1000);
-                        this.restante = (h > 0 ? h + ' h ' : '') + String(m).padStart(2, '0') + ' min ' + String(s).padStart(2, '0') + ' s';
-                        this.vencido = d <= 0;
-                        if (!this.vencido) setTimeout(() => this.tick(), 1000);
-                        else this.restante = 'VENCIDO';
-                    },
-                    descargar() {
-                        const a = document.createElement('a');
-                        a.href = '{{ $qr->imagen_qr }}';
-                        a.download = 'QR-pago-{{ $qr->alias }}.png';
-                        a.click();
-                    }
-                }"
-             x-init="tick()"
-             wire:poll.15s="verificar"
+        {{-- [REHAZ SIN JS 2026-10-29] Tarjeta 100% Livewire nativo: wire:poll,
+             wire:click, wire:confirm, wire:loading y enlaces nativos. CERO
+             Alpine custom, cero setTimeout, cero $wire en atributos — el JS
+             frágil (countdown/cooldown/Swal-en-atributo) era lo que congelaba
+             la página. La fecha de vencimiento se actualiza con el poll. --}}
+        <div wire:key="qr-card" wire:poll.15s="verificar"
              class="bg-white rounded-xl shadow-sm border border-indigo-200 overflow-hidden">
 
-            {{-- Barra superior con cuenta regresiva --}}
+            {{-- Barra superior --}}
             <div class="bg-indigo-50 px-5 py-3 text-sm text-indigo-700 font-medium flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                 <span><i class="fa-solid fa-hourglass-half mr-1"></i> Tu pago en curso</span>
                 <span class="text-xs font-normal">
-                    <span x-show="!vencido">Se verifica automáticamente cada 15 s · vence en</span>
-                    <strong class="ml-1 font-mono text-base"
-                            :class="vencido ? 'text-red-600' : 'text-indigo-900'"
-                            x-text="restante"></strong>
-                    <span class="text-gray-400">· {{ $qr->fecha_vencimiento->format('d/m H:i') }}</span>
+                    Se verifica automáticamente cada 15 s
+                    <span class="text-gray-400">· vence {{ $qr->fecha_vencimiento->format('d/m H:i') }}</span>
                 </span>
             </div>
 
             <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                 {{-- QR (vertical-first: grande arriba en móvil) --}}
-                <div class="flex flex-col items-center" x-data>
+                <div class="flex flex-col items-center">
                     <img src="{{ $qr->imagen_qr }}" alt="QR de pago"
-                         class="w-64 h-64 sm:w-72 sm:h-72 bg-white border border-gray-200 rounded-lg object-contain cursor-zoom-in"
-                         @click="ampliar = true" />
+                         class="w-64 h-64 sm:w-72 sm:h-72 bg-white border border-gray-200 rounded-lg object-contain">
                     <p class="text-xs text-gray-400 mt-2 font-mono">{{ $qr->alias }}</p>
 
                     <div class="flex gap-2 mt-3">
-                        <button type="button" @click="ampliar = true"
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition">
+                        {{-- Ampliar/Descargar: enlaces NATIVOS (cero JS) --}}
+                        <a href="{{ $qr->imagen_qr }}" target="_blank" rel="noopener"
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition">
                             <i class="fa-solid fa-expand"></i> Ampliar
-                        </button>
-                        <button type="button" @click="descargar()"
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition">
+                        </a>
+                        <a href="{{ $qr->imagen_qr }}" download="QR-pago-{{ $qr->alias }}.png"
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition">
                             <i class="fa-solid fa-download"></i> Descargar
-                        </button>
+                        </a>
                     </div>
                 </div>
 
@@ -113,9 +86,9 @@
                     </div>
 
                     <div class="flex flex-col sm:flex-row gap-2">
-                        {{-- Verificar ahora: "Verificando..." mientras llama (sin
-                             cooldown de cliente — el anti-spam vive en el servidor:
-                             guarda anti-apilamiento + cache de 5s del polling) --}}
+                        {{-- Verificar ahora: "Verificando..." mientras llama. El
+                             anti-spam vive server-side (guarda anti-apilamiento
+                             + cache de 5s del polling). --}}
                         <div class="flex-1">
                             <button type="button"
                                     wire:click="verificar(true)"
@@ -130,43 +103,18 @@
                                 </span>
                             </button>
                         </div>
-                        {{-- Cancelar QR con diálogo SweetAlert2 (no alert nativo).
-                             OJO: el html del Swal NO lleva comillas internas — un
-                             escape mal formado aquí aborta TODO Alpine/Livewire. --}}
-                        <button x-data
-                                @click="Swal.fire({
-                                    title: '¿Cancelar este QR?',
-                                    html: 'El QR de <b>Bs {{ number_format((float) $qr->monto, 2, ',', '.') }}</b> quedará inhabilitado y nadie podrá pagarlo.<br><br>Si <b>YA</b> realizaste el pago, no lo canceles: el pago se acreditará igual.',
-                                    icon: 'warning',
-                                    showCancelButton: true,
-                                    confirmButtonText: 'Sí, cancelar QR',
-                                    cancelButtonText: 'No, volver',
-                                    confirmButtonColor: '#dc2626',
-                                    cancelButtonColor: '#6b7280'
-                                }).then(r => { if (r.isConfirmed) $wire.call('cancelarQr'); })"
-                                class="px-4 py-2 bg-gray-100 text-gray-600 text-sm rounded-lg hover:bg-gray-200">
-                            Cancelar QR
+                        {{-- Cancelar QR: wire:confirm NATIVO de Livewire (sin Swal
+                             ni $wire en atributos — era lo que se rompía) --}}
+                        <button type="button"
+                                wire:click="cancelarQr"
+                                wire:confirm="¿Cancelar este QR? Quedará inhabilitado y nadie podrá pagarlo. Si YA realizaste el pago, no lo canceles: el pago se acreditará igual."
+                                wire:loading.attr="disabled"
+                                wire:target="cancelarQr"
+                                class="px-4 py-2 bg-gray-100 text-gray-600 text-sm rounded-lg hover:bg-gray-200 disabled:opacity-50">
+                            <span wire:loading wire:target="cancelarQr">Cancelando...</span>
+                            <span wire:loading.remove wire:target="cancelarQr">Cancelar QR</span>
                         </button>
                     </div>
-                </div>
-            </div>
-
-            {{-- Modal de ampliación (pantalla completa) --}}
-            <div x-show="ampliar" x-cloak
-                 class="fixed inset-0 z-50 bg-gray-900/90 flex flex-col items-center justify-center p-4"
-                 @keydown.escape.window="ampliar = false" @click.self="ampliar = false">
-                <img src="{{ $qr->imagen_qr }}" alt="QR ampliado"
-                     class="max-h-[80vh] max-w-[90vw] bg-white p-4 rounded-xl shadow-2xl" />
-                <p class="text-white/80 text-sm mt-3 font-mono">{{ $qr->alias }} · Bs {{ number_format((float) $qr->monto, 2, ',', '.') }}</p>
-                <div class="flex gap-3 mt-4">
-                    <button type="button" @click="descargar()"
-                            class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white text-sm rounded-lg hover:bg-emerald-600">
-                        <i class="fa-solid fa-download"></i> Descargar imagen
-                    </button>
-                    <button type="button" @click="ampliar = false"
-                            class="inline-flex items-center gap-2 px-4 py-2 bg-white/10 text-white text-sm rounded-lg hover:bg-white/20">
-                        <i class="fa-solid fa-xmark"></i> Cerrar
-                    </button>
                 </div>
             </div>
         </div>
