@@ -5,6 +5,7 @@ namespace App\Livewire\Portal;
 use App\Models\Expensa;
 use App\Models\SaldoAFavor;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -107,6 +108,48 @@ class PortalDashboard extends Component
     public function saldoTotal(): float
     {
         return array_sum($this->saldosPorUnidad());
+    }
+
+    /**
+     * [METRICAS 2026-10-30] Histórico de consumo de agua por medidor de las
+     * unidades del usuario (suma de sus unidades por período) + promedio del
+     * edificio como referencia. Sección nueva del dashboard del portal.
+     */
+    #[Computed]
+    public function consumoHistorico(): array
+    {
+        $unidadIds = $this->unidades->pluck('id')->all();
+        if (empty($unidadIds)) {
+            return ['serie' => [], 'total_m3' => 0, 'promedio_m3' => 0];
+        }
+
+        $serie = DB::table('lecturas_medidor')
+            ->join('periodos_expensa as pe', 'pe.id', '=', 'lecturas_medidor.periodo_id')
+            ->whereIn('lecturas_medidor.unidad_id', $unidadIds)
+            ->selectRaw("CONCAT(pe.año,'-',LPAD(pe.mes,2,'0')) AS periodo, COALESCE(SUM(consumo_m3),0) AS m3")
+            ->groupBy('periodo')
+            ->orderBy('periodo')
+            ->get()
+            ->map(fn ($f) => ['periodo' => $f->periodo, 'm3' => round((float) $f->m3, 2)])
+            ->values();
+
+        return [
+            'serie' => $serie,
+            'total_m3' => round($serie->sum('m3'), 2),
+            'promedio_m3' => round($serie->avg('m3'), 2),
+        ];
+    }
+
+    /**
+     * [METRICAS 2026-10-30] Timeline Pagado/Parcial/Pendiente por período de
+     * las unidades del usuario.
+     */
+    #[Computed]
+    public function timelinePagos(): Collection
+    {
+        $unidadIds = $this->unidades->pluck('id')->all();
+
+        return app(\App\Services\MetricasService::class)->timelineUnidades($unidadIds);
     }
 
     public function render()

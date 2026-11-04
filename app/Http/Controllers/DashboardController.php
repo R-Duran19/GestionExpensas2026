@@ -33,12 +33,27 @@ class DashboardController extends Controller
                                       ->limit(10)
                                       ->get();
 
-        // Métricas básicas (placeholder para FASE 6: Reportes)
+        // [METRICAS 2026-10-30] Panel resumido (cada bloque tiene "Ver más"
+        // hacia /metricas/*). Queries centralizadas + cache de 10 min.
+        $metricas = app(\App\Services\MetricasService::class);
+
         $metrics = [
-            'total_unidades' => 0, // Se actualizará en FASE 1.2
-            'total_propietarios' => 0, // Se actualizará en FASE 1.2
-            'total_expensas_pendientes' => 0, // Se actualizará en FASE 3
-            'total_pagos_mes' => 0, // Se actualizará en FASE 5
+            'total_unidades' => \App\Models\Unidad::where('activo', true)->count(),
+            'total_propietarios' => \App\Models\Propietario::count(),
+            'total_expensas_pendientes' => 0,
+            'total_pagos_mes' => 0,
+            // Morosidad
+            'morosidad' => $metricas->porcentajeMorosidad(),
+            'top_morosos' => $metricas->topMorosos(5),
+            'buckets_mora' => $metricas->bucketsMora(),
+            // Consumo
+            'consumo_periodo' => $metricas->consumoPorPeriodo(),
+            'top_agua' => $metricas->topConsumidoresAgua(5),
+            'anomalias_count' => $metricas->anomaliasConsumo()->count(),
+            // Cobranza
+            'cobranza' => $metricas->cobranzaPorPeriodo(),
+            'canal' => $metricas->canalCobranza(),
+            'saldo_favor' => $metricas->saldoFavorFlotante(),
         ];
 
         return view('dashboard', compact(

@@ -83,10 +83,89 @@
         </div>
     @endif
 
-    {{-- Aviso: pago en línea próximo --}}
-    <div class="mt-8 bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-700">
-        <i class="fa-solid fa-circle-info mr-1"></i>
-        El pago en línea con código QR estará disponible próximamente. Por ahora, tus pagos se
-        registran con el administrador del edificio.
+    {{-- [METRICAS 2026-10-30] Histórico de consumo de agua por medidor --}}
+    @if (count($this->consumoHistorico['serie']) > 0)
+        <div class="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-semibold text-gray-700"><i class="fa-solid fa-droplet mr-1 text-blue-400"></i> Tu consumo de agua por período (m³)</h3>
+                <span class="text-xs text-gray-400">Línea punteada = promedio del edificio por unidad</span>
+            </div>
+            <div class="relative" style="height: 240px">
+                <canvas id="chartConsumoPortal"></canvas>
+            </div>
+            <div class="grid grid-cols-3 gap-3 mt-4 text-center">
+                <div class="bg-blue-50 rounded-lg p-2">
+                    <div class="text-xs text-gray-500">Total histórico</div>
+                    <div class="text-lg font-bold text-blue-600">{{ $this->consumoHistorico['total_m3'] }} m³</div>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-2">
+                    <div class="text-xs text-gray-500">Tu promedio mensual</div>
+                    <div class="text-lg font-bold text-gray-800">{{ $this->consumoHistorico['promedio_m3'] }} m³</div>
+                </div>
+                <div class="bg-emerald-50 rounded-lg p-2">
+                    <div class="text-xs text-gray-500">Último período</div>
+                    <div class="text-lg font-bold text-emerald-600">{{ $this->consumoHistorico['serie'] ? $this->consumoHistorico['serie'][count($this->consumoHistorico['serie'])-1]['m3'] : 0 }} m³</div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- [METRICAS 2026-10-30] Timeline pagado/parcial/pendiente por período --}}
+    @if ($this->timelinePagos->count() > 0)
+        <div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h3 class="font-semibold text-gray-700 mb-4"><i class="fa-solid fa-timeline mr-1 text-indigo-400"></i> Historial por período</h3>
+            <div class="flex flex-wrap gap-2">
+                @foreach ($this->timelinePagos as $t)
+                    @php
+                        $colores = [
+                            'pagado' => 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                            'parcial' => 'bg-amber-100 text-amber-700 border-amber-200',
+                            'pendiente' => 'bg-red-100 text-red-700 border-red-200',
+                        ];
+                        $iconos = ['pagado' => 'fa-check', 'parcial' => 'fa-circle-half-stroke', 'pendiente' => 'fa-clock'];
+                    @endphp
+                    <div class="border rounded-lg px-3 py-2 {{ $colores[$t['estado']] }}">
+                        <div class="text-xs font-medium uppercase">{{ $t['periodo'] }}</div>
+                        <div class="text-sm font-bold">
+                            <i class="fa-solid {{ $iconos[$t['estado']] }} mr-1"></i>
+                            {{ ['pagado' => 'Pagado', 'parcial' => 'Parcial', 'pendiente' => 'Pendiente'][$t['estado']] }}
+                        </div>
+                        @if ($t['pendiente'] > 0)
+                            <div class="text-[10px] opacity-75">Falta Bs {{ number_format($t['pendiente'], 2, ',', '.') }}</div>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+            <a href="{{ route('portal.pagar') }}" class="mt-4 inline-flex items-center text-sm text-indigo-600 hover:underline">
+                <i class="fa-solid fa-qrcode mr-1"></i> Pagar pendientes ahora
+            </a>
+        </div>
+    @endif
+
+    {{-- Acceso directo al pago QR --}}
+    <div class="mt-8 bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-700 flex items-center justify-between">
+        <span><i class="fa-solid fa-qrcode mr-1"></i> Paga tus expensas en línea con código QR bancario.</span>
+        <a href="{{ route('portal.pagar') }}" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-xs">
+            Ir a Pagar <i class="fa-solid fa-arrow-right ml-1"></i>
+        </a>
     </div>
 </div>
+
+@push('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const serie = @json($this->consumoHistorico['serie']);
+            if (!serie.length) return;
+            new Chart(document.getElementById('chartConsumoPortal'), {
+                type: 'bar',
+                data: {
+                    labels: serie.map(p => p.periodo),
+                    datasets: [
+                        { label: 'Tu consumo (m³)', data: serie.map(p => p.m3), backgroundColor: '#0EA5E9', borderRadius: 4 },
+                    ]
+                },
+                options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, title: { display: true, text: 'm³' } } } }
+            });
+        });
+    </script>
+@endpush

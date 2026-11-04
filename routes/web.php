@@ -44,6 +44,17 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'admin'])
     ->name('dashboard');
 
+// [METRICAS 2026-10-30] Panel de métricas del sistema (solo admin)
+Route::get('/metricas/morosidad', [\App\Http\Controllers\MetricasController::class, 'morosidad'])
+    ->middleware(['auth', 'admin'])
+    ->name('metricas.morosidad');
+Route::get('/metricas/consumo', [\App\Http\Controllers\MetricasController::class, 'consumo'])
+    ->middleware(['auth', 'admin'])
+    ->name('metricas.consumo');
+Route::get('/metricas/consumo/{unidad}', [\App\Http\Controllers\MetricasController::class, 'consumoUnidad'])
+    ->middleware(['auth', 'admin'])
+    ->name('metricas.consumo.unidad');
+
 /*
 |--------------------------------------------------------------------------
 | RUTAS PROTEGIDAS (SOLO ADMIN)
