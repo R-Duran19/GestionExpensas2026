@@ -198,7 +198,7 @@ class MetricasService
                 ->havingRaw('COUNT(*) >= 3')
                 ->get();
 
-            return $filas->map(function ($fila) {
+            return $filas->map(function ($fila) use ($umbral) {
                 $ultimo = (float) DB::table('lecturas_medidor')
                     ->where('unidad_id', $fila->unidad_id)
                     ->orderByDesc('periodo_id')
