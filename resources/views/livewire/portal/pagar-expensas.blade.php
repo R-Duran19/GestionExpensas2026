@@ -44,21 +44,22 @@
             </div>
 
             <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                {{-- QR (vertical-first: grande arriba en móvil) --}}
-                <div class="flex flex-col items-center" x-data="{ ampliar: false }">
-                    <img src="{{ $qr->imagen_qr }}" alt="QR de pago"
-                         class="w-64 h-64 sm:w-72 sm:h-72 bg-white border border-gray-200 rounded-lg object-contain cursor-zoom-in"
-                         @click="ampliar = true" />
+                {{-- QR (vertical-first: grande arriba en móvil).
+                     Ampliar = ancla a #qr-ampliar (lightbox CSS :target, cero JS:
+                     bajo doble Alpine el estado x-data es lotería — esto no
+                     puede fallar). --}}
+                <div class="flex flex-col items-center">
+                    <a href="#qr-ampliar" title="Ampliar" class="block">
+                        <img src="{{ $qr->imagen_qr }}" alt="QR de pago"
+                             class="w-64 h-64 sm:w-72 sm:h-72 bg-white border border-gray-200 rounded-lg object-contain cursor-zoom-in">
+                    </a>
                     <p class="text-xs text-gray-400 mt-2 font-mono">{{ $qr->alias }}</p>
 
                     <div class="flex gap-2 mt-3">
-                        {{-- Chrome BLOQUEA navegación a data: URIs en pestañas nuevas,
-                             por eso Ampliar vuelve a ser modal Alpine (x-show puro,
-                             sin $wire ni timers — seguro bajo doble Alpine) --}}
-                        <button type="button" @click="ampliar = true"
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition">
+                        <a href="#qr-ampliar"
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition">
                             <i class="fa-solid fa-expand"></i> Ampliar
-                        </button>
+                        </a>
                         <a href="{{ $qr->imagen_qr }}" download="QR-pago-{{ $qr->alias }}.png"
                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition">
                             <i class="fa-solid fa-download"></i> Descargar
@@ -137,6 +138,33 @@
                             class="inline-flex items-center gap-2 px-4 py-2 bg-white/10 text-white text-sm rounded-lg hover:bg-white/20">
                         <i class="fa-solid fa-xmark"></i> Cerrar
                     </button>
+                </div>
+            </div>
+
+            {{-- Lightbox de ampliación: CSS :target puro (cero JS) --}}
+            @once
+                <style>
+                    #qr-ampliar { display: none; }
+                    #qr-ampliar:target { display: flex; }
+                </style>
+            @endonce
+            <div id="qr-ampliar"
+                 class="fixed inset-0 z-50 bg-gray-900/90 flex-col items-center justify-center p-4">
+                {{-- Fondo clicable para cerrar --}}
+                <a href="#_" class="absolute inset-0" title="Cerrar" aria-label="Cerrar"></a>
+                <img src="{{ $qr->imagen_qr }}" alt="QR ampliado"
+                     class="relative z-10 max-h-[75vh] max-w-[90vw] bg-white p-4 rounded-xl shadow-2xl">
+                <p class="relative z-10 text-white/80 text-sm mt-3 font-mono">
+                    {{ $qr->alias }} · Bs {{ number_format((float) $qr->monto, 2, ',', '.') }}
+                </p>
+                <div class="relative z-10 flex gap-3 mt-4">
+                    <a href="{{ $qr->imagen_qr }}" download="QR-pago-{{ $qr->alias }}.png"
+                       class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white text-sm rounded-lg hover:bg-emerald-600">
+                        <i class="fa-solid fa-download"></i> Descargar imagen
+                    </a>
+                    <a href="#" class="inline-flex items-center gap-2 px-4 py-2 bg-white/10 text-white text-sm rounded-lg hover:bg-white/20">
+                        <i class="fa-solid fa-xmark"></i> Cerrar
+                    </a>
                 </div>
             </div>
         </div>
